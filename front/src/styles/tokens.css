@@ -1,0 +1,256 @@
+/*
+  WES Frontend — design tokens (이 프로젝트의 유일한 토큰 정의처)
+
+  근거
+    - docs/design/foundation.html          최종 시안의 :root 값
+    - docs/design/prototype.html           통합 시안의 focus / breakpoint 규칙
+    - docs/WES_DESIGN_PLAN.md 7~9장, 14장, 20장
+
+  규칙
+    - 여기에 없는 색·크기·간격을 화면에서 임의로 만들지 않는다.
+    - Tailwind 기본 팔레트/스케일은 아래에서 초기화한다.
+      토큰이 아닌 값을 쓰면 유틸리티 자체가 생성되지 않아 바로 드러난다.
+    - px가 아닌 rem으로 정의한다 (WCAG 2.2 SC 1.4.4, 확대 시 기능 손실 방지).
+      root 16px 기준 14px = 0.875rem.
+*/
+
+@theme static {
+  /* Tailwind 기본값 초기화 — 승인된 토큰만 유틸리티로 존재하게 한다 */
+  --color-*: initial;
+  --font-*: initial;
+  --text-*: initial;
+  --leading-*: initial;
+  --font-weight-*: initial;
+  --tracking-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --breakpoint-*: initial;
+  --container-*: initial;
+
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-inherit: inherit;
+
+  /* 중립 — 청색이 도는 그래파이트 (화면의 85%) */
+  --color-ink-950: #0b1116; /* 로그 패널 배경, 반전 표면 */
+  --color-ink-900: #17212b; /* 제목, 본문 강조 */
+  --color-ink-700: #3a4854; /* 본문 */
+  --color-ink-500: #5f6d79; /* 보조 텍스트·라벨 */
+  --color-ink-400: #8c99a5; /* placeholder, 비활성 — 본문 금지 (paper 위 2.76:1) */
+  --color-ink-300: #b6c0c9; /* 비활성 채움 */
+  --color-ink-200: #d6dee5; /* 테두리 */
+  --color-ink-100: #e8edf1; /* 구분선 */
+  --color-border-strong: #8795a2; /* 입력 등 조작 요소 경계 */
+  --color-sunken: #eef3f7; /* 테이블 헤더, 인라인 코드 */
+  --color-surface: #ffffff; /* 카드·패널·테이블 본문 */
+  --color-paper: #f7f9fb; /* 페이지 배경 */
+
+  /* 브랜드 — gel blue (화면의 5%) */
+  --color-brand-700: #143c7b; /* 눌림 */
+  --color-brand-600: #1a4d9e; /* primary, 선택 탭 밑줄, 포커스 링, 링크 */
+  --color-brand-500: #2461bc; /* hover */
+  --color-brand-100: #e7effa; /* 선택 행/카드 배경 */
+  --color-brand-050: #f3f7fc; /* 옅은 강조 */
+
+  /*
+    상태
+    fg는 각 bg 위에서 WCAG 2.2 SC 1.4.3 AA(4.5:1)를 통과한다.
+    색은 상태 전달의 유일한 수단이 아니다 — component 단계에서
+    icon + text + color 3중으로 구성한다 (SC 1.4.1).
+
+    idle       job=queued                  step=pending
+    running    job=running                 step=running
+    success    job=completed               step=completed   check=PASS
+    warning    job=completed_with_warnings step=warning     check=WARN
+    failure    job=failed                  step=failed      check=FAIL
+    cancelled  job=cancelled               step=skipped
+    info       중립 톤 + 아이콘. running(brand blue)과 충돌하지 않도록
+               별도 파랑을 만들지 않는다 (PLAN 8-4).
+  */
+  --color-status-idle-fg: #5f6d79;
+  --color-status-idle-bg: #eef3f7;
+  --color-status-idle-bd: #d6dee5;
+
+  --color-status-running-fg: #1a4d9e;
+  --color-status-running-bg: #e7effa;
+  --color-status-running-bd: #bfd5f0;
+
+  --color-status-success-fg: #14663f;
+  --color-status-success-bg: #e4f1ea;
+  --color-status-success-bd: #b9dcc9;
+
+  --color-status-warning-fg: #8a5300;
+  --color-status-warning-bg: #fbf0dc;
+  --color-status-warning-bd: #edd3a0;
+
+  --color-status-failure-fg: #a32217;
+  --color-status-failure-bg: #fbe7e4;
+  --color-status-failure-bd: #f0bdb6;
+
+  --color-status-cancelled-fg: #5f6d79;
+  --color-status-cancelled-bg: #f7f9fb;
+  --color-status-cancelled-bd: #e8edf1;
+
+  --color-status-info-fg: #3a4854;
+  --color-status-info-bg: #eef3f7;
+  --color-status-info-bd: #d6dee5;
+
+  /* 진행 바 채움 — 텍스트가 얹히지 않는 면적 전용 */
+  --color-fill-idle: #dee5eb;
+  --color-fill-running: #2f6fd0;
+  --color-fill-success: #2e9b6b;
+  --color-fill-warning: #c98a22;
+  --color-fill-failure: #d14839;
+  --color-fill-skip: #b6c0c9;
+
+  /*
+    순차 — 커버리지 깊이 (viridis 6)
+    막대 채우기 전용. UI shell(버튼·카드·네비게이션)에 쓰지 않는다.
+    cov-100은 흰 배경 대비가 낮아 텍스트·얇은 선에 금지하고,
+    값은 항상 텍스트로 병기한다.
+  */
+  --color-cov-1: #440154;
+  --color-cov-10: #414487;
+  --color-cov-20: #2a788e;
+  --color-cov-30: #22a884;
+  --color-cov-50: #7ad151;
+  --color-cov-100: #fde725;
+
+  /* 로그 패널 — 유일한 반전 표면 */
+  --color-log-bg: #0b1116;
+  --color-log-fg: #c9d4de; /* log-bg 위 12.62:1 */
+  --color-log-time: #64727f;
+  --color-log-warn: #e8b95f;
+  --color-log-error: #f0857a;
+  --color-log-step: #7fa8e0;
+  --color-log-hit: #3a4854;
+
+  /*
+    서체
+    IBM Plex는 저장소에 없고, 이번 단계에서 CDN이나 폰트 패키지를
+    추가하지 않는다. 설치돼 있으면 사용하고 없으면 시스템 폰트로
+    폴백한다. 자체 호스팅 여부는 별도 판단이 필요하다.
+  */
+  --font-sans:
+    "IBM Plex Sans KR", "IBM Plex Sans", system-ui, -apple-system, "Segoe UI",
+    "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --font-cond:
+    "IBM Plex Sans Condensed", "IBM Plex Sans KR", system-ui, sans-serif;
+  --font-mono:
+    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* 타입 스케일 — 기준 14px */
+  --leading-none: 1;
+  --leading-display: 1.2;
+  --leading-h1: 1.3;
+  --leading-h2: 1.35;
+  --leading-h3: 1.4;
+  --leading-body: 1.55; /* 한글 밀도를 고려해 라틴 관례보다 넉넉하게 */
+  --leading-small: 1.5;
+  --leading-caption: 1.45;
+  --leading-eyebrow: 1.2;
+  --leading-metric-xl: 1.05;
+  --leading-metric-md: 1.15;
+  --leading-data: 1.45;
+  --leading-log: 1.6;
+
+  --text-display: 1.75rem; /* 28 */
+  --text-display--line-height: var(--leading-display);
+  --text-h1: 1.375rem; /* 22 */
+  --text-h1--line-height: var(--leading-h1);
+  --text-h2: 1.0625rem; /* 17 */
+  --text-h2--line-height: var(--leading-h2);
+  --text-h3: 0.9375rem; /* 15 */
+  --text-h3--line-height: var(--leading-h3);
+  --text-body: 0.875rem; /* 14 */
+  --text-body--line-height: var(--leading-body);
+  --text-small: 0.8125rem; /* 13 */
+  --text-small--line-height: var(--leading-small);
+  --text-caption: 0.75rem; /* 12 */
+  --text-caption--line-height: var(--leading-caption);
+  --text-eyebrow: 0.6875rem; /* 11 · Condensed · uppercase · +0.09em */
+  --text-eyebrow--line-height: var(--leading-eyebrow);
+  --text-metric-xl: 2.125rem; /* 34 · Mono */
+  --text-metric-xl--line-height: var(--leading-metric-xl);
+  --text-metric-md: 1.25rem; /* 20 · Mono */
+  --text-metric-md--line-height: var(--leading-metric-md);
+  --text-data: 0.8125rem; /* 13 · Mono */
+  --text-data--line-height: var(--leading-data);
+  --text-log: 0.78125rem; /* 12.5 · Mono */
+  --text-log--line-height: var(--leading-log);
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  --tracking-normal: 0;
+  --tracking-tight: -0.01em; /* display · h1 */
+  --tracking-tighter: -0.02em; /* metric-xl */
+  --tracking-wide: 0.09em; /* eyebrow */
+
+  /* 반경 — 조작 요소는 4, 담는 요소는 8. 그 외 없음 */
+  --radius-sm: 0.25rem; /* 버튼 · 입력 · 배지 · 칩 */
+  --radius-md: 0.5rem; /* 패널 · 카드 · 다이얼로그 · 드로어 */
+  --radius-pill: 9999px; /* RunTape 현재 단계 마커 (유일) */
+
+  /*
+    그림자 — 인라인 콘텐츠(카드 포함)는 elevation 0.
+    실제로 떠 있는 레이어에만 사용한다.
+  */
+  --shadow-el-1: 0 1px 2px rgb(11 17 22 / 0.06), 0 4px 12px rgb(11 17 22 / 0.08); /* 드롭다운 · 툴팁 · 팝오버 */
+  --shadow-el-2: 0 8px 32px rgb(11 17 22 / 0.16); /* 다이얼로그 · 드로어 */
+
+  /* 레이아웃 폭 */
+  --container-app: 85rem; /* 1360 · 중앙 컨테이너 */
+  --container-content: 55rem; /* 880 · 읽기 폭 */
+  --container-rail: 25rem; /* 400 · 우측 상세 레일 */
+
+  /*
+    브레이크포인트
+    md 768   이 아래는 드로어 대신 전체화면 시트
+    lg 1120  우측 상세 레일 등장
+    xl 1440  컨테이너 1360 고정
+  */
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 70rem;
+  --breakpoint-xl: 90rem;
+}
+
+/*
+  유틸리티로 만들 필요가 없는 토큰.
+  @theme 밖에 두어 클래스 표면을 늘리지 않는다.
+*/
+:root {
+  /* 포커스 — WCAG 2.2 SC 2.4.7. outline: none 금지 */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-color: var(--color-brand-600);
+
+  /* 밀도 — PLAN 14장 */
+  --header-height: 3.5rem; /* 56 */
+  --row-height: 2.25rem; /* 36 */
+  --gutter: 1.5rem; /* 24 */
+  --icon-size: 1rem; /* 16 */
+  --hit-min: 1.5rem; /* 24 · WCAG 2.2 SC 2.5.8 (AA) */
+
+  /*
+    아래 두 팔레트는 현재 사용처가 없다.
+    PLAN 8-6 / 8-7에 따라 정의만 해둔다 — 해당 모듈이 생길 때
+    누군가 즉흥적으로 색을 고르는 것을 막는 것이 목적이다.
+  */
+  /* 범주 — Okabe-Ito (색각 이상 대응) */
+  --cat-1: #e69f00;
+  --cat-2: #56b4e9;
+  --cat-3: #009e73;
+  --cat-4: #f0e442;
+  --cat-5: #0072b2;
+  --cat-6: #d55e00;
+  --cat-7: #cc79a7;
+
+  /* ACMG 5등급 — 발산형. 등급 텍스트 없이 색만으로 쓰지 않는다 */
+  --acmg-p: #a32217;
+  --acmg-lp: #c4703b;
+  --acmg-vus: #7a8794;
+  --acmg-lb: #4b8c6a;
+  --acmg-b: #1e5e45;
+}

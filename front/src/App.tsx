@@ -1,15 +1,36 @@
 import { Route, Routes } from 'react-router'
 
+/*
+  foundation이 실제로 적용되는지 확인하기 위한 placeholder다.
+  제품 화면이 아니므로 shell / header / navigation / card를 만들지 않는다.
+*/
 function Placeholder() {
   return (
-    <main className="min-h-dvh bg-neutral-50 px-6 py-16 text-neutral-900">
-      <div className="mx-auto max-w-2xl">
-        <h1 className="text-xl font-semibold tracking-tight">
-          WES Analysis Workspace
-        </h1>
-        <p className="mt-2 text-sm text-neutral-600">
-          Frontend foundation ready
+    <main className="mx-auto max-w-content px-6 py-12">
+      <p className="font-cond text-eyebrow font-semibold tracking-wide text-ink-500 uppercase">
+        WES Analysis · Frontend Foundation
+      </p>
+
+      <h1 className="mt-2 text-h1 font-semibold tracking-tight text-ink-900">
+        WES Analysis Workspace
+      </h1>
+
+      <p className="mt-3 text-body text-ink-700">Frontend foundation ready</p>
+
+      <div className="mt-8 border-t border-ink-200 pt-4">
+        <p className="text-small text-ink-500">
+          디자인 토큰과 전역 base style만 적용된 상태입니다. 화면 구현은 다음
+          단계입니다.
         </p>
+        <p className="mt-2 font-mono text-data text-ink-500">
+          tokens.css · globals.css · Tailwind CSS v4
+        </p>
+        <a
+          href="/"
+          className="mt-4 inline-block rounded-sm text-small font-medium"
+        >
+          포커스 링 확인 (Tab)
+        </a>
       </div>
     </main>
   )

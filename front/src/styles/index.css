@@ -1,0 +1,7 @@
+/*
+  스타일 진입점. main.tsx가 이 파일 하나만 import한다.
+  순서: Tailwind → 토큰 정의 → 전역 base
+*/
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./globals.css";

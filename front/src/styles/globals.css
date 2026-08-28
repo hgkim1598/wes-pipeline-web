@@ -1,0 +1,121 @@
+/*
+  WES Frontend — global base style
+
+  Tailwind Preflight 위에 이 제품의 기본값만 얹는다.
+  브라우저 기본 동작을 넓게 지우지 않는다. 특히 포커스는 제거하지 않는다.
+*/
+
+@layer base {
+  html {
+    /* 모바일에서 가로 방향일 때 글자만 확대되는 것을 막는다 */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink-700);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    /*
+      3초 폴링으로 숫자가 계속 바뀐다. 비례폭이면 자릿수가 바뀔 때
+      열 폭이 흔들리므로 tabular-nums를 전역으로 둔다.
+    */
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    text-wrap: pretty;
+  }
+
+  /*
+    Preflight가 heading을 초기화하므로 스케일의 기준만 다시 세운다.
+    화면에서는 대부분 유틸리티로 다시 지정하며, 여기 값은 fallback이다.
+  */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: var(--color-ink-900);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  h1 {
+    font-size: var(--text-h1);
+    line-height: var(--leading-h1);
+    letter-spacing: var(--tracking-tight);
+  }
+
+  h2 {
+    font-size: var(--text-h2);
+    line-height: var(--leading-h2);
+  }
+
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-size: var(--text-h3);
+    line-height: var(--leading-h3);
+  }
+
+  /*
+    링크는 기본적으로 밑줄 없이 브랜드 색, hover에서 밑줄.
+    본문 안에 섞이는 링크가 아니라 대부분 내비게이션이라서 시안을 따른다.
+  */
+  a {
+    color: var(--color-brand-600);
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: var(--color-brand-500);
+    text-decoration: underline;
+  }
+
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: var(--font-mono);
+    font-size: var(--text-data);
+  }
+
+  ::selection {
+    background-color: var(--color-brand-100);
+    color: var(--color-ink-900);
+  }
+
+  /*
+    포커스 — WCAG 2.2 SC 2.4.7.
+    outline: none으로 지우지 않는다. 값은 tokens.css에 있다.
+  */
+  :focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring-color);
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  /*
+    포커스된 요소가 sticky 헤더에 가리지 않도록 (SC 2.4.11).
+    헤더는 아직 없지만 스크롤 대상 기준선을 미리 잡아둔다.
+  */
+  :target {
+    scroll-margin-top: var(--header-height);
+  }
+}
+
+/*
+  모션 — SC 2.3.3.
+  장식용 애니메이션을 애초에 만들지 않지만, 나중에 추가되는 전환도
+  reduce 설정에서는 멈추도록 기준을 둔다.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
