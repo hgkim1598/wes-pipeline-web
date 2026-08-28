@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink-950:#0B1116; --ink-900:#17212B; --ink-700:#3A4854; --ink-500:#5F6D79;
+  --ink-400:#8C99A5; --ink-300:#B6C0C9; --border-strong:#8795A2;
+  --ink-200:#D6DEE5; --ink-100:#E8EDF1;
+  --sunken:#EEF3F7; --surface:#FFFFFF; --paper:#F7F9FB;
+  --brand-700:#143C7B; --brand-600:#1A4D9E; --brand-500:#2461BC; --brand-100:#E7EFFA; --brand-050:#F3F7FC;
+
+  --st-idle-fg:#5F6D79; --st-idle-bg:#EEF3F7;
+  --st-run-fg:#1A4D9E;  --st-run-bg:#E7EFFA;
+  --st-ok-fg:#14663F;   --st-ok-bg:#E4F1EA;
+  --st-warn-fg:#8A5300; --st-warn-bg:#FBF0DC; --st-warn-bd:#EDD3A0;
+  --st-fail-fg:#A32217; --st-fail-bg:#FBE7E4;
+  --st-skip-fg:#5F6D79; --st-skip-bg:#F7F9FB;
+
+  /* 면적 채움 전용 (5-1 보정) */
+  --fill-ok:#2E9B6B; --fill-warn:#C98A22; --fill-fail:#D14839;
+  --fill-run:#2F6FD0; --fill-skip:#B6C0C9; --fill-idle:#DEE5EB;
+
+  --font-sans:'IBM Plex Sans KR','IBM Plex Sans',system-ui,sans-serif;
+  --font-cond:'IBM Plex Sans Condensed','IBM Plex Sans KR',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+
+  --fs-display:28px; --lh-display:1.20;
+  --fs-h1:22px;      --lh-h1:1.30;
+  --fs-h2:17px;      --lh-h2:1.35;
+  --fs-h3:15px;      --lh-h3:1.40;
+  --fs-body:14px;    --lh-body:1.55;
+  --fs-small:13px;   --lh-small:1.50;
+  --fs-caption:12px; --lh-caption:1.45;
+  --fs-eyebrow:11px; --lh-eyebrow:1.20;
+  --fs-data:13px;    --lh-data:1.45;
+
+  --w-400:400; --w-500:500; --w-600:600;
+  --ls-tight:-0.01em; --ls-wide:0.09em;
+
+  --sp-4:4px; --sp-8:8px; --sp-12:12px; --sp-16:16px; --sp-20:20px;
+  --sp-24:24px; --sp-32:32px; --sp-40:40px; --sp-48:48px; --sp-64:64px;
+
+  --r-sm:4px; --r-md:8px; --radius-pill:999px;
+  --el-1:0 1px 2px rgba(11,17,22,.06), 0 4px 12px rgba(11,17,22,.08);
+
+  --container:1360px; --step-content:720px; --header-h:56px;
+  --vp-1440:1440px; --vp-375:375px;
+  --icon:16px; --icon-32:32px; --icon-24:24px; --chev:12px; --spin:12px; --hit:24px;
+  --node:24px; --node-line:2px; --underline:2px;
+  --btn-h:32px; --ctrl-h:36px; --select-w:360px; --slot-label:32px;
+  --pad-pill-x:12px; --pad-tag-y:2px; --pad-tag-x:8px;
+  --drop-h:160px; --drop-h-sm:120px; --drop-border:2px;
+  --bar-h:6px; --bar-h-sm:4px; --bar-h-step:3px; --r-bar-3:3px;
+  --upload-bar-w:200px; --kv-label:180px; --col-code:140px;
+  --sw-w:36px; --sw-h:20px; --sw-knob:16px;
+  --tooltip-w:320px; --divider:1px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink-700);
+  font-family:var(--font-sans);font-size:var(--fs-body);line-height:var(--lh-body);
+  font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;text-wrap:pretty}
+a{color:var(--brand-600);text-decoration:none}
+a:hover{color:var(--brand-500);text-decoration:underline}
+ol,ul{list-style:none;margin:0;padding:0}
+@keyframes om-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){ [data-anim]{animation:none !important} }
+</style>
+</helmet>
+
+<!--
+  5-1 보정 반영: 면적 채움 전용 토큰 --fill-* 6개 신설.
+  RunTape md·sm 세그먼트와 업로드 진행률 바는 --fill-*,
+  텍스트·아이콘·배지는 계속 --st-*-fg / --st-*-bg.
+-->
+
+<div style="padding:var(--sp-48) var(--sp-40) var(--sp-64);min-width:calc(var(--vp-1440) + var(--sp-40) * 2);display:flex;flex-direction:column;gap:var(--sp-64);align-items:flex-start">
+
+  <!-- ============ 1단계 ============ -->
+  <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+    <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">STEP 1 — SELECT PROFILE · 1440PX</div>
+    <div style="width:var(--vp-1440);background:var(--paper);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden;display:flex;flex-direction:column">
+      <div style="height:var(--header-h);background:var(--surface);border-bottom:1px solid var(--ink-200);display:flex;align-items:center">
+        <div style="max-width:var(--container);width:100%;margin:0 auto;display:flex;align-items:center;gap:var(--sp-32)">
+          <span style="font-size:var(--fs-h3);font-weight:var(--w-600);color:var(--ink-900)">WES 분석</span>
+          <nav style="display:flex;align-items:center;gap:var(--sp-24)">
+            <span style="font-size:var(--fs-body);color:var(--ink-500)">실행 목록</span>
+            <span style="font-size:var(--fs-body);font-weight:var(--w-500);color:var(--brand-600);border-bottom:var(--underline) solid var(--brand-600);padding-bottom:var(--sp-4)">새 분석</span>
+          </nav>
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border-bottom:1px solid var(--ink-200)">
+        <div style="max-width:var(--container);width:100%;margin:0 auto;padding:var(--sp-20) 0;display:flex;align-items:center;justify-content:space-between;gap:var(--sp-32)">
+          <ol style="display:flex;align-items:flex-start">
+            <sc-for list="{{ steps1 }}" as="s" hint-placeholder-count="4">
+              <li style="display:flex;align-items:flex-start;gap:var(--sp-8)">
+                <span style="display:flex;flex-direction:column;align-items:center;gap:var(--sp-8);width:var(--sp-64)">
+                  <span style="width:var(--node);height:var(--node);border-radius:var(--radius-pill);background:{{ s.nodeBg }};display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:var(--w-500);color:{{ s.nodeFg }}">{{ s.num }}</span>
+                  <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:{{ s.labelColor }};font-weight:{{ s.labelWeight }};white-space:nowrap">{{ s.label }}</span>
+                </span>
+                <span style="width:var(--sp-48);height:var(--node-line);margin-top:calc(var(--node) / 2);background:{{ s.lineColor }}"></span>
+              </li>
+            </sc-for>
+          </ol>
+          <h1 style="margin:0;font-size:var(--fs-h1);line-height:var(--lh-h1);font-weight:var(--w-600);letter-spacing:var(--ls-tight);color:var(--ink-900)">1. 분석 선택</h1>
+        </div>
+      </div>
+
+      <div style="padding:var(--sp-32) 0 var(--sp-48);display:flex;justify-content:center">
+        <div style="width:var(--step-content);display:flex;flex-direction:column;gap:var(--sp-32)">
+          <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+            <div style="border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+              <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">사용 가능</h2>
+            </div>
+            <div style="background:var(--brand-050);border:1px solid var(--brand-600);border-radius:var(--r-md);padding:var(--sp-24);display:flex;flex-direction:column;gap:var(--sp-16)">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-16)">
+                <div style="display:flex;flex-direction:column;gap:var(--sp-8);min-width:0">
+                  <span style="font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">Illumina WES Germline 변이 분석</span>
+                  <span style="font-size:var(--fs-small);color:var(--ink-500)">paired-end FASTQ<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>GRCh38<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>약 5시간 30분</span>
+                </div>
+                <span style="flex:none;display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--pad-pill-x);border-radius:var(--radius-pill);white-space:nowrap;font-size:var(--fs-small);font-weight:var(--w-500);color:var(--brand-600);background:var(--brand-100)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="square"></path></svg>선택됨</span>
+              </div>
+              <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">Exome 전체에서 germline SNV/Indel을 호출하여 raw VCF를 생성합니다. 변이 필터링·주석은 현재 서버 설정에서 실행되지 않습니다.</span>
+              <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">분석 범위는 선택한 capture kit의 target 영역을 따릅니다.</span>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+            <div style="border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+              <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">준비 중</h2>
+            </div>
+            <div style="border-top:1px solid var(--ink-100)">
+              <sc-for list="{{ profilesSoon }}" as="p" hint-placeholder-count="2">
+                <div style="min-height:var(--sp-48);display:flex;align-items:center;gap:var(--sp-12);border-bottom:1px solid var(--ink-100);cursor:not-allowed">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--ink-400)"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3"></circle></svg>
+                  <span style="flex:1;min-width:0;font-size:var(--fs-body);color:var(--ink-400)">{{ p.name }}</span>
+                  <span style="flex:none;font-size:var(--fs-small);color:var(--ink-400)">{{ p.reason }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border-top:1px solid var(--ink-200);padding:var(--sp-16) 0">
+        <div style="max-width:var(--container);width:100%;margin:0 auto;display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-12)">
+          <span style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">이전</span>
+          <span style="display:inline-flex;align-items:center;gap:var(--sp-8);height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--brand-600);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--surface)">다음<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M6.5 4 10.5 8 6.5 12" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 2단계 ============ -->
+  <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+    <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">STEP 2 — INPUT FILES · UPLOADING · 1440PX</div>
+    <div style="width:var(--vp-1440);background:var(--paper);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden;display:flex;flex-direction:column">
+      <div style="background:var(--surface);border-bottom:1px solid var(--ink-200)">
+        <div style="max-width:var(--container);width:100%;margin:0 auto;padding:var(--sp-20) 0;display:flex;align-items:center;justify-content:space-between;gap:var(--sp-32)">
+          <ol style="display:flex;align-items:flex-start">
+            <sc-for list="{{ steps2 }}" as="s" hint-placeholder-count="4">
+              <li style="display:flex;align-items:flex-start;gap:var(--sp-8)">
+                <span style="display:flex;flex-direction:column;align-items:center;gap:var(--sp-8);width:var(--sp-64)">
+                  <span style="width:var(--node);height:var(--node);border-radius:var(--radius-pill);background:{{ s.nodeBg }};display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:var(--w-500);color:{{ s.nodeFg }}">{{ s.num }}</span>
+                  <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:{{ s.labelColor }};font-weight:{{ s.labelWeight }};white-space:nowrap">{{ s.label }}</span>
+                </span>
+                <span style="width:var(--sp-48);height:var(--node-line);margin-top:calc(var(--node) / 2);background:{{ s.lineColor }}"></span>
+              </li>
+            </sc-for>
+          </ol>
+          <h1 style="margin:0;font-size:var(--fs-h1);line-height:var(--lh-h1);font-weight:var(--w-600);letter-spacing:var(--ls-tight);color:var(--ink-900)">2. 입력 파일</h1>
+        </div>
+      </div>
+
+      <div style="padding:var(--sp-32) 0 var(--sp-48);display:flex;justify-content:center">
+        <div style="width:var(--step-content);display:flex;flex-direction:column;gap:var(--sp-32)">
+
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-16)">
+            <div style="display:flex;flex-direction:column;gap:var(--sp-8);min-width:0">
+              <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">입력 파일</h2>
+              <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">paired-end FASTQ 한 쌍(R1/R2)을 올려 주세요. 한 번의 분석에 샘플 1개를 처리합니다.</span>
+            </div>
+            <span style="flex:none;min-height:var(--hit);display:inline-flex;align-items:center;font-size:var(--fs-small);font-weight:var(--w-500);color:var(--brand-600)">형식 안내</span>
+          </div>
+
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-16)">
+            <div style="display:flex;flex-direction:column;gap:var(--sp-4)">
+              <span style="font-size:var(--fs-caption);color:var(--ink-500)">샘플 이름</span>
+              <span style="font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">NA12878</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:var(--sp-12)">
+              <span style="font-size:var(--fs-caption);color:var(--ink-500)">파일명에서 자동 인식</span>
+              <span style="min-height:var(--hit);display:inline-flex;align-items:center;font-size:var(--fs-small);font-weight:var(--w-500);color:var(--brand-600)">수정</span>
+            </div>
+          </div>
+
+          <div style="background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden">
+            <sc-for list="{{ slots }}" as="f" hint-placeholder-count="2">
+              <div style="padding:var(--sp-16);border-bottom:1px solid var(--ink-100);display:flex;gap:var(--sp-12)">
+                <span style="width:var(--slot-label);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">{{ f.slot }}</span>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-8)">
+                  <div style="display:flex;align-items:center;gap:var(--sp-12)">
+                    <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-body);color:var(--ink-900)">{{ f.name }}</span>
+                    <span style="flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">{{ f.size }}</span>
+                    <span style="flex:none;width:var(--hit);height:var(--hit);display:inline-flex;align-items:center;justify-content:center;color:var(--ink-500)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4 12 12M12 4 4 12" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:var(--sp-12)">
+                    <span style="flex:1;min-width:0;height:var(--bar-h);border-radius:var(--r-bar-3);background:var(--ink-100);display:block;overflow:hidden"><span style="display:block;height:var(--bar-h);border-radius:var(--r-bar-3);background:{{ f.fill }};width:{{ f.pct }}"></span></span>
+                    <span style="flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-900)">{{ f.pctLabel }}</span>
+                  </div>
+                  <span style="font-size:var(--fs-caption);color:{{ f.metaColor }}">{{ f.meta }}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+            <div style="display:flex;align-items:baseline;gap:var(--sp-12);border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+              <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">사용할 수 없는 파일</h2>
+              <span style="font-size:var(--fs-small);color:var(--ink-500)"><span style="font-family:var(--font-mono);font-size:var(--fs-data)">1</span>건</span>
+            </div>
+            <div style="border-bottom:1px solid var(--ink-100);padding:var(--sp-16) 0;display:flex;gap:var(--sp-24)">
+              <div style="width:var(--col-code);flex:none;display:flex;flex-direction:column;gap:var(--sp-4)">
+                <span style="font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:var(--st-warn-fg)">[WARN]</span>
+                <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500);word-break:keep-all;hyphens:none">UNCOMPRESSED_<wbr>FASTQ</span>
+              </div>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-4)">
+                <span style="font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:var(--ink-900)">sample_R1.fastq</span>
+                <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">압축되지 않은 FASTQ는 사용할 수 없습니다. gzip으로 압축한 .fastq.gz 파일을 올려 주세요.</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:var(--sp-12);border-top:1px solid var(--ink-200);padding-top:var(--sp-24)">
+            <span style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">DROPZONE — EMPTY / DRAG OVER</span>
+            <div style="height:var(--drop-h);border:var(--drop-border) dashed var(--ink-200);border-radius:var(--r-md);background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-8)">
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" style="color:var(--ink-400)"><path d="M16 22V8" stroke="currentColor" stroke-width="1.5"></path><path d="M10.5 13.5 16 8l5.5 5.5" stroke="currentColor" stroke-width="1.5"></path><path d="M6.5 22v2.5h19V22" stroke="currentColor" stroke-width="1.5"></path></svg>
+              <span style="font-size:var(--fs-body);color:var(--ink-700)">FASTQ 파일 2개를 여기에 놓거나 클릭해 선택하세요</span>
+              <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500)">.fastq.gz · .fq.gz · R1 / R2 각 1개</span>
+            </div>
+            <div style="height:var(--drop-h);border:var(--drop-border) dashed var(--brand-600);border-radius:var(--r-md);background:var(--brand-050);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-8)">
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" style="color:var(--brand-600)"><path d="M16 22V8" stroke="currentColor" stroke-width="1.5"></path><path d="M10.5 13.5 16 8l5.5 5.5" stroke="currentColor" stroke-width="1.5"></path><path d="M6.5 22v2.5h19V22" stroke="currentColor" stroke-width="1.5"></path></svg>
+              <span style="font-size:var(--fs-body);font-weight:var(--w-500);color:var(--brand-600)">놓으면 업로드가 시작됩니다</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border-top:1px solid var(--ink-200);padding:var(--sp-16) 0">
+        <div style="max-width:var(--container);width:100%;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:var(--sp-24)">
+          <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+            <span style="display:inline-flex;align-items:center;gap:var(--sp-8);font-size:var(--fs-small);color:var(--ink-700)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--brand-600);animation:om-spin 1.2s linear infinite" data-anim="1"><path d="M14 8a6 6 0 1 1-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>업로드 중 1/2<span style="padding:0 var(--sp-4);color:var(--ink-400)">·</span><span style="font-family:var(--font-mono);font-size:var(--fs-data)">68%</span></span>
+            <span style="width:var(--upload-bar-w);height:var(--bar-h-sm);border-radius:var(--r-bar-3);background:var(--ink-100);display:block;overflow:hidden"><span style="display:block;height:var(--bar-h-sm);border-radius:var(--r-bar-3);background:var(--fill-run);width:68%"></span></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:var(--sp-12)">
+            <span style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">이전</span>
+            <span style="display:inline-flex;align-items:center;gap:var(--sp-8);height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--brand-600);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--surface)">다음<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M6.5 4 10.5 8 6.5 12" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 3단계 ============ -->
+  <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+    <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">STEP 3 — SETTINGS · 1440PX</div>
+    <div style="width:var(--vp-1440);background:var(--paper);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden;display:flex;flex-direction:column">
+      <div style="background:var(--surface);border-bottom:1px solid var(--ink-200)">
+        <div style="max-width:var(--container);width:100%;margin:0 auto;padding:var(--sp-20) 0;display:flex;align-items:center;justify-content:space-between;gap:var(--sp-32)">
+          <ol style="display:flex;align-items:flex-start">
+            <sc-for list="{{ steps3 }}" as="s" hint-placeholder-count="4">
+              <li style="display:flex;align-items:flex-start;gap:var(--sp-8)">
+                <span style="display:flex;flex-direction:column;align-items:center;gap:var(--sp-8);width:var(--sp-64)">
+                  <span style="width:var(--node);height:var(--node);border-radius:var(--radius-pill);background:{{ s.nodeBg }};display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:var(--w-500);color:{{ s.nodeFg }}">{{ s.num }}</span>
+                  <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:{{ s.labelColor }};font-weight:{{ s.labelWeight }};white-space:nowrap">{{ s.label }}</span>
+                </span>
+                <span style="width:var(--sp-48);height:var(--node-line);margin-top:calc(var(--node) / 2);background:{{ s.lineColor }}"></span>
+              </li>
+            </sc-for>
+          </ol>
+          <h1 style="margin:0;font-size:var(--fs-h1);line-height:var(--lh-h1);font-weight:var(--w-600);letter-spacing:var(--ls-tight);color:var(--ink-900)">3. 설정</h1>
+        </div>
+      </div>
+
+      <div style="padding:var(--sp-32) 0 var(--sp-48);display:flex;justify-content:center">
+        <div style="width:var(--step-content);display:flex;flex-direction:column;gap:var(--sp-24)">
+
+          <div style="display:flex;flex-direction:column;gap:var(--sp-4)">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-16)">
+              <span style="font-size:var(--fs-caption);color:var(--ink-500)">참조 유전체</span>
+              <span style="font-size:var(--fs-caption);color:var(--ink-500)">이 서버에 고정</span>
+            </div>
+            <span style="font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">GRCh38 (hg38)</span>
+            <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">참조 FASTA · capture BED · known-sites가 모두 GRCh38 기준입니다.</span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+            <span style="display:inline-flex;align-items:center;gap:var(--sp-8);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">Exome capture kit<svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--ink-400)"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"></circle><path d="M6.5 6.25a1.5 1.5 0 1 1 2.2 1.6c-.45.3-.7.6-.7 1.15" stroke="currentColor" stroke-width="1.5"></path><path d="M8 11v.5" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+            <span style="width:var(--select-w);height:var(--ctrl-h);border-radius:var(--r-sm);border:1px solid var(--border-strong);background:var(--surface);display:flex;align-items:center;justify-content:space-between;padding:0 var(--sp-12);font-size:var(--fs-body);color:var(--ink-900)">IDT xGen Exome Hyb Panel v2<svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--ink-500)"><path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+            <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">라이브러리 제작에 실제로 사용한 kit과 같은 것을 선택해 주세요. 이 kit의 target 영역이 분석 범위를 결정합니다.</span>
+          </div>
+
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-24)">
+            <div style="display:flex;flex-direction:column;gap:var(--sp-4);min-width:0">
+              <span style="display:inline-flex;align-items:center;gap:var(--sp-8);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">ACMG 자동 분류<svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--ink-400)"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"></circle><path d="M6.5 6.25a1.5 1.5 0 1 1 2.2 1.6c-.45.3-.7.6-.7 1.15" stroke="currentColor" stroke-width="1.5"></path><path d="M8 11v.5" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+              <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">InterVar로 5단계 자동 분류. 20~40분이 추가됩니다.</span>
+            </div>
+            <span style="flex:none;width:var(--sw-w);height:var(--sw-h);border-radius:var(--radius-pill);background:var(--brand-600);display:flex;align-items:center;justify-content:flex-end;padding:var(--sp-4)"><span style="width:var(--sw-knob);height:var(--sw-knob);border-radius:var(--radius-pill);background:var(--surface)"></span></span>
+          </div>
+
+          <div style="border-top:1px solid var(--ink-200);border-bottom:1px solid var(--ink-200);padding:var(--sp-16) 0;margin:var(--sp-24) 0;display:flex;align-items:center;justify-content:space-between;gap:var(--sp-12)">
+            <span style="display:inline-flex;align-items:center;gap:var(--sp-8);font-size:var(--fs-small);color:var(--ink-500)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"></circle><path d="M8 7v4.5" stroke="currentColor" stroke-width="1.5"></path><path d="M8 4.5v1" stroke="currentColor" stroke-width="1.5"></path></svg>이 서버에서 조정할 수 없는 항목</span>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--ink-400)"><path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" stroke-width="1.5"></path></svg>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+            <span style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">DROPDOWN OPEN · ACCORDION OPEN · TOOLTIPS</span>
+
+            <div style="width:var(--select-w);background:var(--surface);border:1px solid var(--ink-100);border-radius:var(--r-sm);box-shadow:var(--el-1);overflow:hidden">
+              <sc-for list="{{ kits }}" as="k" hint-placeholder-count="4">
+                <div style="min-height:var(--ctrl-h);display:flex;align-items:center;gap:var(--sp-12);padding:var(--sp-8) var(--sp-12);border-bottom:1px solid var(--ink-100);cursor:{{ k.cursor }};background:{{ k.bg }}">
+                  <span style="flex:1;min-width:0;font-size:var(--fs-body);color:{{ k.color }}">{{ k.name }}</span>
+                  <span style="flex:none;font-size:var(--fs-caption);color:{{ k.noteColor }}">{{ k.note }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="background:var(--sunken);border-radius:var(--r-sm);padding:var(--sp-16);display:flex;flex-direction:column;gap:var(--sp-8)">
+              <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">최소 염기 품질<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>최소 read 길이<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>변이 호출 도구<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>최소 depth<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>최소 GQ<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>gnomAD 빈도 상한</span>
+              <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">현재 파이프라인은 이 값들을 고정값으로 실행합니다.</span>
+            </div>
+
+            <div style="display:flex;gap:var(--sp-24);flex-wrap:wrap">
+              <span style="max-width:var(--tooltip-w);background:var(--ink-900);color:var(--paper);border-radius:var(--r-sm);padding:var(--sp-12);box-shadow:var(--el-1);font-size:var(--fs-caption);line-height:var(--lh-caption)">FASTQ 라이브러리를 제작할 때 실제로 사용한 capture kit과 동일한 항목을 선택해야 합니다. 선택값은 해당 GRCh38 target BED와 메타데이터를 불러오는 데 사용됩니다.</span>
+              <span style="max-width:var(--tooltip-w);background:var(--ink-900);color:var(--paper);border-radius:var(--r-sm);padding:var(--sp-12);box-shadow:var(--el-1);font-size:var(--fs-caption);line-height:var(--lh-caption)">InterVar를 사용해 ACMG/AMP 2015 가이드라인의 근거 코드를 자동 적용하여 Pathogenic / Likely Pathogenic / VUS / Likely Benign / Benign 5단계로 분류합니다. 최종 분류가 아니며 수동 검토가 필요합니다.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border-top:1px solid var(--ink-200);padding:var(--sp-16) 0">
+        <div style="max-width:var(--container);width:100%;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:var(--sp-24)">
+          <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+            <span style="display:inline-flex;align-items:center;gap:var(--sp-8);font-size:var(--fs-small);color:var(--ink-700)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--brand-600);animation:om-spin 1.2s linear infinite" data-anim="1"><path d="M14 8a6 6 0 1 1-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>업로드 중 2/2<span style="padding:0 var(--sp-4);color:var(--ink-400)">·</span><span style="font-family:var(--font-mono);font-size:var(--fs-data)">84%</span></span>
+            <span style="width:var(--upload-bar-w);height:var(--bar-h-sm);border-radius:var(--r-bar-3);background:var(--ink-100);display:block;overflow:hidden"><span style="display:block;height:var(--bar-h-sm);border-radius:var(--r-bar-3);background:var(--fill-run);width:84%"></span></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:var(--sp-12)">
+            <span style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">이전</span>
+            <span style="display:inline-flex;align-items:center;gap:var(--sp-8);height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--brand-600);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--surface)">다음<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M6.5 4 10.5 8 6.5 12" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 4단계 ============ -->
+  <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+    <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">STEP 4 — REVIEW &amp; SUBMIT · 1440PX</div>
+    <div style="width:var(--vp-1440);background:var(--paper);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden;display:flex;flex-direction:column">
+      <div style="background:var(--surface);border-bottom:1px solid var(--ink-200)">
+        <div style="max-width:var(--container);width:100%;margin:0 auto;padding:var(--sp-20) 0;display:flex;align-items:center;justify-content:space-between;gap:var(--sp-32)">
+          <ol style="display:flex;align-items:flex-start">
+            <sc-for list="{{ steps4 }}" as="s" hint-placeholder-count="4">
+              <li style="display:flex;align-items:flex-start;gap:var(--sp-8)">
+                <span style="display:flex;flex-direction:column;align-items:center;gap:var(--sp-8);width:var(--sp-64)">
+                  <span style="width:var(--node);height:var(--node);border-radius:var(--radius-pill);background:{{ s.nodeBg }};display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:var(--w-500);color:{{ s.nodeFg }}">{{ s.num }}</span>
+                  <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:{{ s.labelColor }};font-weight:{{ s.labelWeight }};white-space:nowrap">{{ s.label }}</span>
+                </span>
+                <span style="width:var(--sp-48);height:var(--node-line);margin-top:calc(var(--node) / 2);background:{{ s.lineColor }}"></span>
+              </li>
+            </sc-for>
+          </ol>
+          <h1 style="margin:0;font-size:var(--fs-h1);line-height:var(--lh-h1);font-weight:var(--w-600);letter-spacing:var(--ls-tight);color:var(--ink-900)">4. 확인 및 실행</h1>
+        </div>
+      </div>
+
+      <div style="padding:var(--sp-32) 0 var(--sp-48);display:flex;justify-content:center">
+        <div style="width:var(--step-content);display:flex;flex-direction:column;gap:var(--sp-32)">
+
+          <div style="background:var(--st-warn-bg);border-radius:var(--r-sm);padding:var(--sp-24);display:flex;gap:var(--sp-16);align-items:flex-start">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="flex:none;color:var(--st-warn-fg);margin-top:var(--sp-4)"><path d="M12 4 21.5 20H2.5Z" stroke="currentColor" stroke-width="1.5"></path><path d="M12 10v4.5" stroke="currentColor" stroke-width="1.5"></path><path d="M12 16.5v1" stroke="currentColor" stroke-width="1.5"></path></svg>
+            <div style="display:flex;flex-direction:column;gap:var(--sp-8);min-width:0">
+              <span style="font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">이 서버는 사전 점검 모드입니다</span>
+              <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">입력과 참조 데이터가 올바른지만 검사하고, 실제 분석 산출물(BAM·VCF)은 생성하지 않습니다. 전체 분석은 서버 설정 변경이 필요합니다.</span>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column">
+            <sc-for list="{{ summary }}" as="kv" hint-placeholder-count="8">
+              <div style="min-height:var(--sp-32);padding:var(--sp-4) 0;display:flex;align-items:flex-start;gap:var(--sp-16)">
+                <span style="width:var(--kv-label);flex:none;font-size:var(--fs-small);color:var(--ink-500)">{{ kv.label }}</span>
+                <span style="flex:1;min-width:0;font-family:{{ kv.font }};font-size:{{ kv.size }};color:var(--ink-900)">{{ kv.value }}</span>
+                <span style="flex:none;min-height:var(--hit);display:inline-flex;align-items:center;font-size:var(--fs-small);font-weight:var(--w-500);color:var(--brand-600)">{{ kv.action }}</span>
+              </div>
+            </sc-for>
+            <div style="min-height:var(--sp-32);padding:var(--sp-4) 0;display:flex;align-items:flex-start;gap:var(--sp-16)">
+              <span style="width:var(--kv-label);flex:none;font-size:var(--fs-small);color:var(--ink-500)">입력 파일</span>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-4)">
+                <sc-for list="{{ summaryFiles }}" as="f" hint-placeholder-count="2">
+                  <div style="display:flex;align-items:center;gap:var(--sp-12);min-width:0">
+                    <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-900)">{{ f.name }}</span>
+                    <span style="flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">{{ f.size }}</span>
+                    <span style="flex:none;padding:var(--pad-tag-y) var(--pad-tag-x);border-radius:var(--r-sm);font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:var(--w-500);color:var(--st-ok-fg);background:var(--st-ok-bg)">[완료]</span>
+                  </div>
+                </sc-for>
+              </div>
+              <span style="flex:none;min-height:var(--hit);display:inline-flex;align-items:center;font-size:var(--fs-small);font-weight:var(--w-500);color:var(--brand-600)">수정</span>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:var(--sp-8);border-top:1px solid var(--ink-200);padding-top:var(--sp-24)">
+            <div style="display:flex;align-items:center;gap:var(--sp-12)">
+              <span style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">이전</span>
+              <span style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--brand-600);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--surface)">분석 시작</span>
+            </div>
+            <span style="font-size:var(--fs-caption);color:var(--ink-500)">제출 후에는 설정을 변경할 수 없습니다.</span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:var(--sp-8);border-top:1px solid var(--ink-100);padding-top:var(--sp-24)">
+            <span style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">UPLOAD INCOMPLETE — SUBMIT DISABLED</span>
+            <div style="display:flex;align-items:center;gap:var(--sp-12)">
+              <span style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">이전</span>
+              <span style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--ink-100);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-400);cursor:not-allowed">분석 시작</span>
+            </div>
+            <span style="font-size:var(--fs-caption);color:var(--ink-500)">업로드가 완료되면 시작할 수 있습니다<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>남은 시간 약 4분</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 업로드 이어받기 ============ -->
+  <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+    <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">UPLOAD RESUME · STEP 2</div>
+    <div style="width:var(--vp-1440);background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);padding:var(--sp-32);display:flex;justify-content:center">
+      <div style="width:var(--step-content);display:flex;flex-direction:column;gap:var(--sp-32)">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <div style="border-top:1px solid var(--ink-100);border-bottom:1px solid var(--ink-100);padding:var(--sp-16) 0;display:flex;flex-direction:column;gap:var(--sp-12);align-items:flex-start">
+            <span style="font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">전송하던 파일이 있습니다</span>
+            <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)"><span style="font-family:var(--font-mono);font-size:var(--fs-data)">NA12878_R1.fastq.gz</span> (<span style="font-family:var(--font-mono);font-size:var(--fs-data)">6.2 GB</span>) — 68%까지 서버에 전송되었습니다. 같은 파일을 다시 선택하면 나머지 부분만 이어서 전송합니다.</span>
+            <span style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">파일 다시 선택</span>
+          </div>
+          <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">파일 이름·크기·수정 시각이 일치해야 이어받을 수 있습니다. 다른 파일이면 처음부터 전송합니다.</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <span style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">RESUME REJECTED</span>
+          <div style="border-top:1px solid var(--ink-100);border-bottom:1px solid var(--ink-100);padding:var(--sp-16) 0;display:flex;gap:var(--sp-24)">
+            <span style="width:var(--col-code);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:var(--st-warn-fg)">[WARN]</span>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-4)">
+              <span style="font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">다른 파일로 인식되어 처음부터 전송합니다</span>
+              <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">선택한 파일이 이전에 전송하던 파일과 다릅니다. (이름 또는 크기 또는 수정 시각 불일치)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 오류 상태 ============ -->
+  <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+    <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">ERROR STATES E1–E4</div>
+
+    <div style="width:var(--vp-1440);background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);padding:var(--sp-32);display:flex;flex-direction:column;gap:var(--sp-32)">
+
+      <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+        <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">E1 — 서버가 분석 불가 (실행 목록 상단)</h2>
+        <div style="width:var(--step-content);display:flex;flex-direction:column;gap:var(--sp-16)">
+          <div style="background:var(--st-fail-bg);border-radius:var(--r-sm);padding:var(--sp-24);display:flex;gap:var(--sp-16);align-items:flex-start">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="flex:none;color:var(--st-fail-fg);margin-top:var(--sp-4)"><path d="M8.6 3.4h6.8l5.2 5.2v6.8l-5.2 5.2H8.6L3.4 15.4V8.6Z" stroke="currentColor" stroke-width="1.5"></path><path d="M9.5 9.5 14.5 14.5M14.5 9.5 9.5 14.5" stroke="currentColor" stroke-width="1.5"></path></svg>
+            <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+              <span style="font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">이 서버는 아직 분석을 실행할 수 없습니다</span>
+              <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">참조 유전체가 설정되지 않았습니다. 관리자가 서버 설정을 완료해야 분석을 시작할 수 있습니다.</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:var(--sp-8);align-items:flex-start">
+            <span style="display:inline-flex;align-items:center;gap:var(--sp-8);height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--ink-100);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-400);cursor:not-allowed"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 3.5v9M3.5 8h9" stroke="currentColor" stroke-width="1.5"></path></svg>새 분석</span>
+            <span style="font-size:var(--fs-caption);color:var(--ink-500)">서버 설정이 완료되면 사용할 수 있습니다</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:var(--sp-12);border-top:1px solid var(--ink-100);padding-top:var(--sp-24)">
+        <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">E2 — 파일 짝 불일치 (2단계)</h2>
+        <div style="width:var(--step-content);display:flex;flex-direction:column;gap:var(--sp-16)">
+          <div style="background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden">
+            <div style="padding:var(--sp-16);border-bottom:1px solid var(--ink-100);display:flex;gap:var(--sp-12)">
+              <span style="width:var(--slot-label);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">R1</span>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-8)">
+                <div style="display:flex;align-items:center;gap:var(--sp-12)">
+                  <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-body);color:var(--ink-900)">NA12878_R1.fastq.gz</span>
+                  <span style="flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">6.2 GB</span>
+                  <span style="flex:none;padding:var(--pad-tag-y) var(--pad-tag-x);border-radius:var(--r-sm);font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:var(--w-500);color:var(--st-ok-fg);background:var(--st-ok-bg)">[완료]</span>
+                </div>
+              </div>
+            </div>
+            <div style="padding:var(--sp-16);display:flex;gap:var(--sp-12)">
+              <span style="width:var(--slot-label);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">R2</span>
+              <div style="flex:1;min-width:0;height:var(--sp-48);border:var(--drop-border) dashed var(--st-warn-bd);border-radius:var(--r-sm);display:flex;align-items:center;padding:0 var(--sp-12)">
+                <span style="font-size:var(--fs-caption);color:var(--st-warn-fg)">R2 파일이 필요합니다</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:var(--sp-12)">
+            <span style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">이전</span>
+            <span style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--ink-100);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-400);cursor:not-allowed">다음</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:var(--sp-12);border-top:1px solid var(--ink-100);padding-top:var(--sp-24)">
+        <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">E3 — 제출 실패 (4단계)</h2>
+        <div style="width:var(--step-content);display:flex;flex-direction:column;gap:var(--sp-16)">
+          <div style="background:var(--st-fail-bg);border-radius:var(--r-sm);padding:var(--sp-24);display:flex;gap:var(--sp-24)">
+            <div style="width:var(--col-code);flex:none;display:flex;flex-direction:column;gap:var(--sp-4)">
+              <span style="font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:var(--st-fail-fg)">[FAIL]</span>
+              <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500);word-break:keep-all;hyphens:none">CAPTURE_<wbr>KIT_<wbr>UNCONFIRMED</span>
+            </div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-8);align-items:flex-start">
+              <span style="font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">이 capture kit은 아직 사용할 수 없습니다</span>
+              <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">BED 파일과 체크섬 검증이 끝난 kit만 선택할 수 있습니다. 다른 kit을 선택해 주세요.</span>
+              <div style="display:flex;align-items:center;gap:var(--sp-16)">
+                <span style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">설정 단계로 이동</span>
+                <span style="display:inline-flex;align-items:center;gap:var(--sp-4);min-height:var(--hit);font-size:var(--fs-small);color:var(--brand-600)">원문 보기 <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+              </div>
+            </div>
+          </div>
+          <span style="font-size:var(--fs-caption);color:var(--ink-500)">입력한 값은 그대로 유지됩니다 — 요약과 설정은 초기화되지 않습니다.</span>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:var(--sp-12);border-top:1px solid var(--ink-100);padding-top:var(--sp-24)">
+        <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">E4 — 업로드 청크 실패 (2단계)</h2>
+        <div style="width:var(--step-content);background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);padding:var(--sp-16);display:flex;gap:var(--sp-12)">
+          <span style="width:var(--slot-label);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">R1</span>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-8)">
+            <div style="display:flex;align-items:center;gap:var(--sp-12)">
+              <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-body);color:var(--ink-900)">NA12878_R1.fastq.gz</span>
+              <span style="flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">6.2 GB</span>
+              <span style="flex:none;width:var(--hit);height:var(--hit);display:inline-flex;align-items:center;justify-content:center;color:var(--ink-500)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4 12 12M12 4 4 12" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:var(--sp-12)">
+              <span style="flex:1;min-width:0;height:var(--bar-h);border-radius:var(--r-bar-3);background:var(--ink-100);display:block;overflow:hidden"><span style="display:block;height:var(--bar-h);border-radius:var(--r-bar-3);background:var(--fill-fail);width:42%"></span></span>
+              <span style="flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-900)">42 %</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--sp-12)">
+              <span style="font-size:var(--fs-caption);color:var(--st-fail-fg)">전송이 중단되었습니다<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>자동 재시도 2/3</span>
+              <span style="min-height:var(--hit);display:inline-flex;align-items:center;font-size:var(--fs-small);font-weight:var(--w-500);color:var(--brand-600)">다시 시도</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 375 · 2단계 ============ -->
+  <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+    <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">STEP 2 — 375PX</div>
+    <div style="width:var(--vp-375);background:var(--paper);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden;display:flex;flex-direction:column">
+      <div style="height:var(--header-h);background:var(--surface);border-bottom:1px solid var(--ink-200);display:flex;align-items:center;padding:0 var(--sp-16)">
+        <span style="font-size:var(--fs-h3);font-weight:var(--w-600);color:var(--ink-900)">WES 분석</span>
+      </div>
+      <div style="background:var(--surface);border-bottom:1px solid var(--ink-200);padding:var(--sp-16);display:flex;flex-direction:column;gap:var(--sp-8)">
+        <span style="font-size:var(--fs-small);color:var(--ink-500)"><span style="font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-900)">2 / 4</span><span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>입력 파일</span>
+        <span style="height:var(--bar-h-step);border-radius:var(--r-bar-3);background:var(--ink-100);display:block;overflow:hidden"><span style="display:block;height:var(--bar-h-step);border-radius:var(--r-bar-3);background:var(--brand-600);width:50%"></span></span>
+      </div>
+
+      <div style="padding:var(--sp-16);display:flex;flex-direction:column;gap:var(--sp-24)">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">입력 파일</h2>
+          <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">paired-end FASTQ 한 쌍(R1/R2)을 올려 주세요.</span>
+        </div>
+
+        <div style="height:var(--drop-h-sm);border:var(--drop-border) dashed var(--ink-200);border-radius:var(--r-md);background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-8);text-align:center;padding:0 var(--sp-12)">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" style="color:var(--ink-400)"><path d="M16 22V8" stroke="currentColor" stroke-width="1.5"></path><path d="M10.5 13.5 16 8l5.5 5.5" stroke="currentColor" stroke-width="1.5"></path><path d="M6.5 22v2.5h19V22" stroke="currentColor" stroke-width="1.5"></path></svg>
+          <span style="font-size:var(--fs-small);color:var(--ink-700)">FASTQ 파일 2개를 선택하세요</span>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden">
+          <sc-for list="{{ slots }}" as="f" hint-placeholder-count="2">
+            <div style="padding:var(--sp-12);border-bottom:1px solid var(--ink-100);display:flex;flex-direction:column;gap:var(--sp-8)">
+              <div style="display:flex;align-items:center;gap:var(--sp-8);min-width:0">
+                <span style="flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">{{ f.slot }}</span>
+                <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left;font-size:var(--fs-small);color:var(--ink-900)">{{ f.name }}</span>
+                <span style="flex:none;width:var(--hit);height:var(--hit);display:inline-flex;align-items:center;justify-content:center;color:var(--ink-500)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4 12 12M12 4 4 12" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:var(--sp-8)">
+                <span style="flex:1;min-width:0;height:var(--bar-h);border-radius:var(--r-bar-3);background:var(--ink-100);display:block;overflow:hidden"><span style="display:block;height:var(--bar-h);border-radius:var(--r-bar-3);background:{{ f.fill }};width:{{ f.pct }}"></span></span>
+                <span style="flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-900)">{{ f.pctLabel }}</span>
+              </div>
+              <span style="font-size:var(--fs-caption);color:{{ f.metaColor }}">{{ f.size }}<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>{{ f.meta }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border-top:1px solid var(--ink-200);padding:var(--sp-16);display:flex;flex-direction:column;gap:var(--sp-12)">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <span style="display:inline-flex;align-items:center;gap:var(--sp-8);font-size:var(--fs-small);color:var(--ink-700)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--brand-600);animation:om-spin 1.2s linear infinite" data-anim="1"><path d="M14 8a6 6 0 1 1-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>업로드 중 1/2<span style="padding:0 var(--sp-4);color:var(--ink-400)">·</span><span style="font-family:var(--font-mono);font-size:var(--fs-data)">68%</span></span>
+          <span style="height:var(--bar-h-sm);border-radius:var(--r-bar-3);background:var(--ink-100);display:block;overflow:hidden"><span style="display:block;height:var(--bar-h-sm);border-radius:var(--r-bar-3);background:var(--fill-run);width:68%"></span></span>
+        </div>
+        <span style="display:flex;align-items:center;justify-content:center;gap:var(--sp-8);height:var(--btn-h);border-radius:var(--r-sm);background:var(--brand-600);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--surface)">다음<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M6.5 4 10.5 8 6.5 12" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+        <span style="display:flex;align-items:center;justify-content:center;height:var(--btn-h);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">이전</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 375 · 4단계 ============ -->
+  <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+    <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">STEP 4 — 375PX</div>
+    <div style="width:var(--vp-375);background:var(--paper);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden;display:flex;flex-direction:column">
+      <div style="height:var(--header-h);background:var(--surface);border-bottom:1px solid var(--ink-200);display:flex;align-items:center;padding:0 var(--sp-16)">
+        <span style="font-size:var(--fs-h3);font-weight:var(--w-600);color:var(--ink-900)">WES 분석</span>
+      </div>
+      <div style="background:var(--surface);border-bottom:1px solid var(--ink-200);padding:var(--sp-16);display:flex;flex-direction:column;gap:var(--sp-8)">
+        <span style="font-size:var(--fs-small);color:var(--ink-500)"><span style="font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-900)">4 / 4</span><span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>확인 및 실행</span>
+        <span style="height:var(--bar-h-step);border-radius:var(--r-bar-3);background:var(--ink-100);display:block;overflow:hidden"><span style="display:block;height:var(--bar-h-step);border-radius:var(--r-bar-3);background:var(--brand-600);width:100%"></span></span>
+      </div>
+
+      <div style="padding:var(--sp-16);display:flex;flex-direction:column;gap:var(--sp-24)">
+        <div style="background:var(--st-warn-bg);border-radius:var(--r-sm);padding:var(--sp-16);display:flex;flex-direction:column;gap:var(--sp-8)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="flex:none;color:var(--st-warn-fg)"><path d="M12 4 21.5 20H2.5Z" stroke="currentColor" stroke-width="1.5"></path><path d="M12 10v4.5" stroke="currentColor" stroke-width="1.5"></path><path d="M12 16.5v1" stroke="currentColor" stroke-width="1.5"></path></svg>
+          <span style="font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">이 서버는 사전 점검 모드입니다</span>
+          <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">입력과 참조 데이터가 올바른지만 검사하고, 실제 분석 산출물(BAM·VCF)은 생성하지 않습니다.</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+          <sc-for list="{{ summary }}" as="kv" hint-placeholder-count="8">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-8);min-width:0">
+              <div style="display:flex;flex-direction:column;gap:var(--sp-4);min-width:0">
+                <span style="font-size:var(--fs-caption);color:var(--ink-500)">{{ kv.label }}</span>
+                <span style="min-width:0;font-family:{{ kv.font }};font-size:{{ kv.size }};color:var(--ink-900)">{{ kv.value }}</span>
+              </div>
+              <span style="flex:none;width:var(--hit);height:var(--hit);display:inline-flex;align-items:center;justify-content:center;color:var(--brand-600)"><sc-if value="{{ kv.action }}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10.5 3.5 12.5 5.5 6 12H4v-2Z" stroke="currentColor" stroke-width="1.5"></path></svg></sc-if></span>
+            </div>
+          </sc-for>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-8);min-width:0">
+            <div style="display:flex;flex-direction:column;gap:var(--sp-4);min-width:0">
+              <span style="font-size:var(--fs-caption);color:var(--ink-500)">입력 파일</span>
+              <sc-for list="{{ summaryFiles }}" as="f" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:var(--sp-8);min-width:0">
+                  <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-900)">{{ f.name }}</span>
+                  <span style="flex:none;padding:var(--pad-tag-y) var(--pad-tag-x);border-radius:var(--r-sm);font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:var(--w-500);color:var(--st-ok-fg);background:var(--st-ok-bg)">[완료]</span>
+                </div>
+              </sc-for>
+            </div>
+            <span style="flex:none;width:var(--hit);height:var(--hit);display:inline-flex;align-items:center;justify-content:center;color:var(--brand-600)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10.5 3.5 12.5 5.5 6 12H4v-2Z" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border-top:1px solid var(--ink-200);padding:var(--sp-16);display:flex;flex-direction:column;gap:var(--sp-8)">
+        <span style="display:flex;align-items:center;justify-content:center;height:var(--btn-h);border-radius:var(--r-sm);background:var(--brand-600);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--surface)">분석 시작</span>
+        <span style="font-size:var(--fs-caption);color:var(--ink-500);text-align:center">제출 후에는 설정을 변경할 수 없습니다.</span>
+        <span style="display:flex;align-items:center;justify-content:center;height:var(--btn-h);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">이전</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1520}}">
+class Component extends DCLogic {
+  labels = ['분석 선택', '입력 파일', '설정', '확인'];
+
+  stepper(current) {
+    return this.labels.map((label, i) => {
+      const n = i + 1, done = n < current, cur = n === current;
+      return {
+        num: done ? '✓' : String(n),
+        label,
+        nodeBg: done ? 'var(--fill-ok)' : cur ? 'var(--brand-600)' : 'var(--ink-100)',
+        nodeFg: done || cur ? 'var(--surface)' : 'var(--ink-500)',
+        labelColor: done ? 'var(--ink-700)' : cur ? 'var(--ink-900)' : 'var(--ink-400)',
+        labelWeight: cur ? 'var(--w-600)' : 'var(--w-400)',
+        lineColor: i === this.labels.length - 1 ? 'transparent' : (n < current ? 'var(--fill-ok)' : 'var(--ink-100)')
+      };
+    });
+  }
+
+  renderVals() {
+    return {
+      steps1: this.stepper(1),
+      steps2: this.stepper(2),
+      steps3: this.stepper(3),
+      steps4: this.stepper(4),
+      profilesSoon: [
+        { name: 'PacBio HiFi Germline 변이 분석', reason: '분석 스크립트 준비 중' },
+        { name: '고형암 Somatic 변이 분석 (T/N)', reason: '분석 스크립트 준비 중' }
+      ],
+      slots: [
+        { slot: 'R1', name: 'NA12878_R1.fastq.gz', size: '6.2 GB', pct: '68%', pctLabel: '68 %',
+          fill: 'var(--fill-run)', meta: '42 MB/s · 남은 시간 1분 12초', metaColor: 'var(--ink-500)' },
+        { slot: 'R2', name: 'NA12878_R2.fastq.gz', size: '6.3 GB', pct: '0%', pctLabel: '0 %',
+          fill: 'var(--fill-run)', meta: '대기 중', metaColor: 'var(--ink-500)' }
+      ],
+      kits: [
+        { name: 'IDT xGen Exome Hyb Panel v2', note: '✓ 선택됨', color: 'var(--ink-900)', noteColor: 'var(--brand-600)', bg: 'var(--brand-050)', cursor: 'pointer' },
+        { name: 'Twist Exome 2.0', note: 'BED 파일 없음 · 선택 불가', color: 'var(--ink-400)', noteColor: 'var(--ink-400)', bg: 'transparent', cursor: 'not-allowed' },
+        { name: 'Roche KAPA HyperExome V2', note: 'BED 파일 없음 · 선택 불가', color: 'var(--ink-400)', noteColor: 'var(--ink-400)', bg: 'transparent', cursor: 'not-allowed' },
+        { name: 'Agilent SureSelect Human All Exon V8', note: '검증 전 · 선택 불가', color: 'var(--ink-400)', noteColor: 'var(--ink-400)', bg: 'transparent', cursor: 'not-allowed' }
+      ],
+      summary: [
+        { label: '분석', value: 'Illumina WES Germline 변이 분석', font: 'var(--font-sans)', size: 'var(--fs-body)', action: '수정' },
+        { label: '샘플', value: 'NA12878', font: 'var(--font-mono)', size: 'var(--fs-data)', action: '수정' },
+        { label: '참조 유전체', value: 'GRCh38', font: 'var(--font-sans)', size: 'var(--fs-body)', action: '' },
+        { label: 'Capture kit', value: 'IDT xGen Exome Hyb Panel v2', font: 'var(--font-sans)', size: 'var(--fs-body)', action: '수정' },
+        { label: 'ACMG 자동 분류', value: '사용', font: 'var(--font-sans)', size: 'var(--fs-body)', action: '수정' },
+        { label: '실행할 단계', value: '입력 검증 (사전 점검 모드)', font: 'var(--font-sans)', size: 'var(--fs-body)', action: '' },
+        { label: '예상 소요', value: '약 2분', font: 'var(--font-sans)', size: 'var(--fs-body)', action: '' }
+      ],
+      summaryFiles: [
+        { name: 'NA12878_R1.fastq.gz', size: '6.2 GB' },
+        { name: 'NA12878_R2.fastq.gz', size: '6.3 GB' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

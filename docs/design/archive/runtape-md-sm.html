@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink-950:#0B1116; --ink-900:#17212B; --ink-700:#3A4854; --ink-500:#5F6D79;
+  --ink-400:#8C99A5; --ink-300:#B6C0C9; --border-strong:#8795A2;
+  --ink-200:#D6DEE5; --ink-100:#E8EDF1;
+  --sunken:#EEF3F7; --surface:#FFFFFF; --paper:#F7F9FB;
+  --brand-700:#143C7B; --brand-600:#1A4D9E; --brand-500:#2461BC; --brand-100:#E7EFFA; --brand-050:#F3F7FC;
+
+  --st-idle-fg:#5F6D79; --st-idle-bg:#EEF3F7;
+  --st-run-fg:#1A4D9E;  --st-run-bg:#E7EFFA;
+  --st-ok-fg:#14663F;   --st-ok-bg:#E4F1EA;
+  --st-warn-fg:#8A5300; --st-warn-bg:#FBF0DC;
+  --st-fail-fg:#A32217; --st-fail-bg:#FBE7E4;
+  --st-skip-fg:#5F6D79; --st-skip-bg:#F7F9FB;
+
+  /* 면적 채움 전용 — 텍스트·아이콘에는 사용하지 않음 */
+  --fill-ok:#2E9B6B; --fill-warn:#C98A22; --fill-fail:#D14839;
+  --fill-run:#2F6FD0; --fill-skip:#B6C0C9; --fill-idle:#DEE5EB;
+
+  --font-sans:'IBM Plex Sans KR','IBM Plex Sans',system-ui,sans-serif;
+  --font-cond:'IBM Plex Sans Condensed','IBM Plex Sans KR',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+
+  --fs-display:28px; --lh-display:1.20;
+  --fs-h1:22px;      --lh-h1:1.30;
+  --fs-h2:17px;      --lh-h2:1.35;
+  --fs-h3:15px;      --lh-h3:1.40;
+  --fs-body:14px;    --lh-body:1.55;
+  --fs-small:13px;   --lh-small:1.50;
+  --fs-caption:12px; --lh-caption:1.45;
+  --fs-eyebrow:11px; --lh-eyebrow:1.20;
+  --fs-data:13px;    --lh-data:1.45;
+  --fs-label:11px;
+
+  --w-400:400; --w-500:500; --w-600:600;
+  --ls-tight:-0.01em; --ls-wide:0.09em;
+
+  --sp-4:4px; --sp-8:8px; --sp-12:12px; --sp-16:16px; --sp-20:20px;
+  --sp-24:24px; --sp-32:32px; --sp-40:40px; --sp-48:48px; --sp-64:64px;
+
+  --r-sm:4px; --r-md:8px; --radius-pill:999px;
+  /* 바 전용 반경 — 이 시트의 R1~R4 규격 */
+  --r-bar-md:5px; --r-bar-min:2px;
+
+  --icon:16px; --hit:24px; --chev:12px; --underline:2px; --btn-h:32px;
+  --pad-pill-x:12px; --pad-cell-x:6px;
+  --container:1360px; --vp-1440:1440px; --vp-375:375px;
+  --divider:1px; --spin:12px;
+
+  --md-w:280px; --md-h:10px; --md-w-thick:320px; --md-h-thick:20px;
+  --sm-w:120px; --sm-h:6px;
+  --lg-h:40px; --lg-gap:2px; --lg-cell-min:24px;
+  --col-list-name:88px; --col-list-kind:120px; --col-list-step:72px; --col-list-time:64px;
+  --col-badge:132px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink-700);
+  font-family:var(--font-sans);font-size:var(--fs-body);line-height:var(--lh-body);
+  font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;text-wrap:pretty}
+a{color:var(--brand-600);text-decoration:none}
+a:hover{color:var(--brand-500);text-decoration:underline}
+ol,ul{list-style:none;margin:0;padding:0}
+@keyframes om-stripes{from{background-position:0 0}to{background-position:16px 0}}
+@keyframes om-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){ [data-anim]{animation:none !important} }
+</style>
+</helmet>
+
+<div style="padding:var(--sp-48) var(--sp-40) var(--sp-64);min-width:calc(var(--vp-1440) + var(--sp-40) * 2);display:flex;flex-direction:column;gap:var(--sp-64);align-items:flex-start">
+
+  <header style="display:flex;flex-direction:column;gap:var(--sp-8)">
+    <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">RUNTAPE MD · SM</div>
+    <h1 style="margin:0;font-size:var(--fs-display);line-height:var(--lh-display);font-weight:var(--w-600);letter-spacing:var(--ls-tight);color:var(--ink-900)">md·sm을 연속 바로 재설계</h1>
+    <span style="font-size:var(--fs-small);line-height:var(--lh-small);color:var(--ink-500)">md·sm은 요약 표시이므로 셀을 분리하지 않고, 작은 크기에서 보이도록 배경색이 아니라 상태 전경색을 채웁니다. lg(클릭 가능한 셀)는 현재 형태 유지.</span>
+  </header>
+
+  <!-- ================ 섹션 1 ================ -->
+  <section style="background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);padding:var(--sp-32);display:flex;flex-direction:column;gap:var(--sp-32)">
+    <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">SECTION 1 — MD FORM · FOUR OPTIONS</div>
+
+    <!-- R1 -->
+    <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">R1 — 연속 바 (간격 0, 1px 구분선)</h2>
+      <div style="display:flex;gap:var(--sp-48);flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <div style="display:flex;align-items:center;gap:var(--sp-16)">
+            <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--pad-pill-x);border-radius:var(--radius-pill);white-space:nowrap;font-size:var(--fs-body);font-weight:var(--w-500);color:var(--st-warn-fg);background:var(--st-warn-bg)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M8 2.75 14.25 13.25H1.75Z" stroke="currentColor" stroke-width="1.5"></path><path d="M8 6.5v2.75" stroke="currentColor" stroke-width="1.5"></path><path d="M8 11v.5" stroke="currentColor" stroke-width="1.5"></path></svg>완료 (경고 있음)</span>
+            <ol style="display:flex;width:var(--md-w);height:var(--md-h);border-radius:var(--r-bar-md);overflow:hidden">
+              <sc-for list="{{ segA }}" as="s" hint-placeholder-count="8">
+                <li style="flex:1;min-width:0;background:{{ s.color }};border-right:var(--divider) solid var(--surface)" title="{{ s.title }}" aria-label="{{ s.title }}"></li>
+              </sc-for>
+            </ol>
+          </div>
+          <span style="font-size:var(--fs-body);color:var(--ink-700)">8/8단계 완료<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>4시간 07분 소요</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <div style="display:flex;align-items:center;gap:var(--sp-16)">
+            <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--pad-pill-x);border-radius:var(--radius-pill);white-space:nowrap;font-size:var(--fs-body);font-weight:var(--w-500);color:var(--st-run-fg);background:var(--st-run-bg)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M1.5 8h2.75l1.75-4.5 2.5 9 1.75-4.5H14.5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path></svg>분석 중</span>
+            <ol style="display:flex;width:var(--md-w);height:var(--md-h);border-radius:var(--r-bar-md);overflow:hidden">
+              <sc-for list="{{ segB }}" as="s" hint-placeholder-count="8">
+                <li style="flex:1;min-width:0;background:{{ s.color }};border-right:var(--divider) solid var(--surface)" title="{{ s.title }}" aria-label="{{ s.title }}"></li>
+              </sc-for>
+            </ol>
+          </div>
+          <span style="font-size:var(--fs-body);color:var(--ink-700)"><span style="font-weight:var(--w-500);color:var(--ink-900)">변이 검출</span><span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>6/8단계<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>1시간 18분 경과</span>
+        </div>
+      </div>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">하나의 바로 읽히면서 8단계 구조도 유지된다. 흰 구분선이 1px이라 칩처럼 끊겨 보이지 않는다.</span>
+    </div>
+
+    <!-- R2 -->
+    <div style="display:flex;flex-direction:column;gap:var(--sp-16);border-top:1px solid var(--ink-100);padding-top:var(--sp-20)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">R2 — 연속 바 (구분선 없음)</h2>
+      <div style="display:flex;gap:var(--sp-48);flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <div style="display:flex;align-items:center;gap:var(--sp-16)">
+            <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--pad-pill-x);border-radius:var(--radius-pill);white-space:nowrap;font-size:var(--fs-body);font-weight:var(--w-500);color:var(--st-warn-fg);background:var(--st-warn-bg)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M8 2.75 14.25 13.25H1.75Z" stroke="currentColor" stroke-width="1.5"></path><path d="M8 6.5v2.75" stroke="currentColor" stroke-width="1.5"></path><path d="M8 11v.5" stroke="currentColor" stroke-width="1.5"></path></svg>완료 (경고 있음)</span>
+            <ol style="display:flex;width:var(--md-w);height:var(--md-h);border-radius:var(--r-bar-md);overflow:hidden">
+              <sc-for list="{{ segA }}" as="s" hint-placeholder-count="8">
+                <li style="flex:1;min-width:0;background:{{ s.color }}" title="{{ s.title }}" aria-label="{{ s.title }}"></li>
+              </sc-for>
+            </ol>
+          </div>
+          <span style="font-size:var(--fs-body);color:var(--ink-700)">8/8단계 완료<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>4시간 07분 소요</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <div style="display:flex;align-items:center;gap:var(--sp-16)">
+            <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--pad-pill-x);border-radius:var(--radius-pill);white-space:nowrap;font-size:var(--fs-body);font-weight:var(--w-500);color:var(--st-run-fg);background:var(--st-run-bg)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M1.5 8h2.75l1.75-4.5 2.5 9 1.75-4.5H14.5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path></svg>분석 중</span>
+            <ol style="display:flex;width:var(--md-w);height:var(--md-h);border-radius:var(--r-bar-md);overflow:hidden">
+              <sc-for list="{{ segB }}" as="s" hint-placeholder-count="8">
+                <li style="flex:1;min-width:0;background:{{ s.color }}" title="{{ s.title }}" aria-label="{{ s.title }}"></li>
+              </sc-for>
+            </ol>
+          </div>
+          <span style="font-size:var(--fs-body);color:var(--ink-700)"><span style="font-weight:var(--w-500);color:var(--ink-900)">변이 검출</span><span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>6/8단계<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>1시간 18분 경과</span>
+        </div>
+      </div>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">가장 조용하지만 연속된 완료 구간이 한 덩어리로 뭉쳐 단계 수가 사라진다. 상태 A에서 "완료 2 + 건너뜀 + 완료 2"가 3덩어리로만 보인다.</span>
+    </div>
+
+    <!-- R3 -->
+    <div style="display:flex;flex-direction:column;gap:var(--sp-16);border-top:1px solid var(--ink-100);padding-top:var(--sp-20)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">R3 — 두꺼운 연속 바 + 내부 라벨</h2>
+      <div style="display:flex;gap:var(--sp-48);flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:var(--sp-16)">
+          <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--pad-pill-x);border-radius:var(--radius-pill);white-space:nowrap;font-size:var(--fs-body);font-weight:var(--w-500);color:var(--st-warn-fg);background:var(--st-warn-bg)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M8 2.75 14.25 13.25H1.75Z" stroke="currentColor" stroke-width="1.5"></path><path d="M8 6.5v2.75" stroke="currentColor" stroke-width="1.5"></path><path d="M8 11v.5" stroke="currentColor" stroke-width="1.5"></path></svg>완료 (경고 있음)</span>
+          <div style="position:relative;width:var(--md-w-thick);height:var(--md-h-thick)">
+            <ol style="display:flex;width:100%;height:100%;border-radius:var(--r-sm);overflow:hidden">
+              <sc-for list="{{ segA }}" as="s" hint-placeholder-count="8">
+                <li style="flex:1;min-width:0;background:{{ s.color }};border-right:var(--divider) solid var(--surface)" title="{{ s.title }}" aria-label="{{ s.title }}"></li>
+              </sc-for>
+            </ol>
+            <span style="position:absolute;right:var(--sp-8);top:0;bottom:0;display:flex;align-items:center;font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--surface)">8/8</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:var(--sp-16)">
+          <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--pad-pill-x);border-radius:var(--radius-pill);white-space:nowrap;font-size:var(--fs-body);font-weight:var(--w-500);color:var(--st-run-fg);background:var(--st-run-bg)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M1.5 8h2.75l1.75-4.5 2.5 9 1.75-4.5H14.5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path></svg>분석 중</span>
+          <div style="position:relative;width:var(--md-w-thick);height:var(--md-h-thick)">
+            <ol style="display:flex;width:100%;height:100%;border-radius:var(--r-sm);overflow:hidden">
+              <sc-for list="{{ segB }}" as="s" hint-placeholder-count="8">
+                <li style="flex:1;min-width:0;background:{{ s.color }};border-right:var(--divider) solid var(--surface)" title="{{ s.title }}" aria-label="{{ s.title }}"></li>
+              </sc-for>
+            </ol>
+            <span style="position:absolute;right:var(--sp-8);top:0;bottom:0;display:flex;align-items:center;font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-700)">6/8</span>
+          </div>
+        </div>
+      </div>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">세로 공간을 아끼지만, 진행 중 상태에서는 우측 끝이 --ink-200(대기)이라 흰 글자가 읽히지 않아 글자색을 상황마다 바꿔야 한다 — 규칙이 늘어난다.</span>
+    </div>
+
+    <!-- R4 -->
+    <div style="display:flex;flex-direction:column;gap:var(--sp-16);border-top:1px solid var(--ink-100);padding-top:var(--sp-20)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">R4 — 미세 간격 (1px)</h2>
+      <div style="display:flex;gap:var(--sp-48);flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:var(--sp-16)">
+          <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--pad-pill-x);border-radius:var(--radius-pill);white-space:nowrap;font-size:var(--fs-body);font-weight:var(--w-500);color:var(--st-warn-fg);background:var(--st-warn-bg)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M8 2.75 14.25 13.25H1.75Z" stroke="currentColor" stroke-width="1.5"></path><path d="M8 6.5v2.75" stroke="currentColor" stroke-width="1.5"></path><path d="M8 11v.5" stroke="currentColor" stroke-width="1.5"></path></svg>완료 (경고 있음)</span>
+          <ol style="display:flex;gap:var(--divider);width:var(--md-w);height:var(--md-h)">
+            <sc-for list="{{ segA }}" as="s" hint-placeholder-count="8">
+              <li style="flex:1;min-width:0;border-radius:var(--r-bar-min);background:{{ s.color }}" title="{{ s.title }}" aria-label="{{ s.title }}"></li>
+            </sc-for>
+          </ol>
+        </div>
+        <div style="display:flex;align-items:center;gap:var(--sp-16)">
+          <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--pad-pill-x);border-radius:var(--radius-pill);white-space:nowrap;font-size:var(--fs-body);font-weight:var(--w-500);color:var(--st-run-fg);background:var(--st-run-bg)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M1.5 8h2.75l1.75-4.5 2.5 9 1.75-4.5H14.5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path></svg>분석 중</span>
+          <ol style="display:flex;gap:var(--divider);width:var(--md-w);height:var(--md-h)">
+            <sc-for list="{{ segB }}" as="s" hint-placeholder-count="8">
+              <li style="flex:1;min-width:0;border-radius:var(--r-bar-min);background:{{ s.color }}" title="{{ s.title }}" aria-label="{{ s.title }}"></li>
+            </sc-for>
+          </ol>
+        </div>
+      </div>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">R1과 거의 같아 보이지만 양 끝이 각지고 세그먼트마다 radius가 남아 여전히 조각으로 읽힌다. R1이 같은 정보를 더 조용히 전달한다.</span>
+    </div>
+
+    <!-- 진행 중 표시 -->
+    <div style="display:flex;flex-direction:column;gap:var(--sp-20);border-top:1px solid var(--ink-200);padding-top:var(--sp-24)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">진행 중 세그먼트 — P3 / P4를 md에 적용</h2>
+
+      <div style="display:flex;flex-wrap:wrap;gap:var(--sp-48)">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <ol style="display:flex;width:var(--md-w);height:var(--md-h);border-radius:var(--r-bar-md);overflow:hidden">
+            <sc-for list="{{ segStripe }}" as="s" hint-placeholder-count="8">
+              <li style="flex:1;min-width:0;background-color:{{ s.color }};background-image:{{ s.stripes }};animation:{{ s.anim }};border-right:var(--divider) solid var(--surface)" title="{{ s.title }}" data-anim="1"></li>
+            </sc-for>
+          </ol>
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">P3 줄무늬 · animated</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <ol style="display:flex;width:var(--md-w);height:var(--md-h);border-radius:var(--r-bar-md);overflow:hidden">
+            <sc-for list="{{ segStripeStatic }}" as="s" hint-placeholder-count="8">
+              <li style="flex:1;min-width:0;background-color:{{ s.color }};background-image:{{ s.stripes }};border-right:var(--divider) solid var(--surface)" title="{{ s.title }}"></li>
+            </sc-for>
+          </ol>
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">P3 · reduced-motion</span>
+        </div>
+      </div>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">10px 높이 · 세그먼트 폭 34px에서는 줄무늬가 2~3줄만 들어가 무늬로 읽히지 않고 얼룩처럼 보인다. md에서는 작동하지 않는다.</span>
+
+      <div style="display:flex;flex-wrap:wrap;gap:var(--sp-48)">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <div style="display:flex;align-items:center;gap:var(--sp-8)">
+            <ol style="display:flex;width:var(--md-w);height:var(--md-h);border-radius:var(--r-bar-md);overflow:hidden">
+              <sc-for list="{{ segB }}" as="s" hint-placeholder-count="8">
+                <li style="flex:1;min-width:0;background:{{ s.color }};border-right:var(--divider) solid var(--surface)" title="{{ s.title }}"></li>
+              </sc-for>
+            </ol>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--brand-600);animation:om-spin 1.2s linear infinite" data-anim="1"><path d="M14 8a6 6 0 1 1-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+          </div>
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">P4 스피너 · animated</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <div style="display:flex;align-items:center;gap:var(--sp-8)">
+            <ol style="display:flex;width:var(--md-w);height:var(--md-h);border-radius:var(--r-bar-md);overflow:hidden">
+              <sc-for list="{{ segB }}" as="s" hint-placeholder-count="8">
+                <li style="flex:1;min-width:0;background:{{ s.color }};border-right:var(--divider) solid var(--surface)" title="{{ s.title }}"></li>
+              </sc-for>
+            </ol>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--brand-600)"><path d="M14 8a6 6 0 1 1-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+          </div>
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">P4 · reduced-motion</span>
+        </div>
+      </div>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">바 밖 12px 스피너는 크기와 무관하게 읽히고 정지 상태에서도 호 형태가 남는다. md에서는 P4가 유효하다.</span>
+    </div>
+  </section>
+
+  <!-- ================ 섹션 2 ================ -->
+  <section style="background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);padding:var(--sp-32);display:flex;flex-direction:column;gap:var(--sp-32)">
+    <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">SECTION 2 — SM IN RUN LIST · 120×6</div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">R1 형태 (구분선 있음)</h2>
+      <div style="border:1px solid var(--ink-200);border-radius:var(--r-sm);overflow:hidden">
+        <sc-for list="{{ listRows }}" as="r" hint-placeholder-count="3">
+          <div style="min-height:var(--sp-40);display:flex;align-items:center;gap:var(--sp-16);padding:0 var(--sp-12);border-bottom:1px solid var(--ink-100)">
+            <span style="width:var(--col-badge);flex:none;display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--pad-pill-x);border-radius:var(--radius-pill);white-space:nowrap;font-size:var(--fs-caption);font-weight:var(--w-500);color:{{ r.badgeFg }};background:{{ r.badgeBg }}">{{ r.badge }}</span>
+            <span style="width:var(--col-list-name);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-900)">{{ r.sample }}</span>
+            <span style="width:var(--col-list-kind);flex:none;font-size:var(--fs-small);color:var(--ink-700)">{{ r.kind }}</span>
+            <ol style="display:flex;width:var(--sm-w);height:var(--sm-h);flex:none;border-radius:var(--r-sm);overflow:hidden">
+              <sc-for list="{{ r.segments }}" as="s" hint-placeholder-count="8">
+                <li style="flex:1;min-width:0;background:{{ s.color }};border-right:var(--divider) solid var(--surface)" title="{{ s.title }}"></li>
+              </sc-for>
+            </ol>
+            <span style="width:var(--col-list-step);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-700)">{{ r.step }}</span>
+            <span style="width:var(--col-list-time);flex:none;text-align:right;font-size:var(--fs-caption);color:var(--ink-500)">{{ r.when }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">6px 높이에서도 진행 정도가 읽힌다. 3행(단계 1개)은 120px 전체가 빨간 한 덩어리가 되어 "바"라기보다 색 블록으로 보인다.</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--sp-12);border-top:1px solid var(--ink-100);padding-top:var(--sp-20)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">R2 형태 (구분선 없음)</h2>
+      <div style="border:1px solid var(--ink-200);border-radius:var(--r-sm);overflow:hidden">
+        <sc-for list="{{ listRows }}" as="r" hint-placeholder-count="3">
+          <div style="min-height:var(--sp-40);display:flex;align-items:center;gap:var(--sp-16);padding:0 var(--sp-12);border-bottom:1px solid var(--ink-100)">
+            <span style="width:var(--col-badge);flex:none;display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--pad-pill-x);border-radius:var(--radius-pill);white-space:nowrap;font-size:var(--fs-caption);font-weight:var(--w-500);color:{{ r.badgeFg }};background:{{ r.badgeBg }}">{{ r.badge }}</span>
+            <span style="width:var(--col-list-name);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-900)">{{ r.sample }}</span>
+            <span style="width:var(--col-list-kind);flex:none;font-size:var(--fs-small);color:var(--ink-700)">{{ r.kind }}</span>
+            <ol style="display:flex;width:var(--sm-w);height:var(--sm-h);flex:none;border-radius:var(--r-sm);overflow:hidden">
+              <sc-for list="{{ r.segments }}" as="s" hint-placeholder-count="8">
+                <li style="flex:1;min-width:0;background:{{ s.color }}" title="{{ s.title }}"></li>
+              </sc-for>
+            </ol>
+            <span style="width:var(--col-list-step);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-700)">{{ r.step }}</span>
+            <span style="width:var(--col-list-time);flex:none;text-align:right;font-size:var(--fs-caption);color:var(--ink-500)">{{ r.when }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">6px에서는 1px 구분선이 거의 안 보여 R1과 차이가 미미하다. sm에서는 구분선을 빼는 편이 렌더링이 안정적이다.</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--sp-12);border-top:1px solid var(--ink-100);padding-top:var(--sp-20)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">폴백 — 단계 1개 행은 바 생략</h2>
+      <div style="border:1px solid var(--ink-200);border-radius:var(--r-sm);overflow:hidden">
+        <sc-for list="{{ listRowsFallback }}" as="r" hint-placeholder-count="3">
+          <div style="min-height:var(--sp-40);display:flex;align-items:center;gap:var(--sp-16);padding:0 var(--sp-12);border-bottom:1px solid var(--ink-100)">
+            <span style="width:var(--col-badge);flex:none;display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--pad-pill-x);border-radius:var(--radius-pill);white-space:nowrap;font-size:var(--fs-caption);font-weight:var(--w-500);color:{{ r.badgeFg }};background:{{ r.badgeBg }}">{{ r.badge }}</span>
+            <span style="width:var(--col-list-name);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-900)">{{ r.sample }}</span>
+            <span style="width:var(--col-list-kind);flex:none;font-size:var(--fs-small);color:var(--ink-700)">{{ r.kind }}</span>
+            <span style="width:var(--sm-w);flex:none;display:flex;align-items:center">
+              <sc-if value="{{ r.showBar }}" hint-placeholder-val="{{ true }}">
+                <ol style="display:flex;width:var(--sm-w);height:var(--sm-h);border-radius:var(--r-sm);overflow:hidden">
+                  <sc-for list="{{ r.segments }}" as="s" hint-placeholder-count="8">
+                    <li style="flex:1;min-width:0;background:{{ s.color }}" title="{{ s.title }}"></li>
+                  </sc-for>
+                </ol>
+              </sc-if>
+              <sc-if value="{{ r.fallbackText }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size:var(--fs-caption);color:var(--ink-500)">{{ r.fallbackText }}</span>
+              </sc-if>
+            </span>
+            <span style="width:var(--col-list-step);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-700)">{{ r.step }}</span>
+            <span style="width:var(--col-list-time);flex:none;text-align:right;font-size:var(--fs-caption);color:var(--ink-500)">{{ r.when }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">사전 점검 실행은 바 대신 "사전 점검"이라는 텍스트를 둔다. 배지가 이미 실패를 말하므로 색 블록이 중복되지 않는다.</span>
+    </div>
+  </section>
+
+  <!-- ================ 섹션 3 ================ -->
+  <section style="background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);padding:var(--sp-32);display:flex;flex-direction:column;gap:var(--sp-24)">
+    <div style="display:flex;flex-direction:column;gap:var(--sp-4)">
+      <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">SECTION 3 — RUN HEADER · R1 적용</div>
+      <span style="font-size:var(--fs-caption);color:var(--ink-500)">배지 높이 약 28px, 바 높이 10px — 바를 배지의 세로 중앙에 정렬(align-items:center).</span>
+    </div>
+
+    <div style="width:var(--vp-1440);background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden">
+      <div style="padding:var(--sp-24) var(--sp-40);display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-24)">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-12);min-width:0">
+          <span style="display:inline-flex;align-items:center;gap:var(--sp-4);min-height:var(--hit);font-size:var(--fs-small);color:var(--ink-500)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M9.5 4 5.5 8 9.5 12" stroke="currentColor" stroke-width="1.5"></path></svg>실행 목록</span>
+          <h1 style="margin:0;font-size:var(--fs-display);line-height:var(--lh-display);font-weight:var(--w-600);letter-spacing:var(--ls-tight);color:var(--ink-900)">Illumina WES Germline 변이 분석<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>NA12878</h1>
+          <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+            <div style="display:flex;align-items:center;gap:var(--sp-16)">
+              <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--pad-pill-x);border-radius:var(--radius-pill);white-space:nowrap;font-size:var(--fs-body);font-weight:var(--w-500);color:var(--st-warn-fg);background:var(--st-warn-bg)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M8 2.75 14.25 13.25H1.75Z" stroke="currentColor" stroke-width="1.5"></path><path d="M8 6.5v2.75" stroke="currentColor" stroke-width="1.5"></path><path d="M8 11v.5" stroke="currentColor" stroke-width="1.5"></path></svg>완료 (경고 있음)</span>
+              <ol style="display:flex;width:var(--md-w);height:var(--md-h);border-radius:var(--r-bar-md);overflow:hidden">
+                <sc-for list="{{ segA }}" as="s" hint-placeholder-count="8">
+                  <li style="flex:1;min-width:0;background:{{ s.color }};border-right:var(--divider) solid var(--surface)" title="{{ s.title }}" aria-label="{{ s.title }}"></li>
+                </sc-for>
+              </ol>
+            </div>
+            <span style="font-size:var(--fs-body);color:var(--ink-700)">8/8단계 완료<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>4시간 07분 소요</span>
+          </div>
+          <span style="font-size:var(--fs-small);color:var(--ink-500)">GRCh38<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>IDT xGen Exome Hyb Panel v2<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>전체 분석 모드</span>
+          <div style="display:flex;align-items:center;gap:var(--sp-24)">
+            <span style="display:inline-flex;align-items:center;gap:var(--sp-8);min-height:var(--hit);font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-700)">wes-20260826-0913-7f2a4c<svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--ink-400)"><rect x="5.75" y="5.75" width="7.5" height="7.5" rx="1" stroke="currentColor" stroke-width="1.5"></rect><path d="M10.25 3.75H3.75a1 1 0 0 0-1 1v6.5" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+            <span style="font-size:var(--fs-caption);color:var(--ink-500)">09:13 시작</span>
+            <span style="font-size:var(--fs-caption);color:var(--ink-500)">13:20 완료</span>
+          </div>
+        </div>
+        <span style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);flex:none;border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">파일 내려받기</span>
+      </div>
+    </div>
+
+    <div style="width:var(--vp-375);background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);padding:var(--sp-16);display:flex;flex-direction:column;gap:var(--sp-12)">
+      <span style="display:inline-flex;align-items:center;gap:var(--sp-4);min-height:var(--hit);font-size:var(--fs-small);color:var(--ink-500)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M9.5 4 5.5 8 9.5 12" stroke="currentColor" stroke-width="1.5"></path></svg>실행 목록</span>
+      <h1 style="margin:0;font-size:var(--fs-h1);line-height:var(--lh-h1);font-weight:var(--w-600);letter-spacing:var(--ls-tight);color:var(--ink-900)">Illumina WES Germline 변이 분석<br>NA12878</h1>
+      <span style="display:inline-flex;align-items:center;gap:var(--sp-8);align-self:flex-start;padding:var(--sp-4) var(--pad-pill-x);border-radius:var(--radius-pill);white-space:nowrap;font-size:var(--fs-small);font-weight:var(--w-500);color:var(--st-warn-fg);background:var(--st-warn-bg)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M8 2.75 14.25 13.25H1.75Z" stroke="currentColor" stroke-width="1.5"></path><path d="M8 6.5v2.75" stroke="currentColor" stroke-width="1.5"></path><path d="M8 11v.5" stroke="currentColor" stroke-width="1.5"></path></svg>완료 (경고 있음)</span>
+      <ol style="display:flex;width:100%;height:var(--md-h);border-radius:var(--r-bar-md);overflow:hidden">
+        <sc-for list="{{ segA }}" as="s" hint-placeholder-count="8">
+          <li style="flex:1;min-width:0;background:{{ s.color }};border-right:var(--divider) solid var(--surface)" title="{{ s.title }}" aria-label="{{ s.title }}"></li>
+        </sc-for>
+      </ol>
+      <span style="font-size:var(--fs-body);color:var(--ink-700)">8/8단계 완료<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>4시간 07분</span>
+      <span style="font-size:var(--fs-small);color:var(--ink-500)">GRCh38<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>xGen Exome v2</span>
+      <span style="display:flex;align-items:center;justify-content:center;height:var(--btn-h);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">파일 내려받기</span>
+      <span style="font-size:var(--fs-caption);color:var(--ink-500)">375px에서는 배지와 바가 한 줄에 들어가지 않아 바를 다음 줄에서 전체 폭으로 늘렸습니다.</span>
+    </div>
+  </section>
+
+  <!-- ================ 섹션 4 ================ -->
+  <section style="background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);padding:var(--sp-32);display:flex;flex-direction:column;gap:var(--sp-32)">
+    <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">SECTION 4 — LG / MD / SM</div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+      <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500)">lg · 파이프라인 탭 — 셀 8개(클릭 대상) + 라벨 + 소요시간</span>
+      <ol style="display:flex;gap:var(--lg-gap);width:var(--container);max-width:100%">
+        <sc-for list="{{ lgCells }}" as="c" hint-placeholder-count="8">
+          <li style="flex:1;min-width:var(--lg-cell-min);display:flex;flex-direction:column;gap:var(--sp-8);align-items:stretch" aria-label="{{ c.title }}">
+            <div style="height:var(--lg-h);border-radius:var(--r-sm);background:{{ c.bg }};border-top:var(--underline) dashed {{ c.top }};display:flex;align-items:center;justify-content:center;padding:0 var(--pad-cell-x)">
+              <span style="font-size:var(--fs-label);font-weight:var(--w-500);color:{{ c.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ c.name }}">{{ c.name }}</span>
+            </div>
+            <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500);text-align:center">{{ c.time }}</span>
+          </li>
+        </sc-for>
+      </ol>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--sp-12);border-top:1px solid var(--ink-100);padding-top:var(--sp-20)">
+      <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500)">md · Run 헤더 — 연속 바 280×10</span>
+      <ol style="display:flex;width:var(--md-w);height:var(--md-h);border-radius:var(--r-bar-md);overflow:hidden">
+        <sc-for list="{{ segA }}" as="s" hint-placeholder-count="8">
+          <li style="flex:1;min-width:0;background:{{ s.color }};border-right:var(--divider) solid var(--surface)" title="{{ s.title }}"></li>
+        </sc-for>
+      </ol>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--sp-12);border-top:1px solid var(--ink-100);padding-top:var(--sp-20)">
+      <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500)">sm · 실행 목록 행 — 연속 바 120×6, 구분선 없음</span>
+      <ol style="display:flex;width:var(--sm-w);height:var(--sm-h);border-radius:var(--r-sm);overflow:hidden">
+        <sc-for list="{{ segA }}" as="s" hint-placeholder-count="8">
+          <li style="flex:1;min-width:0;background:{{ s.color }}" title="{{ s.title }}"></li>
+        </sc-for>
+      </ol>
+    </div>
+
+    <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500);max-width:var(--md-w-thick)">lg의 셀은 눌러 단계 상세로 가는 조작 대상이라 분리돼 있고, md·sm은 눌리지 않는 요약 표시라 하나의 바입니다. 기능이 다르므로 형태가 달라도 같은 컴포넌트의 세 크기로 읽힙니다 — 공통점은 좌→우 단계 순서, 균등 분할, 동일한 상태 색 체계입니다.</span>
+  </section>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1520}}">
+class Component extends DCLogic {
+  /* 면적 채움은 --fill-* (텍스트용 --st-*-fg는 10px 바에서 탁해짐) */
+  C = {
+    ok: 'var(--fill-ok)', warn: 'var(--fill-warn)', fail: 'var(--fill-fail)',
+    run: 'var(--fill-run)', skip: 'var(--fill-skip)', idle: 'var(--fill-idle)'
+  };
+  LABEL = { ok: '완료', warn: '경고', fail: '실패', run: '진행 중', skip: '건너뜀', idle: '대기' };
+
+  names = ['입력 검증', '원본 품질 검사', '전처리', '참조 유전체 정렬', 'BAM 정리·보정', '커버리지 검사', '변이 검출', '결과 정리'];
+  times = ['12초', '4분 31초', '—', '38분 12초', '22분 04초', '3분 18초', '18분 32초', '8초'];
+
+  seg(states, opts) {
+    const o = opts || {};
+    return states.map((st, i) => ({
+      color: this.C[st],
+      title: this.names[i] + ' · ' + this.LABEL[st] + (this.times[i] !== '—' ? ' · ' + this.times[i] : ''),
+      stripes: o.stripes && st === 'run'
+        ? 'repeating-linear-gradient(45deg, rgba(255,255,255,.34) 0 4px, rgba(255,255,255,0) 4px 8px)'
+        : 'none',
+      anim: o.stripes && o.animate && st === 'run' ? 'om-stripes 2.5s linear infinite' : 'none'
+    }));
+  }
+
+  renderVals() {
+    const A = ['ok', 'ok', 'skip', 'ok', 'ok', 'warn', 'ok', 'ok'];
+    const B = ['ok', 'ok', 'skip', 'ok', 'ok', 'ok', 'run', 'idle'];
+    const segA = this.seg(A);
+    const segB = this.seg(B);
+
+    const badge = {
+      ok:   { badge: '완료',   badgeFg: 'var(--st-ok-fg)',   badgeBg: 'var(--st-ok-bg)' },
+      run:  { badge: '분석 중', badgeFg: 'var(--st-run-fg)',  badgeBg: 'var(--st-run-bg)' },
+      fail: { badge: '실패',   badgeFg: 'var(--st-fail-fg)', badgeBg: 'var(--st-fail-bg)' }
+    };
+
+    const rows = [
+      Object.assign({ sample: 'NA12878', kind: 'WES Germline', step: '8/8단계', when: '어제',
+        segments: this.seg(['ok', 'ok', 'skip', 'ok', 'ok', 'ok', 'ok', 'ok']) }, badge.ok),
+      Object.assign({ sample: 'NA12878', kind: 'WES Germline', step: '6/8단계', when: '14:32',
+        segments: segB }, badge.run),
+      Object.assign({ sample: 'HG002', kind: 'WES Germline', step: '1/1단계', when: '8/22',
+        segments: this.seg(['fail']) }, badge.fail)
+    ];
+
+    const fallback = rows.map((r, i) => Object.assign({}, r, {
+      showBar: i !== 2,
+      fallbackText: i === 2 ? '사전 점검' : false
+    }));
+
+    return {
+      segA, segB,
+      segStripe: this.seg(B, { stripes: true, animate: true }),
+      segStripeStatic: this.seg(B, { stripes: true }),
+      listRows: rows,
+      listRowsFallback: fallback,
+      lgCells: A.map((st, i) => ({
+        name: this.names[i],
+        time: this.times[i] === '—' ? '—' : this.times[i],
+        bg: 'var(--st-' + st + '-bg)',
+        fg: 'var(--st-' + st + '-fg)',
+        top: st === 'skip' ? 'var(--ink-400)' : 'transparent',
+        title: this.names[i] + ' · ' + this.LABEL[st]
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

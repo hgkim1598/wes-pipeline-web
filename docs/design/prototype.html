@@ -1,0 +1,1788 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/*
+  WES 분석 — 통합 프로토타입 (8단계 최종)
+
+  라우트
+    #/                              실행 목록 (첫 화면)
+    #/new?step=1..4                 새 분석 마법사
+    #/runs/RUN-001                  개요
+    #/runs/RUN-001/pipeline         파이프라인
+    #/runs/RUN-001/results          결과
+    #/runs/RUN-001/files            파일
+    #/runs/RUN-001/reproducibility  재현성
+    #/404                           없는 실행
+
+  mock 실행
+    RUN-001  running                 NA12878 · full · 6/8단계 · 결과 탭 409
+    RUN-002  completed_with_warnings NA12878 · full · 8/8단계 · 메인 시연 대상
+    RUN-003  failed                  HG002   · precheck · 실패 2건
+    RUN-004  queued                  HG003   · full · 0/8단계
+
+  테스트 시나리오
+    1. 실행 목록에서 RUN-002 클릭 → 5개 탭 순회 (URL 변경 · 뒤로가기 · 새로고침 유지)
+    2. 파이프라인 탭에서 단계 행 또는 RunTape lg 셀 클릭 → 우측 레일 상세 교체
+    3. 창 폭을 1120px 미만으로 줄이고 단계 클릭 → 드로어, 768px 미만 → 하단 시트 (ESC로 닫기)
+    4. 결과 탭 비교: RUN-002(full) / RUN-003(precheck 실패) / RUN-001(409 미준비)
+    5. 파일 탭에서 필터 칩 전환 → 0건이면 빈 상태, [전체]로 복귀
+    6. 재현성 탭 · 결과 탭 입력 요약 · 파이프라인 상세의 아코디언 펼치기
+    7. 새 분석 → 2단계에서 [샘플 파일 추가] → 3·4단계로 이동해도 업로드가 계속 진행
+       업로드 완료 전에는 [분석 시작] 비활성 → 완료 후 클릭 시 #/runs/RUN-001
+    8. 주소창에 #/runs/RUN-999 입력 → 404
+    9. 우하단 DEV 패널로 RUN-001을 완료 상태로 전환 → 배지·RunTape·결과 탭 갱신
+*/
+:root{
+  --ink-950:#0B1116; --ink-900:#17212B; --ink-700:#3A4854; --ink-500:#5F6D79;
+  --ink-400:#8C99A5; --ink-300:#B6C0C9; --border-strong:#8795A2;
+  --ink-200:#D6DEE5; --ink-100:#E8EDF1;
+  --sunken:#EEF3F7; --surface:#FFFFFF; --paper:#F7F9FB;
+  --brand-700:#143C7B; --brand-600:#1A4D9E; --brand-500:#2461BC; --brand-100:#E7EFFA; --brand-050:#F3F7FC;
+
+  --st-idle-fg:#5F6D79; --st-idle-bg:#EEF3F7; --st-idle-bd:#D6DEE5;
+  --st-run-fg:#1A4D9E;  --st-run-bg:#E7EFFA;  --st-run-bd:#BFD5F0;
+  --st-ok-fg:#14663F;   --st-ok-bg:#E4F1EA;   --st-ok-bd:#B9DCC9;
+  --st-warn-fg:#8A5300; --st-warn-bg:#FBF0DC; --st-warn-bd:#EDD3A0;
+  --st-fail-fg:#A32217; --st-fail-bg:#FBE7E4; --st-fail-bd:#F0BDB6;
+  --st-skip-fg:#5F6D79; --st-skip-bg:#F7F9FB; --st-skip-bd:#E8EDF1;
+
+  --fill-ok:#2E9B6B; --fill-warn:#C98A22; --fill-fail:#D14839;
+  --fill-run:#2F6FD0; --fill-skip:#B6C0C9; --fill-idle:#DEE5EB;
+
+  --cov-1:#440154; --cov-10:#414487; --cov-20:#2A788E;
+  --cov-30:#22A884; --cov-50:#7AD151; --cov-100:#FDE725;
+
+  --log-bg:var(--ink-950); --log-fg:var(--ink-200);
+  --log-time:var(--ink-400); --log-step:var(--brand-100);
+
+  --font-sans:'IBM Plex Sans KR','IBM Plex Sans',system-ui,sans-serif;
+  --font-cond:'IBM Plex Sans Condensed','IBM Plex Sans KR',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+
+  --fs-display:28px; --lh-display:1.20;
+  --fs-h1:22px;      --lh-h1:1.30;
+  --fs-h2:17px;      --lh-h2:1.35;
+  --fs-h3:15px;      --lh-h3:1.40;
+  --fs-body:14px;    --lh-body:1.55;
+  --fs-small:13px;   --lh-small:1.50;
+  --fs-caption:12px; --lh-caption:1.45;
+  --fs-eyebrow:11px; --lh-eyebrow:1.20;
+  --fs-metric-xl:34px; --lh-metric-xl:1.05;
+  --fs-metric-md:20px; --lh-metric-md:1.15;
+  --fs-data:13px;    --lh-data:1.45;
+  --fs-log:12.5px;   --lh-log:1.60;
+  --fs-label:11px;
+
+  --w-400:400; --w-500:500; --w-600:600;
+  --ls-tight:-0.01em; --ls-tighter:-0.02em; --ls-wide:0.09em;
+
+  --sp-4:4px; --sp-8:8px; --sp-12:12px; --sp-16:16px; --sp-20:20px;
+  --sp-24:24px; --sp-32:32px; --sp-40:40px; --sp-48:48px; --sp-64:64px;
+
+  --r-sm:4px; --r-md:8px; --radius-pill:999px; --r-bar-md:5px; --r-bar-3:3px;
+  --el-1:0 1px 2px rgba(11,17,22,.06), 0 4px 12px rgba(11,17,22,.08);
+  --el-2:0 8px 32px rgba(11,17,22,.16);
+  --dim:rgba(11,17,22,.32);
+
+  --container:1360px; --content:880px; --rail:400px; --header-h:56px;
+  --icon:16px; --icon-24:24px; --icon-32:32px; --icon-40:40px;
+  --chev:12px; --hit:24px; --underline:2px; --btn-h:32px; --dl-btn:36px;
+  --node:24px; --node-line:2px;
+  --pad-pill-x:12px; --pad-tag-y:2px; --pad-tag-x:8px; --pad-chip-y:6px; --pad-cell-x:6px;
+  --tape-gap:2px; --tape-h-lg:40px; --tape-cell-min:24px;
+  --md-w:280px; --md-h:10px; --sm-w:120px; --sm-h:6px; --divider:1px;
+  --kv-label:180px; --col-code:140px; --tile-label-h:18px;
+  --bar-h:6px; --bar-h-sm:4px; --bar-h-step:3px; --upload-bar-w:200px;
+  --col-cov-label:60px; --col-cov-val:72px; --bar-cov-h:20px;
+  --col-check-state:88px; --col-check-name:200px;
+  --col-run-badge:132px; --col-run-sample:96px; --col-run-sum:200px; --col-run-when:88px;
+  --col-tag:104px; --col-sub:180px; --col-time:64px; --col-name-min:120px;
+  --row-h:32px; --row-h-table:40px; --row-h-step:44px;
+  --select-w:360px; --ctrl-h:36px; --slot-label:32px; --drop-h:160px; --drop-border:2px;
+  --sw-w:36px; --sw-h:20px; --sw-knob:16px;
+  --w-480:480px; --pad-404:128px; --sheet-h:80vh; --dev-w:260px;
+  --page-pad:var(--sp-40);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink-700);
+  font-family:var(--font-sans);font-size:var(--fs-body);line-height:var(--lh-body);
+  font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;text-wrap:pretty}
+a{color:var(--brand-600);text-decoration:none}
+a:hover{color:var(--brand-500);text-decoration:underline}
+ol,ul{list-style:none;margin:0;padding:0}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;text-align:left;cursor:pointer}
+:focus-visible{outline:var(--underline) solid var(--brand-600);outline-offset:var(--underline)}
+[data-scrim]{display:none}
+[data-mobile-only]{display:none !important}
+@keyframes om-spin{to{transform:rotate(360deg)}}
+@keyframes om-stripes{from{background-position:0 0}to{background-position:32px 0}}
+@media (max-width:1439px){ :root{ --container:100%; --page-pad:var(--sp-24) } }
+@media (max-width:1119px){
+  :root{ --rail:360px; --page-pad:var(--sp-24) }
+  [data-scrim]{display:block;position:fixed;inset:0;background:var(--dim);z-index:19}
+  [data-rail]{position:fixed;top:0;right:0;bottom:0;width:var(--rail);max-width:100%;
+    z-index:20;background:var(--surface);box-shadow:var(--el-2);overflow-y:auto;
+    border-left:1px solid var(--ink-200);padding:var(--sp-24) !important}
+}
+@media (max-width:767px){
+  :root{ --page-pad:var(--sp-16); --kv-label:auto }
+  [data-rail]{top:auto;left:0;width:100%;height:var(--sheet-h);
+    border-radius:var(--r-md) var(--r-md) 0 0;border-left:0}
+  [data-desktop-only]{display:none !important}
+  [data-mobile-only]{display:flex !important}
+  [data-grid-4]{grid-template-columns:repeat(2,1fr) !important}
+  [data-grid-3]{grid-template-columns:repeat(2,1fr) !important}
+  [data-kv-row]{flex-direction:column;align-items:flex-start !important;gap:var(--sp-4) !important}
+  [data-kv-row] > [data-kv-key]{width:auto !important;font-size:var(--fs-caption) !important}
+  [data-cov-row]{flex-wrap:wrap}
+  [data-cov-row] > [data-cov-bar]{order:3;flex-basis:100% !important}
+  [data-cov-row] > [data-cov-val]{flex:1 !important;text-align:right}
+  [data-tape-cell-label]{display:none !important}
+  [data-tape-time]{display:none !important}
+  [data-actions]{flex-direction:column;align-items:stretch !important}
+  [data-actions] > *{justify-content:center}
+  [data-run-row]{flex-wrap:wrap;gap:var(--sp-8) !important}
+  [data-table-row]{flex-wrap:wrap;height:auto !important;padding:var(--sp-12) !important}
+}
+@media (prefers-reduced-motion: reduce){ [data-anim]{animation:none !important;transition:none !important} }
+</style>
+</helmet>
+
+<div style="min-height:100vh;display:flex;flex-direction:column;background:var(--paper)">
+
+  <!-- 앱 헤더 -->
+  <div style="height:var(--header-h);flex:none;background:var(--surface);border-bottom:1px solid var(--ink-200);display:flex;align-items:center;padding:0 var(--page-pad)">
+    <div style="max-width:var(--container);width:100%;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:var(--sp-24)">
+      <div style="display:flex;align-items:center;gap:var(--sp-32);min-width:0">
+        <span style="font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900);white-space:nowrap">WES 분석</span>
+        <nav style="display:flex;align-items:center;gap:var(--sp-24)">
+          <button type="button" onClick="{{ goList }}" style="min-height:var(--hit);font-size:var(--fs-body);font-weight:var(--w-500);color:{{ nav.listColor }};box-shadow:{{ nav.listUnderline }};padding-bottom:var(--sp-4)">실행 목록</button>
+          <button type="button" onClick="{{ goWizard }}" style="min-height:var(--hit);font-size:var(--fs-body);font-weight:var(--w-500);color:{{ nav.newColor }};box-shadow:{{ nav.newUnderline }};padding-bottom:var(--sp-4)">새 분석</button>
+        </nav>
+      </div>
+      <span style="flex:none;display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--pad-pill-x);border-radius:var(--radius-pill);white-space:nowrap;font-size:var(--fs-small);font-weight:var(--w-500);color:var(--st-run-fg);background:var(--st-run-bg)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><circle cx="8" cy="8" r="4" fill="currentColor"></circle></svg>전체 분석 모드</span>
+    </div>
+  </div>
+
+  <div aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)">{{ liveMessage }}</div>
+
+  <div style="flex:1;min-width:0;padding:var(--sp-32) var(--page-pad) var(--sp-48)">
+    <div style="max-width:var(--container);width:100%;margin:0 auto">
+
+      <!-- ==================== 실행 목록 ==================== -->
+      <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-24)">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-24)">
+            <div style="display:flex;flex-direction:column;gap:var(--sp-4)">
+              <h1 style="margin:0;font-size:var(--fs-h1);line-height:var(--lh-h1);font-weight:var(--w-600);letter-spacing:var(--ls-tight);color:var(--ink-900)">실행 목록</h1>
+              <span style="font-size:var(--fs-caption);color:var(--ink-500)">최근 실행 <span style="font-family:var(--font-mono);font-size:var(--fs-data)">{{ list.count }}</span>건</span>
+            </div>
+            <button type="button" onClick="{{ goWizard }}" style="display:inline-flex;align-items:center;gap:var(--sp-8);height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--brand-600);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--surface)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 3.5v9M3.5 8h9" stroke="currentColor" stroke-width="1.5"></path></svg>새 분석</button>
+          </div>
+
+          <div style="background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden">
+            <sc-for list="{{ list.runs }}" as="r" hint-placeholder-count="4">
+              <button type="button" onClick="{{ r.open }}" style="width:100%;padding:var(--sp-16);border-bottom:1px solid var(--ink-100);display:flex;align-items:center;gap:var(--sp-16);background:var(--surface)" style-hover="background:var(--sunken)" data-run-row="1">
+                <span style="width:var(--col-run-badge);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:{{ r.tagColor }}">{{ r.tag }}</span>
+                <span style="flex:1;min-width:var(--col-name-min);display:flex;flex-direction:column;gap:var(--sp-4);align-items:flex-start">
+                  <span style="display:flex;align-items:baseline;gap:var(--sp-12);min-width:0;width:100%">
+                    <span style="width:var(--col-run-sample);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:var(--ink-900)">{{ r.sample }}</span>
+                    <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-body);color:var(--ink-700);text-align:left">{{ r.profile }}</span>
+                  </span>
+                  <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:{{ r.subColor }};text-align:left">{{ r.sub }}</span>
+                </span>
+                <span style="width:var(--sm-w);flex:none;display:flex;align-items:center" data-desktop-only="1">
+                  <sc-if value="{{ r.showBar }}" hint-placeholder-val="{{ true }}">
+                    <span style="display:flex;width:var(--sm-w);height:var(--sm-h);border-radius:var(--r-sm);overflow:hidden">
+                      <sc-for list="{{ r.segments }}" as="s" hint-placeholder-count="8">
+                        <span style="flex:1;min-width:0;background:{{ s.color }}" title="{{ s.title }}"></span>
+                      </sc-for>
+                    </span>
+                  </sc-if>
+                  <sc-if value="{{ r.barFallback }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-size:var(--fs-caption);color:var(--ink-500)">{{ r.barFallback }}</span>
+                  </sc-if>
+                </span>
+                <span style="width:var(--col-run-sum);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-700);text-align:left">{{ r.summary }}</span>
+                <span style="width:var(--col-run-when);flex:none;text-align:right;font-size:var(--fs-small);color:var(--ink-500)">{{ r.when }}</span>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--ink-400)"><path d="M6.5 4 10.5 8 6.5 12" stroke="currentColor" stroke-width="1.5"></path></svg>
+              </button>
+            </sc-for>
+          </div>
+          <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">이 목록은 이 브라우저에만 저장됩니다. 다른 기기에서는 보이지 않습니다.</span>
+        </div>
+      </sc-if>
+
+      <!-- ==================== 404 ==================== -->
+      <sc-if value="{{ isNotFound }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:var(--pad-404) 0;display:flex;justify-content:center">
+          <div style="max-width:var(--w-480);display:flex;flex-direction:column;align-items:center;gap:var(--sp-16);text-align:center">
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="color:var(--ink-400)"><circle cx="20" cy="20" r="14" stroke="currentColor" stroke-width="1.5"></circle><path d="M13.5 26.5 26.5 13.5" stroke="currentColor" stroke-width="1.5"></path></svg>
+            <h1 style="margin:0;font-size:var(--fs-h1);line-height:var(--lh-h1);font-weight:var(--w-600);letter-spacing:var(--ls-tight);color:var(--ink-900)">요청하신 실행을 찾을 수 없습니다</h1>
+            <span style="font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">{{ missingRunId }}</span>
+            <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">서버에서 이 실행 기록을 찾지 못했습니다. 주소가 정확한지 확인하거나 실행 목록에서 다시 선택해 주세요.</span>
+            <button type="button" onClick="{{ goList }}" style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--brand-600);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--surface)">실행 목록으로</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ==================== 마법사 ==================== -->
+      <sc-if value="{{ isWizard }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-32)">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--sp-32);flex-wrap:wrap">
+            <ol style="display:flex;align-items:flex-start" data-desktop-only="1">
+              <sc-for list="{{ wiz.steps }}" as="s" hint-placeholder-count="4">
+                <li style="display:flex;align-items:flex-start;gap:var(--sp-8)">
+                  <button type="button" onClick="{{ s.go }}" style="display:flex;flex-direction:column;align-items:center;gap:var(--sp-8);width:var(--sp-64);cursor:{{ s.cursor }}">
+                    <span style="width:var(--node);height:var(--node);border-radius:var(--radius-pill);background:{{ s.nodeBg }};display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:var(--w-500);color:{{ s.nodeFg }}">{{ s.num }}</span>
+                    <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:{{ s.labelColor }};font-weight:{{ s.labelWeight }};white-space:nowrap">{{ s.label }}</span>
+                  </button>
+                  <span style="width:var(--sp-48);height:var(--node-line);margin-top:calc(var(--node) / 2);background:{{ s.lineColor }}"></span>
+                </sc-for>
+              </sc-for>
+            </ol>
+            <div style="flex-direction:column;gap:var(--sp-8);width:100%" data-mobile-only="1">
+              <span style="font-size:var(--fs-small);color:var(--ink-500)"><span style="font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-900)">{{ wiz.step }} / 4</span><span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>{{ wiz.title }}</span>
+              <span style="height:var(--bar-h-step);border-radius:var(--r-bar-3);background:var(--ink-100);display:block;overflow:hidden"><span style="display:block;height:var(--bar-h-step);border-radius:var(--r-bar-3);background:var(--brand-600);width:{{ wiz.progress }}"></span></span>
+            </div>
+            <h1 style="margin:0;font-size:var(--fs-h1);line-height:var(--lh-h1);font-weight:var(--w-600);letter-spacing:var(--ls-tight);color:var(--ink-900)">{{ wiz.step }}. {{ wiz.title }}</h1>
+          </div>
+
+          <!-- 1단계 -->
+          <sc-if value="{{ wiz.is1 }}" hint-placeholder-val="{{ true }}">
+            <div style="max-width:var(--content);display:flex;flex-direction:column;gap:var(--sp-32)">
+              <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+                <div style="border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+                  <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">사용 가능</h2>
+                </div>
+                <div style="background:var(--brand-050);border:1px solid var(--brand-600);border-radius:var(--r-md);padding:var(--sp-24);display:flex;flex-direction:column;gap:var(--sp-16)">
+                  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-16)">
+                    <div style="display:flex;flex-direction:column;gap:var(--sp-8);min-width:0">
+                      <span style="font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">{{ wiz.profile.name }}</span>
+                      <span style="font-size:var(--fs-small);color:var(--ink-500)">{{ wiz.profile.meta }}</span>
+                    </div>
+                    <span style="flex:none;display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--pad-pill-x);border-radius:var(--radius-pill);white-space:nowrap;font-size:var(--fs-small);font-weight:var(--w-500);color:var(--brand-600);background:var(--brand-100)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="square"></path></svg>선택됨</span>
+                  </div>
+                  <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">Exome 전체에서 germline SNV/Indel을 호출하여 raw VCF를 생성합니다. 변이 필터링·주석은 현재 서버 설정에서 실행되지 않습니다.</span>
+                  <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">분석 범위는 선택한 capture kit의 target 영역을 따릅니다.</span>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+                <div style="border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+                  <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">준비 중</h2>
+                </div>
+                <div style="border-top:1px solid var(--ink-100)">
+                  <sc-for list="{{ wiz.soon }}" as="p" hint-placeholder-count="2">
+                    <div style="min-height:var(--sp-48);display:flex;align-items:center;gap:var(--sp-12);border-bottom:1px solid var(--ink-100);cursor:not-allowed">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--ink-400)"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3"></circle></svg>
+                      <span style="flex:1;min-width:0;font-size:var(--fs-body);color:var(--ink-400)">{{ p.name }}</span>
+                      <span style="flex:none;font-size:var(--fs-small);color:var(--ink-400)">{{ p.reason }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- 2단계 -->
+          <sc-if value="{{ wiz.is2 }}" hint-placeholder-val="{{ false }}">
+            <div style="max-width:var(--content);display:flex;flex-direction:column;gap:var(--sp-24)">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-16)">
+                <div style="display:flex;flex-direction:column;gap:var(--sp-8);min-width:0">
+                  <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">입력 파일</h2>
+                  <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">paired-end FASTQ 한 쌍(R1/R2)을 올려 주세요. 한 번의 분석에 샘플 1개를 처리합니다.</span>
+                </div>
+                <span style="flex:none;min-height:var(--hit);display:inline-flex;align-items:center;font-size:var(--fs-small);font-weight:var(--w-500);color:var(--brand-600)">형식 안내</span>
+              </div>
+
+              <sc-if value="{{ wiz.noFiles }}" hint-placeholder-val="{{ true }}">
+                <button type="button" onClick="{{ wiz.addFiles }}" style="width:100%;height:var(--drop-h);border:var(--drop-border) dashed var(--ink-200);border-radius:var(--r-md);background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-8)" style-hover="border-color:var(--brand-600);background:var(--brand-050)">
+                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" style="color:var(--ink-400)"><path d="M16 22V8" stroke="currentColor" stroke-width="1.5"></path><path d="M10.5 13.5 16 8l5.5 5.5" stroke="currentColor" stroke-width="1.5"></path><path d="M6.5 22v2.5h19V22" stroke="currentColor" stroke-width="1.5"></path></svg>
+                  <span style="font-size:var(--fs-body);color:var(--ink-700)">샘플 파일 추가 — 클릭하면 업로드가 시작됩니다</span>
+                  <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500)">.fastq.gz · .fq.gz · R1 / R2 각 1개</span>
+                </button>
+              </sc-if>
+
+              <sc-if value="{{ wiz.hasFiles }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:var(--sp-24)">
+                  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-16)">
+                    <div style="display:flex;flex-direction:column;gap:var(--sp-4)">
+                      <span style="font-size:var(--fs-caption);color:var(--ink-500)">샘플 이름</span>
+                      <span style="font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">{{ wiz.sample }}</span>
+                    </div>
+                    <span style="font-size:var(--fs-caption);color:var(--ink-500)">파일명에서 자동 인식</span>
+                  </div>
+                  <div style="background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden">
+                    <sc-for list="{{ wiz.slots }}" as="f" hint-placeholder-count="2">
+                      <div style="padding:var(--sp-16);border-bottom:1px solid var(--ink-100);display:flex;gap:var(--sp-12)">
+                        <span style="width:var(--slot-label);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">{{ f.slot }}</span>
+                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-8)">
+                          <div style="display:flex;align-items:center;gap:var(--sp-12)">
+                            <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-body);color:var(--ink-900)">{{ f.name }}</span>
+                            <span style="flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">{{ f.size }}</span>
+                          </div>
+                          <sc-if value="{{ f.done }}" hint-placeholder-val="{{ false }}">
+                            <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--pad-tag-y) var(--pad-tag-x);border-radius:var(--r-sm);font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:var(--w-500);color:var(--st-ok-fg);background:var(--st-ok-bg)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="square"></path></svg>[완료]</span>
+                          </sc-if>
+                          <sc-if value="{{ f.pending }}" hint-placeholder-val="{{ true }}">
+                            <div style="display:flex;flex-direction:column;gap:var(--sp-4)">
+                              <div style="display:flex;align-items:center;gap:var(--sp-12)">
+                                <span style="flex:1;min-width:0;height:var(--bar-h);border-radius:var(--r-bar-3);background:var(--ink-100);display:block;overflow:hidden"><span style="display:block;height:var(--bar-h);border-radius:var(--r-bar-3);background:var(--fill-run);width:{{ f.pct }};transition:width 200ms linear" data-anim="1"></span></span>
+                                <span style="flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-900)">{{ f.pctLabel }}</span>
+                              </div>
+                              <span style="font-size:var(--fs-caption);color:var(--ink-500)">{{ f.meta }}</span>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <!-- 3단계 -->
+          <sc-if value="{{ wiz.is3 }}" hint-placeholder-val="{{ false }}">
+            <div style="max-width:var(--content);display:flex;flex-direction:column;gap:var(--sp-24)">
+              <div style="display:flex;flex-direction:column;gap:var(--sp-4)">
+                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-16)">
+                  <span style="font-size:var(--fs-caption);color:var(--ink-500)">참조 유전체</span>
+                  <span style="font-size:var(--fs-caption);color:var(--ink-500)">이 서버에 고정</span>
+                </div>
+                <span style="font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">GRCh38 (hg38)</span>
+                <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">참조 FASTA · capture BED · known-sites가 모두 GRCh38 기준입니다.</span>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+                <span style="font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">Exome capture kit</span>
+                <button type="button" onClick="{{ wiz.toggleKits }}" style="width:var(--select-w);max-width:100%;height:var(--ctrl-h);border-radius:var(--r-sm);border:1px solid var(--border-strong);background:var(--surface);display:flex;align-items:center;justify-content:space-between;padding:0 var(--sp-12);font-size:var(--fs-body);color:var(--ink-900)">{{ wiz.kit }}<svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--ink-500);transform:{{ wiz.kitChevron }};transition:transform 180ms" data-anim="1"><path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" stroke-width="1.5"></path></svg></button>
+                <sc-if value="{{ wiz.kitsOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="width:var(--select-w);max-width:100%;background:var(--surface);border:1px solid var(--ink-100);border-radius:var(--r-sm);box-shadow:var(--el-1);overflow:hidden">
+                    <sc-for list="{{ wiz.kits }}" as="k" hint-placeholder-count="4">
+                      <div style="min-height:var(--ctrl-h);display:flex;align-items:center;gap:var(--sp-12);padding:var(--sp-8) var(--sp-12);border-bottom:1px solid var(--ink-100);cursor:{{ k.cursor }};background:{{ k.bg }}">
+                        <span style="flex:1;min-width:0;font-size:var(--fs-body);color:{{ k.color }}">{{ k.name }}</span>
+                        <span style="flex:none;font-size:var(--fs-caption);color:{{ k.noteColor }}">{{ k.note }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">라이브러리 제작에 실제로 사용한 kit과 같은 것을 선택해 주세요. 이 kit의 target 영역이 분석 범위를 결정합니다.</span>
+              </div>
+
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-24)">
+                <div style="display:flex;flex-direction:column;gap:var(--sp-4);min-width:0">
+                  <span style="font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">ACMG 자동 분류</span>
+                  <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">InterVar로 5단계 자동 분류. 20~40분이 추가됩니다.</span>
+                </div>
+                <button type="button" onClick="{{ wiz.toggleAcmg }}" style="flex:none;width:var(--sw-w);height:var(--sw-h);border-radius:var(--radius-pill);background:{{ wiz.acmgBg }};display:flex;align-items:center;justify-content:{{ wiz.acmgAlign }};padding:var(--sp-4);transition:background 180ms" data-anim="1"><span style="width:var(--sw-knob);height:var(--sw-knob);border-radius:var(--radius-pill);background:var(--surface)"></span></button>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+                <button type="button" onClick="{{ wiz.toggleFixed }}" style="width:100%;border-top:1px solid var(--ink-200);border-bottom:1px solid var(--ink-200);padding:var(--sp-16) 0;display:flex;align-items:center;justify-content:space-between;gap:var(--sp-12)">
+                  <span style="display:inline-flex;align-items:center;gap:var(--sp-8);font-size:var(--fs-small);color:var(--ink-500)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"></circle><path d="M8 7v4.5" stroke="currentColor" stroke-width="1.5"></path><path d="M8 4.5v1" stroke="currentColor" stroke-width="1.5"></path></svg>이 서버에서 조정할 수 없는 항목</span>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--ink-400);transform:{{ wiz.fixedChevron }};transition:transform 180ms" data-anim="1"><path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" stroke-width="1.5"></path></svg>
+                </button>
+                <sc-if value="{{ wiz.fixedOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="background:var(--sunken);border-radius:var(--r-sm);padding:var(--sp-16);display:flex;flex-direction:column;gap:var(--sp-12)">
+                    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:var(--sp-8) var(--sp-24)" data-grid-3="1">
+                      <sc-for list="{{ wiz.fixed }}" as="o" hint-placeholder-count="6">
+                        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-12)">
+                          <span style="font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-700)">{{ o.name }}</span>
+                          <span style="font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">{{ o.value }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">현재 파이프라인은 이 값들을 고정값으로 실행합니다.</span>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- 4단계 -->
+          <sc-if value="{{ wiz.is4 }}" hint-placeholder-val="{{ false }}">
+            <div style="max-width:var(--content);display:flex;flex-direction:column;gap:var(--sp-32)">
+              <div style="background:var(--st-warn-bg);border-radius:var(--r-sm);padding:var(--sp-24);display:flex;gap:var(--sp-16);align-items:flex-start">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="flex:none;color:var(--st-warn-fg);margin-top:var(--sp-4)"><path d="M12 4 21.5 20H2.5Z" stroke="currentColor" stroke-width="1.5"></path><path d="M12 10v4.5" stroke="currentColor" stroke-width="1.5"></path><path d="M12 16.5v1" stroke="currentColor" stroke-width="1.5"></path></svg>
+                <div style="display:flex;flex-direction:column;gap:var(--sp-8);min-width:0">
+                  <span style="font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">이 서버는 사전 점검 모드입니다</span>
+                  <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">입력과 참조 데이터가 올바른지만 검사하고, 실제 분석 산출물(BAM·VCF)은 생성하지 않습니다. 전체 분석은 서버 설정 변경이 필요합니다.</span>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column">
+                <sc-for list="{{ wiz.summary }}" as="kv" hint-placeholder-count="7">
+                  <div style="min-height:var(--row-h);padding:var(--sp-4) 0;display:flex;align-items:flex-start;gap:var(--sp-16)" data-kv-row="1">
+                    <span style="width:var(--kv-label);flex:none;font-size:var(--fs-small);color:var(--ink-500)" data-kv-key="1">{{ kv.label }}</span>
+                    <span style="flex:1;min-width:0;font-family:{{ kv.font }};font-size:{{ kv.size }};color:var(--ink-900)">{{ kv.value }}</span>
+                    <sc-if value="{{ kv.editStep }}" hint-placeholder-val="{{ false }}">
+                      <button type="button" onClick="{{ kv.edit }}" style="flex:none;min-height:var(--hit);display:inline-flex;align-items:center;font-size:var(--fs-small);font-weight:var(--w-500);color:var(--brand-600)">수정</button>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- 마법사 하단 바 -->
+          <div style="border-top:1px solid var(--ink-200);padding-top:var(--sp-16);display:flex;align-items:center;justify-content:space-between;gap:var(--sp-24);flex-wrap:wrap">
+            <sc-if value="{{ wiz.uploading }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+                <span style="display:inline-flex;align-items:center;gap:var(--sp-8);font-size:var(--fs-small);color:var(--ink-700)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--brand-600);animation:om-spin 1.2s linear infinite" data-anim="1"><path d="M14 8a6 6 0 1 1-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>{{ wiz.uploadLabel }}</span>
+                <span style="width:var(--upload-bar-w);height:var(--bar-h-sm);border-radius:var(--r-bar-3);background:var(--ink-100);display:block;overflow:hidden"><span style="display:block;height:var(--bar-h-sm);border-radius:var(--r-bar-3);background:var(--fill-run);width:{{ wiz.uploadPct }};transition:width 200ms linear" data-anim="1"></span></span>
+              </div>
+            </sc-if>
+            <div style="display:flex;align-items:center;gap:var(--sp-12);margin-left:auto;flex-wrap:wrap" data-actions="1">
+              <button type="button" onClick="{{ wiz.prev }}" style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">이전</button>
+              <button type="button" onClick="{{ wiz.next }}" style="display:inline-flex;align-items:center;gap:var(--sp-8);height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:{{ wiz.nextBg }};font-size:var(--fs-body);font-weight:var(--w-500);color:{{ wiz.nextFg }};cursor:{{ wiz.nextCursor }}">{{ wiz.nextLabel }}</button>
+            </div>
+            <sc-if value="{{ wiz.blockReason }}" hint-placeholder-val="{{ false }}">
+              <span style="width:100%;text-align:right;font-size:var(--fs-caption);color:var(--ink-500)">{{ wiz.blockReason }}</span>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ==================== Run Workspace ==================== -->
+      <sc-if value="{{ isRun }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-24)">
+
+          <!-- Run 헤더 -->
+          <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+            <button type="button" onClick="{{ goList }}" style="align-self:flex-start;display:inline-flex;align-items:center;gap:var(--sp-4);min-height:var(--hit);font-size:var(--fs-small);color:var(--ink-500)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M9.5 4 5.5 8 9.5 12" stroke="currentColor" stroke-width="1.5"></path></svg>실행 목록</button>
+            <h1 style="margin:0;font-size:var(--fs-h1);line-height:var(--lh-h1);font-weight:var(--w-600);letter-spacing:var(--ls-tight);color:var(--ink-900)">{{ run.profile }}<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>{{ run.sample }}</h1>
+            <div style="display:flex;align-items:center;gap:var(--sp-16);flex-wrap:wrap">
+              <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--pad-pill-x);border-radius:var(--radius-pill);white-space:nowrap;font-size:var(--fs-body);font-weight:var(--w-500);color:{{ run.badgeFg }};background:{{ run.badgeBg }}">
+                <sc-if value="{{ run.iconRun }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M1.5 8h2.75l1.75-4.5 2.5 9 1.75-4.5H14.5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path></svg></sc-if>
+                <sc-if value="{{ run.iconOk }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="square"></path></svg></sc-if>
+                <sc-if value="{{ run.iconWarn }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M8 2.75 14.25 13.25H1.75Z" stroke="currentColor" stroke-width="1.5"></path><path d="M8 6.5v2.75" stroke="currentColor" stroke-width="1.5"></path><path d="M8 11v.5" stroke="currentColor" stroke-width="1.5"></path></svg></sc-if>
+                <sc-if value="{{ run.iconFail }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M5.7 2.25h4.6L13.75 5.7v4.6L10.3 13.75H5.7L2.25 10.3V5.7Z" stroke="currentColor" stroke-width="1.5"></path><path d="M6.25 6.25 9.75 9.75M9.75 6.25 6.25 9.75" stroke="currentColor" stroke-width="1.5"></path></svg></sc-if>
+                <sc-if value="{{ run.iconIdle }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><path d="M4.5 2.5h7M4.5 13.5h7" stroke="currentColor" stroke-width="1.5"></path><path d="M5.5 2.5v2.2L8 8l-2.5 3.3v2.2M10.5 2.5v2.2L8 8l2.5 3.3v2.2" stroke="currentColor" stroke-width="1.5"></path></svg></sc-if>
+                {{ run.badgeLabel }}
+              </span>
+              <sc-if value="{{ run.showTape }}" hint-placeholder-val="{{ true }}">
+                <span style="display:flex;width:var(--md-w);max-width:100%;height:var(--md-h);border-radius:var(--r-bar-md);overflow:hidden">
+                  <sc-for list="{{ run.tapeMd }}" as="s" hint-placeholder-count="8">
+                    <span style="flex:1;min-width:0;background:{{ s.color }};border-right:var(--divider) solid var(--surface)" title="{{ s.title }}"></span>
+                  </sc-for>
+                </span>
+              </sc-if>
+            </div>
+            <span style="font-size:var(--fs-body);color:var(--ink-700)">{{ run.progressText }}</span>
+            <span style="font-size:var(--fs-small);color:var(--ink-500)">{{ run.metaLine }}</span>
+            <div style="display:flex;align-items:center;gap:var(--sp-24);flex-wrap:wrap">
+              <span style="display:inline-flex;align-items:center;gap:var(--sp-8);min-height:var(--hit);font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-700)">{{ run.runId }}<svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--ink-400)"><rect x="5.75" y="5.75" width="7.5" height="7.5" rx="1" stroke="currentColor" stroke-width="1.5"></rect><path d="M10.25 3.75H3.75a1 1 0 0 0-1 1v6.5" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+              <span style="font-size:var(--fs-caption);color:var(--ink-500)">{{ run.timeLine }}</span>
+            </div>
+          </div>
+
+          <!-- 탭 -->
+          <div style="border-bottom:1px solid var(--ink-200);display:flex;align-items:flex-end;gap:var(--sp-24);overflow-x:auto">
+            <sc-for list="{{ run.tabs }}" as="t" hint-placeholder-count="5">
+              <button type="button" onClick="{{ t.go }}" style="flex:none;min-height:var(--hit);padding:var(--sp-12) 0;white-space:nowrap;font-size:var(--fs-body);font-weight:var(--w-500);color:{{ t.color }};box-shadow:{{ t.underline }}">{{ t.label }}</button>
+            </sc-for>
+          </div>
+
+          <!-- 개요 -->
+          <sc-if value="{{ tab.overview }}" hint-placeholder-val="{{ true }}">
+            <div style="max-width:var(--content);display:flex;flex-direction:column;gap:var(--sp-32)">
+              <div style="background:{{ ov.verdictBg }};border-radius:var(--r-sm);padding:var(--sp-24);display:flex;gap:var(--sp-16);align-items:flex-start">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="flex:none;color:{{ ov.verdictFg }};margin-top:var(--sp-4)"><path d="M2.5 12h4l2.5-6.5 3.5 13 2.5-6.5h6.5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path></svg>
+                <div style="display:flex;flex-direction:column;gap:var(--sp-8);min-width:0">
+                  <span style="font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">{{ ov.verdictTitle }}</span>
+                  <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">{{ ov.verdictBody }}</span>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-16)" data-grid-4="1">
+                <sc-for list="{{ ov.metrics }}" as="m" hint-placeholder-count="4">
+                  <div style="background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);padding:var(--sp-20);display:flex;flex-direction:column">
+                    <span style="height:var(--tile-label-h);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">{{ m.label }}</span>
+                    <span style="margin-top:var(--sp-12);font-family:var(--font-mono);font-size:var(--fs-metric-xl);line-height:var(--lh-metric-xl);font-weight:var(--w-500);letter-spacing:var(--ls-tighter);color:var(--ink-900)">{{ m.value }}<span style="font-family:var(--font-mono);font-size:var(--fs-data);letter-spacing:normal;color:var(--ink-500)">{{ m.unit }}</span></span>
+                    <span style="margin-top:var(--sp-8);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">{{ m.note }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+                <div style="border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+                  <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">지금 확인할 수 있는 것</h2>
+                </div>
+                <div style="border-top:1px solid var(--ink-100)">
+                  <sc-for list="{{ ov.available }}" as="a" hint-placeholder-count="3">
+                    <div style="padding:var(--sp-16) 0;border-bottom:1px solid var(--ink-100);display:flex;align-items:center;justify-content:space-between;gap:var(--sp-16)">
+                      <div style="display:flex;flex-direction:column;gap:var(--sp-4);min-width:0">
+                        <span style="font-size:var(--fs-body);font-weight:var(--w-500);color:{{ a.titleColor }}">{{ a.title }}</span>
+                        <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">{{ a.desc }}</span>
+                      </div>
+                      <button type="button" onClick="{{ a.go }}" style="flex:none;min-height:var(--hit);display:inline-flex;align-items:center;font-size:var(--fs-small);font-weight:var(--w-500);color:{{ a.actionColor }};cursor:{{ a.cursor }}">{{ a.action }}</button>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+                <div style="border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+                  <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">실행 정보</h2>
+                </div>
+                <div style="display:flex;flex-direction:column">
+                  <sc-for list="{{ ov.info }}" as="kv" hint-placeholder-count="6">
+                    <div style="min-height:var(--row-h);padding:var(--sp-4) 0;display:flex;align-items:center;gap:var(--sp-16)" data-kv-row="1">
+                      <span style="width:var(--kv-label);flex:none;font-size:var(--fs-small);color:var(--ink-500)" data-kv-key="1">{{ kv.label }}</span>
+                      <span style="min-width:0;font-family:{{ kv.font }};font-size:{{ kv.size }};color:var(--ink-900)">{{ kv.value }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- 파이프라인 -->
+          <sc-if value="{{ tab.pipeline }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;gap:var(--sp-24);align-items:flex-start">
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-32)">
+                <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+                  <div style="display:flex;flex-direction:column;gap:var(--sp-4)">
+                    <span style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">PIPELINE</span>
+                    <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">단계</h2>
+                  </div>
+                  <ol style="display:flex;gap:var(--tape-gap)">
+                    <sc-for list="{{ pipe.tapeLg }}" as="c" hint-placeholder-count="8">
+                      <li style="flex:1;min-width:var(--tape-cell-min);display:flex;flex-direction:column;gap:var(--sp-8);align-items:stretch">
+                        <button type="button" onClick="{{ c.select }}" title="{{ c.title }}" style="height:var(--tape-h-lg);border-radius:var(--r-sm);background-color:{{ c.bg }};background-image:{{ c.stripes }};animation:{{ c.anim }};border-top:var(--underline) dashed {{ c.top }};box-shadow:{{ c.ring }};display:flex;align-items:center;justify-content:center;padding:0 var(--pad-cell-x)" data-anim="1">
+                          <span style="font-size:var(--fs-label);font-weight:var(--w-500);color:{{ c.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" data-tape-cell-label="1">{{ c.name }}</span>
+                        </button>
+                        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500);text-align:center" data-tape-time="1">{{ c.time }}</span>
+                      </li>
+                    </sc-for>
+                  </ol>
+                </div>
+
+                <div style="border:1px solid var(--ink-200);border-radius:var(--r-md);background:var(--surface);overflow:hidden">
+                  <sc-for list="{{ pipe.rows }}" as="s" hint-placeholder-count="8">
+                    <button type="button" onClick="{{ s.select }}" style="width:100%;display:flex;flex-direction:column;border-bottom:1px solid {{ s.bb }};background:{{ s.rowBg }};cursor:{{ s.cursor }}" style-hover="background:var(--sunken)">
+                      <span style="width:100%;min-height:var(--row-h-step);display:flex;align-items:center;gap:var(--sp-8);padding:0 var(--sp-12)" data-table-row="1">
+                        <span style="width:var(--col-tag);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:{{ s.tagColor }}">{{ s.tag }}</span>
+                        <span style="flex:1;min-width:var(--col-name-min);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-body);font-weight:{{ s.nameWeight }};color:{{ s.nameColor }};text-align:left">{{ s.name }}</span>
+                        <span style="width:var(--col-sub);flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-small);color:{{ s.subColor }};text-align:left" data-desktop-only="1">{{ s.sub }}</span>
+                        <span style="flex:none;min-width:var(--col-time);text-align:right;font-family:var(--font-mono);font-size:var(--fs-data);color:{{ s.timeColor }}">{{ s.time }}</span>
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:{{ s.chevColor }}"><path d="M6.5 4 10.5 8 6.5 12" stroke="currentColor" stroke-width="1.5"></path></svg>
+                        <svg width="8" height="12" viewBox="0 0 8 12" style="flex:none;color:{{ s.markerColor }}"><path d="M0 0 8 6 0 12Z" fill="currentColor"></path></svg>
+                      </span>
+                      <sc-if value="{{ s.reason }}" hint-placeholder-val="{{ false }}">
+                        <span style="padding:0 var(--sp-12) var(--sp-8) calc(var(--col-tag) + var(--sp-20));font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500);text-align:left">{{ s.reason }}</span>
+                      </sc-if>
+                    </button>
+                  </sc-for>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-16);border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+                    <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">최근 로그</h2>
+                    <span style="font-size:var(--fs-caption);color:var(--ink-500)">마지막 200줄</span>
+                  </div>
+                  <div style="background:var(--log-bg);border-radius:var(--r-md);padding:var(--sp-16);overflow-x:auto">
+                    <sc-for list="{{ pipe.logs }}" as="l" hint-placeholder-count="6">
+                      <div style="display:flex;gap:var(--sp-8);white-space:nowrap;font-family:var(--font-mono);font-size:var(--fs-log);line-height:var(--lh-log)">
+                        <span style="color:var(--log-time)">{{ l.time }}</span>
+                        <span style="color:var(--log-step)">{{ l.step }}</span>
+                        <span style="color:var(--log-fg)">{{ l.body }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+
+              <sc-if value="{{ pipe.detailOpen }}" hint-placeholder-val="{{ true }}">
+                <button type="button" onClick="{{ pipe.close }}" aria-label="상세 닫기" data-scrim="1"></button>
+              </sc-if>
+              <sc-if value="{{ pipe.detailOpen }}" hint-placeholder-val="{{ true }}">
+                <aside data-rail="1" style="width:var(--rail);flex:none;background:var(--surface);border-left:1px solid var(--ink-200);padding-left:var(--sp-24);display:flex;flex-direction:column;gap:var(--sp-24)">
+                  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-12)">
+                    <div style="display:flex;flex-direction:column;gap:var(--sp-8);min-width:0">
+                      <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">{{ pipe.detail.name }}</h2>
+                      <span style="font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">{{ pipe.detail.id }}</span>
+                    </div>
+                    <button type="button" onClick="{{ pipe.close }}" aria-label="닫기" style="flex:none;width:var(--hit);height:var(--hit);display:inline-flex;align-items:center;justify-content:center;color:var(--ink-500)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4 12 12M12 4 4 12" stroke="currentColor" stroke-width="1.5"></path></svg></button>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:var(--sp-12);border-bottom:1px solid var(--ink-200);padding-bottom:var(--sp-16)">
+                    <span style="display:inline-flex;align-items:center;padding:var(--pad-tag-y) var(--pad-tag-x);border-radius:var(--r-sm);font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:var(--w-500);color:{{ pipe.detail.tagColor }};background:{{ pipe.detail.tagBg }}">{{ pipe.detail.tag }}</span>
+                    <span style="font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-700)">{{ pipe.detail.time }}</span>
+                  </div>
+                  <sc-if value="{{ pipe.detail.hasMetrics }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+                      <h3 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">지표</h3>
+                      <div style="display:flex;flex-direction:column">
+                        <sc-for list="{{ pipe.detail.metrics }}" as="m" hint-placeholder-count="4">
+                          <div style="min-height:var(--row-h);display:flex;align-items:center;justify-content:space-between;gap:var(--sp-16);border-bottom:1px solid var(--ink-100)">
+                            <span style="font-size:var(--fs-small);color:var(--ink-500)">{{ m.label }}</span>
+                            <span style="font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-900)">{{ m.value }}<span style="font-size:var(--fs-caption);color:var(--ink-500)">{{ m.unit }}</span></span>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-if>
+                  <div style="display:flex;flex-direction:column">
+                    <sc-for list="{{ pipe.detail.accordions }}" as="a" hint-placeholder-count="3">
+                      <div style="display:flex;flex-direction:column;border-top:1px solid var(--ink-100)">
+                        <button type="button" onClick="{{ a.toggle }}" style="min-height:var(--row-h-step);display:flex;align-items:center;justify-content:space-between;gap:var(--sp-12)">
+                          <span style="font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">{{ a.title }}</span>
+                          <span style="display:inline-flex;align-items:center;gap:var(--sp-8);font-size:var(--fs-small);color:var(--ink-500)">{{ a.count }}<svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--ink-400);transform:{{ a.chevron }};transition:transform 180ms" data-anim="1"><path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+                        </button>
+                        <sc-if value="{{ a.open }}" hint-placeholder-val="{{ false }}">
+                          <div style="padding:0 0 var(--sp-12);display:flex;flex-direction:column;gap:var(--sp-4)">
+                            <sc-for list="{{ a.items }}" as="it" hint-placeholder-count="2">
+                              <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500)">{{ it.text }}</span>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                  </div>
+                </aside>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <!-- 결과 -->
+          <sc-if value="{{ tab.results }}" hint-placeholder-val="{{ false }}">
+            <div style="max-width:var(--content);display:flex;flex-direction:column;gap:var(--sp-32)">
+
+              <sc-if value="{{ res.notReady }}" hint-placeholder-val="{{ false }}">
+                <div style="border:1px solid var(--ink-100);border-radius:var(--r-md);padding:var(--sp-64) var(--sp-24);display:flex;flex-direction:column;align-items:center;gap:var(--sp-12);text-align:center">
+                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" style="color:var(--ink-400)"><circle cx="16" cy="16" r="11.25" stroke="currentColor" stroke-width="1.5"></circle><path d="M16 9.5V16l4.5 2.75" stroke="currentColor" stroke-width="1.5"></path></svg>
+                  <span style="font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">결과가 아직 준비되지 않았습니다</span>
+                  <span style="font-size:var(--fs-small);color:var(--ink-500)">마지막 단계가 완료되면 결과를 볼 수 있습니다.</span>
+                  <button type="button" onClick="{{ res.goPipeline }}" style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">파이프라인 탭으로</button>
+                  <span style="font-size:var(--fs-caption);color:var(--ink-500)">{{ res.notReadyNote }}</span>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ res.hasVerdict }}" hint-placeholder-val="{{ true }}">
+                <div style="background:{{ res.verdictBg }};border-radius:var(--r-sm);padding:var(--sp-24);display:flex;gap:var(--sp-16);align-items:flex-start;justify-content:space-between">
+                  <div style="display:flex;gap:var(--sp-16);align-items:flex-start;min-width:0">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="flex:none;color:{{ res.verdictFg }};margin-top:var(--sp-4)"><path d="M12 4 21.5 20H2.5Z" stroke="currentColor" stroke-width="1.5"></path><path d="M12 10v4.5" stroke="currentColor" stroke-width="1.5"></path><path d="M12 16.5v1" stroke="currentColor" stroke-width="1.5"></path></svg>
+                    <div style="display:flex;flex-direction:column;gap:var(--sp-8);min-width:0">
+                      <span style="font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">{{ res.verdictTitle }}</span>
+                      <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">{{ res.verdictBody }}</span>
+                    </div>
+                  </div>
+                  <span style="flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">{{ res.elapsed }}</span>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ res.hasFailures }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+                  <div style="display:flex;align-items:baseline;gap:var(--sp-12);border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+                    <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">해결해야 할 문제</h2>
+                    <span style="font-size:var(--fs-small);color:var(--ink-500)"><span style="font-family:var(--font-mono);font-size:var(--fs-data)">{{ res.failureCount }}</span>건</span>
+                  </div>
+                  <div style="border-top:1px solid var(--ink-100)">
+                    <sc-for list="{{ res.failures }}" as="f" hint-placeholder-count="2">
+                      <div style="border-bottom:1px solid var(--ink-100);padding:var(--sp-16) 0;display:flex;gap:var(--sp-24)" data-table-row="1">
+                        <div style="width:var(--col-code);flex:none;display:flex;flex-direction:column;gap:var(--sp-4)">
+                          <span style="font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:var(--st-fail-fg)">[FAIL]</span>
+                          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500);word-break:keep-all;hyphens:none">{{ f.code }}</span>
+                        </div>
+                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-4)">
+                          <span style="font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">{{ f.title }}</span>
+                          <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">{{ f.body }}</span>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ res.hasMetrics }}" hint-placeholder-val="{{ false }}">
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-16)" data-grid-4="1">
+                  <sc-for list="{{ res.metrics }}" as="m" hint-placeholder-count="4">
+                    <div style="background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);padding:var(--sp-20);display:flex;flex-direction:column">
+                      <span style="height:var(--tile-label-h);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">{{ m.label }}</span>
+                      <span style="margin-top:var(--sp-12);font-family:var(--font-mono);font-size:var(--fs-metric-xl);line-height:var(--lh-metric-xl);font-weight:var(--w-500);letter-spacing:var(--ls-tighter);color:{{ m.valueColor }}">{{ m.value }}<span style="font-family:var(--font-mono);font-size:var(--fs-data);letter-spacing:normal;color:var(--ink-500)">{{ m.unit }}</span></span>
+                      <span style="margin-top:var(--sp-8);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">{{ m.note }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ res.hasCoverage }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+                  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-16);border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+                    <div style="display:flex;flex-direction:column;gap:var(--sp-4)">
+                      <span style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">COVERAGE</span>
+                      <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">커버리지</h2>
+                    </div>
+                    <span style="font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">{{ res.targetBases }}</span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+                    <sc-for list="{{ res.breadth }}" as="b" hint-placeholder-count="6">
+                      <div style="display:flex;align-items:center;gap:var(--sp-12)" data-cov-row="1">
+                        <span style="width:var(--col-cov-label);flex:none;text-align:right;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-700)">{{ b.label }}</span>
+                        <span style="flex:1;min-width:0;height:var(--bar-cov-h);border-radius:var(--r-sm);background:var(--ink-100);display:block;overflow:hidden" data-cov-bar="1"><span style="display:block;height:var(--bar-cov-h);border-radius:var(--r-sm);background:{{ b.color }};width:{{ b.width }}"></span></span>
+                        <span style="width:var(--col-cov-val);flex:none;text-align:right;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-900)" data-cov-val="1">{{ b.pct }}<span style="font-size:var(--fs-caption);color:var(--ink-500)"> %</span></span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <span style="font-size:var(--fs-body);color:var(--ink-700)">{{ res.lowCoverage }}</span>
+                  <div style="border-top:1px solid var(--ink-100)">
+                    <sc-for list="{{ res.coverageNotes }}" as="n" hint-placeholder-count="2">
+                      <div style="border-bottom:1px solid var(--ink-100);padding:var(--sp-16) 0;display:flex;gap:var(--sp-24)" data-table-row="1">
+                        <span style="width:var(--col-code);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:var(--ink-500)">[INFO]</span>
+                        <span style="flex:1;min-width:0;font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">{{ n.body }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ res.hasVariants }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+                  <div style="display:flex;flex-direction:column;gap:var(--sp-4);border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+                    <span style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">VARIANTS</span>
+                    <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">변이 검출</h2>
+                  </div>
+                  <div style="display:flex;flex-direction:column">
+                    <sc-for list="{{ res.variants }}" as="kv" hint-placeholder-count="5">
+                      <div style="min-height:var(--row-h);padding:var(--sp-4) 0;display:flex;align-items:center;gap:var(--sp-16)" data-kv-row="1">
+                        <span style="width:var(--kv-label);flex:none;font-size:var(--fs-small);color:var(--ink-500)" data-kv-key="1">{{ kv.label }}</span>
+                        <span style="min-width:0;font-family:{{ kv.font }};font-size:{{ kv.size }};color:var(--ink-900)">{{ kv.value }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="border-top:1px solid var(--ink-100);border-bottom:1px solid var(--ink-100);padding:var(--sp-16) 0;display:flex;gap:var(--sp-24)" data-table-row="1">
+                    <div style="width:var(--col-code);flex:none;display:flex;flex-direction:column;gap:var(--sp-4)">
+                      <span style="font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:var(--st-warn-fg)">[WARN]</span>
+                      <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500);word-break:keep-all;hyphens:none">{{ res.noFilterCode }}</span>
+                    </div>
+                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-4)">
+                      <span style="font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">이 VCF에는 품질 필터가 적용되지 않았습니다</span>
+                      <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">변이 필터링 단계가 실행되지 않았습니다. 이 파일을 최종 결과로 사용하기 전에 별도 필터링이 필요합니다.</span>
+                    </div>
+                  </div>
+                  <div style="display:flex;justify-content:flex-end;gap:var(--sp-12)" data-actions="1">
+                    <span style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">gVCF 내려받기</span>
+                    <span style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--brand-600);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--surface)">raw VCF 내려받기</span>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ res.hasWarnings }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+                  <div style="display:flex;align-items:baseline;gap:var(--sp-12);border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+                    <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">경고</h2>
+                    <span style="font-size:var(--fs-small);color:var(--ink-500)"><span style="font-family:var(--font-mono);font-size:var(--fs-data)">{{ res.warningCount }}</span>건</span>
+                  </div>
+                  <div style="border-top:1px solid var(--ink-100)">
+                    <sc-for list="{{ res.warnings }}" as="w" hint-placeholder-count="1">
+                      <div style="border-bottom:1px solid var(--ink-100);padding:var(--sp-16) 0;display:flex;gap:var(--sp-24)" data-table-row="1">
+                        <div style="width:var(--col-code);flex:none;display:flex;flex-direction:column;gap:var(--sp-4)">
+                          <span style="font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:var(--st-warn-fg)">[WARN]</span>
+                          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500);word-break:keep-all;hyphens:none">{{ w.code }}</span>
+                        </div>
+                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-8)">
+                          <span style="font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">{{ w.title }}</span>
+                          <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">{{ w.body }}</span>
+                          <div style="display:flex;gap:var(--sp-8);align-items:baseline">
+                            <span style="flex:none;font-family:var(--font-cond);font-size:var(--fs-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">IMPACT</span>
+                            <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">{{ w.impact }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ res.hasChecks }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-16);border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+                    <div style="display:flex;align-items:baseline;gap:var(--sp-12)">
+                      <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">점검 항목</h2>
+                      <span style="font-size:var(--fs-small);color:var(--ink-500)"><span style="font-family:var(--font-mono);font-size:var(--fs-data)">{{ res.checkTotal }}</span>건</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:var(--sp-8);flex-wrap:wrap">
+                      <sc-for list="{{ res.checkSummary }}" as="c" hint-placeholder-count="2">
+                        <span style="padding:var(--pad-tag-y) var(--pad-tag-x);border-radius:var(--r-sm);font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:var(--w-500);color:{{ c.fg }};background:{{ c.bg }}">{{ c.label }}</span>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <div style="border:1px solid var(--ink-200);border-radius:var(--r-sm);overflow:hidden;background:var(--surface)">
+                    <div style="min-height:var(--row-h-table);display:flex;align-items:center;gap:var(--sp-12);padding:0 var(--sp-12);background:var(--sunken);border-bottom:1px solid var(--ink-200)" data-desktop-only="1">
+                      <span style="width:var(--col-check-state);flex:none;font-size:var(--fs-caption);font-weight:var(--w-600);color:var(--ink-500)">상태</span>
+                      <span style="width:var(--col-check-name);flex:none;font-size:var(--fs-caption);font-weight:var(--w-600);color:var(--ink-500)">항목</span>
+                      <span style="flex:1;min-width:0;font-size:var(--fs-caption);font-weight:var(--w-600);color:var(--ink-500)">상세</span>
+                    </div>
+                    <sc-for list="{{ res.checks }}" as="k" hint-placeholder-count="5">
+                      <div style="min-height:var(--row-h-table);display:flex;align-items:center;gap:var(--sp-12);padding:var(--sp-4) var(--sp-12);border-bottom:1px solid var(--ink-100);background:{{ k.rowBg }}" data-table-row="1">
+                        <span style="width:var(--col-check-state);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:{{ k.tagColor }}">{{ k.tag }}</span>
+                        <span style="width:var(--col-check-name);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-900)">{{ k.name }}</span>
+                        <span style="flex:1;min-width:0;font-size:var(--fs-body);color:var(--ink-700)">{{ k.detail }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <span style="font-size:var(--fs-caption);color:var(--ink-500)">{{ res.hiddenChecks }}</span>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ res.hasInputs }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column">
+                  <button type="button" onClick="{{ res.toggleInputs }}" style="border-top:1px solid var(--ink-100);border-bottom:1px solid var(--ink-100);min-height:var(--row-h-step);display:flex;align-items:center;justify-content:space-between;gap:var(--sp-12)">
+                    <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">입력 요약</h2>
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--ink-400);transform:{{ res.inputsChevron }};transition:transform 180ms" data-anim="1"><path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" stroke-width="1.5"></path></svg>
+                  </button>
+                  <sc-if value="{{ res.inputsOpen }}" hint-placeholder-val="{{ false }}">
+                    <div style="padding:var(--sp-16) 0;display:flex;flex-direction:column">
+                      <sc-for list="{{ res.inputs }}" as="kv" hint-placeholder-count="8">
+                        <div style="min-height:var(--row-h);padding:var(--sp-4) 0;display:flex;align-items:center;gap:var(--sp-16)" data-kv-row="1">
+                          <span style="width:var(--kv-label);flex:none;font-size:var(--fs-small);color:var(--ink-500)" data-kv-key="1">{{ kv.label }}</span>
+                          <span style="min-width:0;font-family:{{ kv.font }};font-size:{{ kv.size }};color:var(--ink-900)">{{ kv.value }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ res.hasIntendedUse }}" hint-placeholder-val="{{ true }}">
+                <div style="border-top:1px solid var(--ink-100);border-bottom:1px solid var(--ink-100);padding:var(--sp-16) 0;display:flex;gap:var(--sp-24)" data-table-row="1">
+                  <span style="width:var(--col-code);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:var(--ink-500)">[INFO]</span>
+                  <span style="flex:1;min-width:0;font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">{{ res.intendedUse }}</span>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <!-- 파일 -->
+          <sc-if value="{{ tab.files }}" hint-placeholder-val="{{ false }}">
+            <div style="max-width:var(--content);display:flex;flex-direction:column;gap:var(--sp-24)">
+              <sc-if value="{{ files.empty }}" hint-placeholder-val="{{ false }}">
+                <div style="border:1px solid var(--ink-100);border-radius:var(--r-md);padding:var(--sp-64) var(--sp-24);display:flex;flex-direction:column;align-items:center;gap:var(--sp-12);text-align:center">
+                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" style="color:var(--ink-400)"><rect x="4.75" y="6.75" width="22.5" height="18.5" rx="2" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"></rect></svg>
+                  <span style="font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">산출물이 생성되지 않았습니다</span>
+                  <span style="max-width:var(--w-480);font-size:var(--fs-small);line-height:var(--lh-small);color:var(--ink-500)">{{ files.emptyBody }}</span>
+                  <button type="button" onClick="{{ files.goResults }}" style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">결과 보기</button>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ files.has }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;flex-direction:column;gap:var(--sp-24)">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-16);border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+                    <div style="display:flex;align-items:baseline;gap:var(--sp-12)">
+                      <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">산출물</h2>
+                      <span style="font-size:var(--fs-small);color:var(--ink-500)"><span style="font-family:var(--font-mono);font-size:var(--fs-data)">{{ files.count }}</span>개</span>
+                    </div>
+                    <span style="font-size:var(--fs-caption);color:var(--ink-500)">합계 <span style="font-family:var(--font-mono);font-size:var(--fs-data)">{{ files.total }}</span></span>
+                  </div>
+
+                  <div style="display:flex;gap:var(--sp-8);overflow-x:auto">
+                    <sc-for list="{{ files.chips }}" as="c" hint-placeholder-count="5">
+                      <button type="button" onClick="{{ c.select }}" style="flex:none;display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--pad-chip-y) var(--pad-pill-x);border-radius:var(--r-sm);border:1px solid {{ c.border }};background:{{ c.bg }};white-space:nowrap;font-size:var(--fs-small);font-weight:var(--w-500);color:{{ c.color }}">{{ c.label }}<span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:{{ c.countColor }}">{{ c.count }}</span></button>
+                    </sc-for>
+                  </div>
+
+                  <sc-if value="{{ files.filterEmpty }}" hint-placeholder-val="{{ false }}">
+                    <div style="border:1px solid var(--ink-100);border-radius:var(--r-md);padding:var(--sp-32);display:flex;flex-direction:column;align-items:center;gap:var(--sp-8);text-align:center">
+                      <span style="font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">이 종류의 파일이 없습니다</span>
+                      <button type="button" onClick="{{ files.showAll }}" style="min-height:var(--hit);display:inline-flex;align-items:center;font-size:var(--fs-small);font-weight:var(--w-500);color:var(--brand-600)">전체 보기</button>
+                    </div>
+                  </sc-if>
+
+                  <div style="display:flex;flex-direction:column;gap:var(--sp-32)">
+                    <sc-for list="{{ files.groups }}" as="g" hint-placeholder-count="2">
+                      <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+                        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-16);border-bottom:1px solid var(--ink-200);padding-bottom:var(--sp-12);flex-wrap:wrap">
+                          <div style="display:flex;flex-direction:column;gap:var(--sp-4)">
+                            <span style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">{{ g.step }}</span>
+                            <h3 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">{{ g.name }}</h3>
+                          </div>
+                          <span style="font-size:var(--fs-caption);color:var(--ink-500)">{{ g.meta }}</span>
+                        </div>
+                        <div style="background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden">
+                          <sc-for list="{{ g.files }}" as="f" hint-placeholder-count="4">
+                            <div style="padding:var(--sp-16);border-bottom:1px solid var(--ink-100);display:flex;align-items:flex-start;gap:var(--sp-12)">
+                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none;color:{{ f.iconColor }};margin-top:var(--sp-4)"><path d="M4 2.75h5l3 3v7.5H4Z" stroke="currentColor" stroke-width="1.5"></path><path d="M9 2.75v3h3" stroke="currentColor" stroke-width="1.5"></path></svg>
+                              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-4)">
+                                <div style="display:flex;align-items:center;gap:var(--sp-12);min-width:0;flex-wrap:wrap">
+                                  <span style="flex:1;min-width:var(--col-name-min);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-body);font-weight:var(--w-500);color:{{ f.nameColor }}">{{ f.name }}</span>
+                                  <span style="flex:none;padding:var(--pad-tag-y) var(--pad-tag-x);border-radius:var(--r-sm);font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:var(--w-500);color:{{ f.kindColor }};background:{{ f.kindBg }}">{{ f.kind }}</span>
+                                  <span style="flex:none;font-family:var(--font-mono);font-size:var(--fs-data);color:{{ f.sizeColor }}">{{ f.size }}</span>
+                                  <sc-if value="{{ f.downloadable }}" hint-placeholder-val="{{ true }}">
+                                    <span style="flex:none;width:var(--dl-btn);height:var(--dl-btn);display:inline-flex;align-items:center;justify-content:center;border-radius:var(--r-sm);border:1px solid var(--border-strong);color:var(--ink-900)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v7.5" stroke="currentColor" stroke-width="1.5"></path><path d="M4.5 7.5 8 11l3.5-3.5" stroke="currentColor" stroke-width="1.5"></path><path d="M3.5 13h9" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+                                  </sc-if>
+                                  <sc-if value="{{ f.dlNote }}" hint-placeholder-val="{{ false }}">
+                                    <span style="flex:none;font-size:var(--fs-caption);color:var(--ink-400)">{{ f.dlNote }}</span>
+                                  </sc-if>
+                                </div>
+                                <sc-if value="{{ f.desc }}" hint-placeholder-val="{{ false }}">
+                                  <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:{{ f.descColor }}">{{ f.desc }}</span>
+                                </sc-if>
+                                <sc-if value="{{ f.sha }}" hint-placeholder-val="{{ false }}">
+                                  <span style="display:inline-flex;align-items:center;gap:var(--sp-8);align-self:flex-start;min-height:var(--hit);font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">sha256 {{ f.sha }}<svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex:none"><rect x="5.75" y="5.75" width="7.5" height="7.5" rx="1" stroke="currentColor" stroke-width="1.5"></rect><path d="M10.25 3.75H3.75a1 1 0 0 0-1 1v6.5" stroke="currentColor" stroke-width="1.5"></path></svg></span>
+                                </sc-if>
+                              </div>
+                            </div>
+                          </sc-for>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <!-- 재현성 -->
+          <sc-if value="{{ tab.repro }}" hint-placeholder-val="{{ false }}">
+            <div style="max-width:var(--content);display:flex;flex-direction:column;gap:var(--sp-32)">
+              <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+                <div style="border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+                  <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">실행 설정</h2>
+                </div>
+                <div style="display:flex;flex-direction:column">
+                  <sc-for list="{{ repro.config }}" as="kv" hint-placeholder-count="5">
+                    <div style="min-height:var(--row-h);padding:var(--sp-4) 0;display:flex;align-items:flex-start;gap:var(--sp-16)" data-kv-row="1">
+                      <span style="width:var(--kv-label);flex:none;font-size:var(--fs-small);color:var(--ink-500)" data-kv-key="1">{{ kv.label }}</span>
+                      <span style="flex:1;min-width:0;overflow-x:auto;white-space:nowrap;font-family:{{ kv.font }};font-size:{{ kv.size }};color:var(--ink-900)">{{ kv.value }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+                <button type="button" onClick="{{ repro.toggleUnsupported }}" style="border-top:1px solid var(--ink-100);border-bottom:1px solid var(--ink-100);padding:var(--sp-16) 0;display:flex;align-items:center;justify-content:space-between;gap:var(--sp-12)">
+                  <span style="display:inline-flex;align-items:center;gap:var(--sp-8);font-size:var(--fs-small);color:var(--ink-500)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex:none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"></circle><path d="M8 7v4.5" stroke="currentColor" stroke-width="1.5"></path><path d="M8 4.5v1" stroke="currentColor" stroke-width="1.5"></path></svg>요청되었지만 적용되지 않은 옵션<span style="font-family:var(--font-mono);font-size:var(--fs-data);padding-left:var(--sp-8)">{{ repro.unsupportedCount }}</span></span>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--ink-400);transform:{{ repro.unsupportedChevron }};transition:transform 180ms" data-anim="1"><path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" stroke-width="1.5"></path></svg>
+                </button>
+                <sc-if value="{{ repro.unsupportedOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="background:var(--sunken);border-radius:var(--r-sm);padding:var(--sp-16);display:flex;flex-direction:column;gap:var(--sp-12)">
+                    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:var(--sp-8) var(--sp-24)" data-grid-3="1">
+                      <sc-for list="{{ repro.unsupported }}" as="o" hint-placeholder-count="6">
+                        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-12)">
+                          <span style="font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-700)">{{ o.name }}</span>
+                          <span style="font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">{{ o.value }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">이 실행을 제출할 때 함께 전달되었지만 파이프라인이 지원하지 않아 무시되었습니다. 파이프라인은 고정값으로 실행되었습니다.</span>
+                  </div>
+                </sc-if>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+                <div style="border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+                  <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">참조 데이터</h2>
+                </div>
+                <div style="display:flex;flex-direction:column">
+                  <sc-for list="{{ repro.refData }}" as="kv" hint-placeholder-count="7">
+                    <div style="min-height:var(--row-h);padding:var(--sp-4) 0;display:flex;align-items:center;gap:var(--sp-16)" data-kv-row="1">
+                      <span style="width:var(--kv-label);flex:none;font-size:var(--fs-small);color:var(--ink-500)" data-kv-key="1">{{ kv.label }}</span>
+                      <span style="min-width:0;font-family:{{ kv.font }};font-size:{{ kv.size }};color:var(--ink-900)">{{ kv.value }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+                <div style="border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+                  <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">도구 버전</h2>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-8) var(--sp-24)" data-grid-3="1">
+                  <sc-for list="{{ repro.tools }}" as="t" hint-placeholder-count="9">
+                    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-12);min-height:var(--sp-24)">
+                      <span style="font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-700)">{{ t.name }}</span>
+                      <span style="font-family:var(--font-mono);font-size:var(--fs-data);color:var(--ink-500)">{{ t.version }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+                <div style="border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+                  <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">산출물 매니페스트</h2>
+                </div>
+                <div style="display:flex;flex-direction:column">
+                  <sc-for list="{{ repro.manifest }}" as="kv" hint-placeholder-count="3">
+                    <div style="min-height:var(--row-h);padding:var(--sp-4) 0;display:flex;align-items:center;gap:var(--sp-16)" data-kv-row="1">
+                      <span style="width:var(--kv-label);flex:none;font-size:var(--fs-small);color:var(--ink-500)" data-kv-key="1">{{ kv.label }}</span>
+                      <span style="min-width:0;font-size:var(--fs-body);color:var(--ink-900)">{{ kv.value }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">finalization 단계가 자기 자신의 산출물을 등록하기 전에 매니페스트를 기록하므로, 전체 분석에서는 일관성이 항상 "아니오"입니다.</span>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-16);border-bottom:1px solid var(--ink-100);padding-bottom:var(--sp-16)">
+                  <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">분석 방법</h2>
+                  <span style="min-height:var(--hit);display:inline-flex;align-items:center;font-size:var(--fs-small);font-weight:var(--w-500);color:var(--brand-600)">methods.md 내려받기</span>
+                </div>
+                <div style="background:var(--sunken);border-radius:var(--r-md);padding:var(--sp-24);display:flex;flex-direction:column;gap:var(--sp-20)">
+                  <sc-for list="{{ repro.methods }}" as="m" hint-placeholder-count="4">
+                    <div style="display:flex;flex-direction:column;gap:var(--sp-4)">
+                      <h3 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">{{ m.title }}</h3>
+                      <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">{{ m.body }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div style="border-top:1px solid var(--ink-200);padding-top:var(--sp-24);display:flex;gap:var(--sp-12)" data-actions="1">
+                <span style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">provenance.json 내려받기</span>
+                <span style="display:inline-flex;align-items:center;height:var(--btn-h);padding:0 var(--sp-16);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-strong);font-size:var(--fs-body);font-weight:var(--w-500);color:var(--ink-900)">core_summary.json 내려받기</span>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+
+  <!-- 푸터 -->
+  <div style="flex:none;border-top:1px solid var(--ink-200);background:var(--surface);padding:var(--sp-20) var(--page-pad)">
+    <div style="max-width:var(--container);width:100%;margin:0 auto;font-size:var(--fs-caption);color:var(--ink-500)">연구·교육 목적 전용 — 진단 결과가 아닙니다</div>
+  </div>
+
+  <!-- DEV 패널 -->
+  <div style="position:fixed;right:var(--sp-16);bottom:var(--sp-16);z-index:30;width:var(--dev-w);background:var(--ink-900);border-radius:var(--r-md);padding:var(--sp-12);display:flex;flex-direction:column;gap:var(--sp-8);box-shadow:var(--el-2)">
+    <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">DEV — 제품에는 없는 컨트롤</span>
+    <button type="button" onClick="{{ dev.toggleRun001 }}" style="min-height:var(--hit);display:flex;align-items:center;justify-content:space-between;gap:var(--sp-8);font-size:var(--fs-caption);color:var(--paper)">RUN-001 상태<span style="font-family:var(--font-mono);color:var(--brand-100)">{{ dev.run001Label }}</span></button>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440}}">
+/* ---------------------------------------------------------------
+   레지스트리 + mock 데이터 (화면은 이 객체만 참조)
+   --------------------------------------------------------------- */
+const STEP_REGISTRY = {
+  '01_input_validation': { label: '입력 검증', subtitle: 'FASTQ 무결성 · 페어 확인', kind: 'core' },
+  '02_raw_qc':           { label: '원본 품질 검사', subtitle: 'FastQC', kind: 'qc' },
+  '03_preprocess':       { label: '전처리', subtitle: 'fastp', kind: 'optional' },
+  '03_alignment':        { label: '참조 유전체 정렬', subtitle: 'BWA-MEM', kind: 'core',
+    metrics: [ { label: '정렬 레코드', value: '248,109,332', unit: '' }, { label: '매핑률', value: '99.42', unit: ' %' },
+               { label: '정상 페어율', value: '98.71', unit: ' %' }, { label: 'Lane 수', value: '1', unit: '' } ],
+    io: ['NA12878_R1.fastq.gz', 'NA12878_R2.fastq.gz', 'aligned.bam'],
+    artifacts: ['aligned.bam', 'aligned.bam.bai', 'flagstat.txt'] },
+  '04_processing':       { label: 'BAM 정리·보정', subtitle: 'MarkDuplicates · BQSR', kind: 'core',
+    metrics: [ { label: '중복률', value: '4.18', unit: ' %' }, { label: '재보정 대상', value: '2', unit: '개' } ],
+    io: ['aligned.bam', 'analysis-ready.bam'], artifacts: ['analysis-ready.bam', 'markdup.metrics'] },
+  '05_coverage_qc':      { label: '커버리지 검사', subtitle: 'mosdepth', kind: 'qc',
+    metrics: [ { label: '평균 타깃 깊이', value: '92.4', unit: '×' }, { label: '20× 이상', value: '97.3', unit: ' %' } ],
+    io: ['analysis-ready.bam'], artifacts: ['coverage.summary.txt', 'low_coverage.bed'] },
+  '06_variant_calling':  { label: '변이 검출', subtitle: 'HaplotypeCaller · GenotypeGVCFs', kind: 'core',
+    metrics: [ { label: 'raw 변이 레코드', value: '34,821', unit: '' } ],
+    io: ['analysis-ready.bam'], artifacts: ['NA12878.raw.vcf.gz', 'NA12878.g.vcf.gz'] },
+  '07_finalize':         { label: '결과 정리', subtitle: 'core_summary · manifest', kind: 'core',
+    io: [], artifacts: ['core_summary.json', 'provenance.json'] }
+};
+const stepMeta = id => STEP_REGISTRY[id] || { label: id, subtitle: id, kind: 'core' };
+
+const FULL_ORDER = ['01_input_validation','02_raw_qc','03_preprocess','03_alignment','04_processing','05_coverage_qc','06_variant_calling','07_finalize'];
+
+const CATEGORY_MAP = { VCF: '변이 파일', BAM: '정렬 파일', QC: '품질 리포트', SUMMARY: '요약·기록' };
+const categoryOf = kind => CATEGORY_MAP[kind] || '기타';
+
+const RESULT_SECTIONS = [
+  { id: 'verdict',   order: 10, scope: ['precheck','full'], isAvailable: r => r.resultType !== 'notReady' },
+  { id: 'failures',  order: 20, scope: ['precheck'],        isAvailable: r => (r.failures || []).length > 0 },
+  { id: 'metrics',   order: 30, scope: ['full'],            isAvailable: r => !!r.coverage },
+  { id: 'coverage',  order: 40, scope: ['full'],            isAvailable: r => !!r.coverage },
+  { id: 'variants',  order: 50, scope: ['full'],            isAvailable: r => !!r.variantCalling },
+  { id: 'warnings',  order: 60, scope: ['precheck','full'], isAvailable: r => (r.warnings || []).length > 0 },
+  { id: 'checks',    order: 70, scope: ['precheck','full'], isAvailable: r => (r.checks || []).length > 0 },
+  { id: 'inputs',    order: 80, scope: ['precheck','full'], isAvailable: r => !!r.inputSummary },
+  { id: 'intendedUse', order: 90, scope: ['precheck','full'], isAvailable: () => true }
+];
+
+const ARTIFACTS_FULL = [
+  { step: '06_variant_calling', kind: 'VCF', name: 'Raw VCF', size: '412 MB', downloadable: true, desc: 'GenotypeGVCFs 출력 — 핵심 완료 산출물. 필터링 없음.', sha: '9f2c4a11…41ab7d3e' },
+  { step: '06_variant_calling', kind: 'VCF', name: 'Raw VCF index', size: '1.2 MB', downloadable: true, desc: 'tabix 인덱스', sha: '3e81b0c4…7a92f105' },
+  { step: '06_variant_calling', kind: 'VCF', name: 'Sample gVCF', size: '2.1 GB', downloadable: true, desc: 'HaplotypeCaller -ERC GVCF 출력', sha: 'c740e2a8…19bd6f42' },
+  { step: '06_variant_calling', kind: 'VCF', name: 'gVCF index', size: '3.4 MB', downloadable: true },
+  { step: '06_variant_calling', kind: 'QC',  name: 'bcftools stats', size: '84 KB', downloadable: true, desc: '변이 통계 요약 (SNP·Indel·Ts/Tv)' },
+  { step: '04_processing', kind: 'BAM', name: 'Analysis-ready BAM', size: '3.1 GB', downloadable: true, desc: '중복 표시 + 염기 품질 재보정이 끝난 정렬 결과', sha: '5b19d7f0…e8c34a26' },
+  { step: '04_processing', kind: 'BAM', name: 'MarkDuplicates BAM', size: '3.4 GB', downloadable: false, dlNote: '내려받기 불가', desc: '중간 산출물이라 다운로드가 제공되지 않습니다.' },
+  { step: '04_processing', kind: 'QC',  name: 'BQSR recalibration table', size: '—', downloadable: false, dlNote: '—', missing: true, desc: '디스크에서 찾을 수 없습니다. 서버에서 삭제되었거나 이동되었습니다.' },
+  { step: '05_coverage_qc', kind: 'QC', name: 'mosdepth summary', size: '212 KB', downloadable: true, desc: '구간별 깊이 요약' },
+  { step: '05_coverage_qc', kind: 'QC', name: 'low coverage BED', size: '96 KB', downloadable: true, desc: '20× 미만 구간 목록' },
+  { step: '07_finalize', kind: 'SUMMARY', name: 'core_summary.json', size: '48 KB', downloadable: true, desc: '결과 요약 문서' },
+  { step: '07_finalize', kind: 'SUMMARY', name: 'provenance.json', size: '36 KB', downloadable: true, desc: '실행 재현 정보' }
+];
+const ARTIFACTS_RUNNING = ARTIFACTS_FULL.filter(a => a.step === '04_processing' || a.step === '05_coverage_qc');
+
+const DATA = {
+  runs: {
+    'RUN-001': {
+      runId: 'wes-20260828-143201-8eccbb', sample: 'NA12878', profile: 'Illumina WES Germline 변이 분석',
+      status: 'running', mode: 'full', order: FULL_ORDER,
+      stepStates: { '01_input_validation':'ok','02_raw_qc':'ok','03_preprocess':'skip','03_alignment':'ok','04_processing':'ok','05_coverage_qc':'ok','06_variant_calling':'run','07_finalize':'idle' },
+      times: { '01_input_validation':'00:12','02_raw_qc':'04:31','03_preprocess':'—','03_alignment':'38:12','04_processing':'22:04','05_coverage_qc':'03:18','06_variant_calling':'18:32','07_finalize':'—' },
+      elapsed: '1시간 18분', startedAt: '09:13', finishedAt: '', submittedAt: '2026-08-28 14:32:01',
+      resultType: 'notReady', notReadyNote: '현재 단계 · 변이 검출 (6/8단계)',
+      artifactCount: 11, artifactTotal: '2.8 GB', artifacts: ARTIFACTS_RUNNING,
+      warnings: [], failures: [], checks: [], when: '14:32'
+    },
+    'RUN-002': {
+      runId: 'wes-20260826-0913-7f2a4c', sample: 'NA12878', profile: 'Illumina WES Germline 변이 분석',
+      status: 'completed_with_warnings', mode: 'full', order: FULL_ORDER,
+      stepStates: { '01_input_validation':'ok','02_raw_qc':'ok','03_preprocess':'skip','03_alignment':'ok','04_processing':'ok','05_coverage_qc':'warn','06_variant_calling':'ok','07_finalize':'ok' },
+      times: { '01_input_validation':'00:12','02_raw_qc':'04:31','03_preprocess':'—','03_alignment':'38:12','04_processing':'22:04','05_coverage_qc':'03:18','06_variant_calling':'2:36:00','07_finalize':'00:08' },
+      elapsed: '4시간 07분', startedAt: '09:13', finishedAt: '13:20', submittedAt: '2026-08-26 09:13:04',
+      resultType: 'full',
+      coverage: { targetBases: '34,182,109', low: { intervals: '1,284', bases: '912,441', pct: '2.7' },
+        breadth: [ { label:'≥1×', pct:'99.8', color:'var(--cov-1)' }, { label:'≥10×', pct:'98.6', color:'var(--cov-10)' },
+                   { label:'≥20×', pct:'97.3', color:'var(--cov-20)' }, { label:'≥30×', pct:'94.1', color:'var(--cov-30)' },
+                   { label:'≥50×', pct:'81.7', color:'var(--cov-50)' }, { label:'≥100×', pct:'42.3', color:'var(--cov-100)' } ],
+        metrics: [ { label:'평균 타깃 깊이', value:'92.4', unit:'×', note:'중앙값은 산출하지 않음' },
+                   { label:'20× 이상 비율', value:'97.3', unit:' %', note:'1× 이상 99.8%' },
+                   { label:'검출 변이', value:'34,821', unit:'', note:'필터 미적용' },
+                   { label:'산출물', value:'17', unit:'개', note:'4.2 GB' } ] },
+      variantCalling: { records: '34,821', filtering: '아니오', endpoint: 'raw VCF (필터링 없음)',
+        gvcf: 'NA12878.g.vcf.gz', rawVcf: 'NA12878.raw.vcf.gz' },
+      warnings: [ { code:'MULTIQC_UNAVAILABLE', title:'MultiQC 리포트를 생성하지 못했습니다',
+        body:'MultiQC 실행 파일을 찾을 수 없습니다.', impact:'FastQC 개별 리포트는 정상 생성되었습니다. 분석 결과에 영향 없음.' } ],
+      failures: [],
+      checks: [ { st:'warn', name:'multiqc_report', detail:'MultiQC report not generated' } ],
+      checkTotal: 31, checkSummary: [ { st:'ok', n:30 }, { st:'warn', n:1 } ], hiddenChecks: '통과 30건은 숨겨져 있습니다',
+      inputSummary: true, artifactCount: 17, artifactTotal: '4.2 GB', artifacts: ARTIFACTS_FULL, when: '어제 13:20'
+    },
+    'RUN-003': {
+      runId: 'wes-20260822-091412-3ab7c1', sample: 'HG002', profile: 'Illumina WES Germline 변이 분석',
+      status: 'failed', mode: 'precheck', order: ['01_input_validation'],
+      stepStates: { '01_input_validation':'fail' }, times: { '01_input_validation':'00:03' },
+      elapsed: '3초', startedAt: '09:14', finishedAt: '09:14', submittedAt: '2026-08-22 09:14:12',
+      resultType: 'precheck',
+      failures: [
+        { code:'RESOURCE_BUNDLE_INCOMPLETE', title:'참조 유전체 BWA 인덱스가 없습니다', body:'정렬 단계에서 필요한 .bwt 파일을 찾지 못했습니다. 서버에서 bwa index를 먼저 실행해야 합니다.' },
+        { code:'KNOWN_SITES_MISSING', title:'known-sites VCF가 설정되지 않았습니다', body:'염기 품질 재보정(BQSR)에 반드시 필요합니다. WES_KNOWN_SITES 환경변수를 설정해 주세요.' }
+      ],
+      warnings: [],
+      checks: [
+        { st:'fail', name:'resource_bundle', detail:'BWA index (.bwt) not found' },
+        { st:'fail', name:'known_sites', detail:'no known-sites VCF configured' },
+        { st:'warn', name:'available_ram_gb', detail:'6 GB (권장 8 GB)' },
+        { st:'warn', name:'available_disk_gb', detail:'48 GB (필요 추정 62 GB)' },
+        { st:'warn', name:'fastq_gzip_verify', detail:'magic number만 확인 (전체 스트림 미검사)' }
+      ],
+      checkTotal: 24, checkSummary: [ { st:'ok', n:19 }, { st:'warn', n:3 }, { st:'fail', n:2 } ],
+      hiddenChecks: '통과 19건은 숨겨져 있습니다',
+      inputSummary: true, artifactCount: 0, artifactTotal: '0 B', artifacts: [], when: '8/22'
+    },
+    'RUN-004': {
+      runId: 'wes-20260828-160002-1c4de9', sample: 'HG003', profile: 'Illumina WES Germline 변이 분석',
+      status: 'queued', mode: 'full', order: FULL_ORDER,
+      stepStates: FULL_ORDER.reduce((o, id) => { o[id] = 'idle'; return o; }, {}),
+      times: FULL_ORDER.reduce((o, id) => { o[id] = '—'; return o; }, {}),
+      elapsed: '—', startedAt: '—', finishedAt: '', submittedAt: '2026-08-28 16:00:02',
+      resultType: 'notReady', notReadyNote: '앞선 분석이 끝나면 시작됩니다',
+      artifactCount: 0, artifactTotal: '0 B', artifacts: [], warnings: [], failures: [], checks: [], when: '방금'
+    }
+  },
+  logs: [
+    { time:'[14:52:11]', step:'', body:'run: haplotypecaller' },
+    { time:'[14:51:47]', step:'DONE  05_coverage_qc', body:'status=completed exit=0 (198s)' },
+    { time:'[14:51:47]', step:'', body:'mean target depth 92.4x | >=20x 97.3% | uncovered 0.2%' },
+    { time:'[14:51:12]', step:'', body:'run: mosdepth' },
+    { time:'[14:48:29]', step:'START 05_coverage_qc', body:'' },
+    { time:'[14:48:28]', step:'DONE  04_processing', body:'status=completed exit=0 (1324s)' }
+  ],
+  repro: {
+    config: [
+      { label:'파이프라인', value:'variant-pipeline-lab-wes 1.2.0', mono:true },
+      { label:'스키마 버전', value:'1.0', mono:true },
+      { label:'실행 모드', value:'전체 분석 (full)' },
+      { label:'설정 해시', value:'c41f8b02…9a2b7e15', mono:true },
+      { label:'실행 명령', value:'bash script/main.sh --config runs/_jobs/wes-20260826-0913-7f2a4c/run_config.json', mono:true, small:true }
+    ],
+    unsupported: [
+      { name:'min_base_quality', value:'20' }, { name:'min_read_length', value:'50' },
+      { name:'variant_caller', value:'gatk-haplotypecaller' }, { name:'min_depth', value:'5' },
+      { name:'min_gq', value:'10' }, { name:'gnomad_maf_cutoff', value:'0.01' }
+    ],
+    refData: [
+      { label:'Assembly', value:'GRCh38' }, { label:'Contig style', value:'chr', mono:true },
+      { label:'Resource bundle', value:'grch38_wes_germline', mono:true },
+      { label:'Capture kit', value:'idt_xgen_exome_hyb_panel_v2 (registry)', mono:true },
+      { label:'Target BED', value:'a3f9c2e1…8b41c21e', mono:true },
+      { label:'Coverage BED', value:'7b2e04d9…f188d1a3', mono:true },
+      { label:'known-sites', value:'2개 파일' }
+    ],
+    tools: [
+      { name:'bwa', version:'0.7.17' }, { name:'samtools', version:'1.19' }, { name:'gatk', version:'4.5.0.0' },
+      { name:'bcftools', version:'1.19' }, { name:'mosdepth', version:'0.3.6' }, { name:'fastqc', version:'0.12.1' },
+      { name:'java', version:'17.0.9' }, { name:'python', version:'3.12.1' }, { name:'tabix', version:'1.19' }
+    ],
+    manifest: [
+      { label:'매니페스트 존재', value:'예' },
+      { label:'매니페스트 일관성', value:'아니오 — 전체 분석에서 정상' },
+      { label:'제외된 항목', value:'0건' }
+    ],
+    methods: [
+      { title:'입력', body:'NA12878, paired-end FASTQ 1 lane, GRCh38' },
+      { title:'정렬', body:'BWA-MEM 0.7.17로 GRCh38에 정렬 후 samtools 1.19로 좌표 정렬' },
+      { title:'BAM 처리', body:'GATK MarkDuplicates로 중복 표시, BaseRecalibrator/ApplyBQSR로 염기 품질 재보정' },
+      { title:'변이 호출', body:'GATK HaplotypeCaller (-ERC GVCF) → GenotypeGVCFs. 필터링은 적용되지 않았습니다.' }
+    ]
+  },
+  inputSummary: [
+    { label:'샘플', value:'NA12878', mono:true }, { label:'참조 유전체', value:'GRCh38' },
+    { label:'Contig style', value:'chr', mono:true }, { label:'Resource bundle', value:'grch38_wes_germline', mono:true },
+    { label:'Capture kit', value:'idt_xgen_exome_hyb_panel_v2', mono:true }, { label:'Capture 모드', value:'registry', mono:true },
+    { label:'Target BED', value:'a3f9c2e1…8b41c21e', mono:true }, { label:'Coverage BED', value:'7b2e04d9…f188d1a3', mono:true }
+  ],
+  intendedUse: '연구·교육 목적 전용입니다. 진단 결과가 아니며 임상 판단에 사용할 수 없습니다. 이 VCF에는 품질 필터가 적용되지 않았으며, ACMG 자동 분류는 근거 코드 자동 적용 단계까지입니다.',
+  wizard: {
+    profile: { name: 'Illumina WES Germline 변이 분석', meta: 'paired-end FASTQ · GRCh38 · 약 5시간 30분' },
+    soon: [ { name:'PacBio HiFi Germline 변이 분석', reason:'분석 스크립트 준비 중' },
+            { name:'고형암 Somatic 변이 분석 (T/N)', reason:'분석 스크립트 준비 중' } ],
+    kits: [
+      { name:'IDT xGen Exome Hyb Panel v2', note:'✓ 선택됨', ok:true },
+      { name:'Twist Exome 2.0', note:'BED 파일 없음 · 선택 불가' },
+      { name:'Roche KAPA HyperExome V2', note:'BED 파일 없음 · 선택 불가' },
+      { name:'Agilent SureSelect Human All Exon V8', note:'검증 전 · 선택 불가' }
+    ],
+    fixed: [
+      { name:'min_base_quality', value:'20' }, { name:'min_read_length', value:'50' },
+      { name:'variant_caller', value:'gatk-haplotypecaller' }, { name:'min_depth', value:'5' },
+      { name:'min_gq', value:'10' }, { name:'gnomad_maf_cutoff', value:'0.01' }
+    ],
+    sample: 'NA12878',
+    files: [ { slot:'R1', name:'NA12878_R1.fastq.gz', size:'6.2 GB' }, { slot:'R2', name:'NA12878_R2.fastq.gz', size:'6.3 GB' } ],
+    titles: ['분석 선택', '입력 파일', '설정', '확인 및 실행']
+  }
+};
+
+const TABS = [
+  { id: 'overview', label: '개요', path: '' },
+  { id: 'pipeline', label: '파이프라인', path: '/pipeline' },
+  { id: 'results', label: '결과', path: '/results' },
+  { id: 'files', label: '파일', path: '/files' },
+  { id: 'reproducibility', label: '재현성', path: '/reproducibility' }
+];
+
+const FILL = { ok:'var(--fill-ok)', warn:'var(--fill-warn)', fail:'var(--fill-fail)',
+               run:'var(--fill-run)', skip:'var(--fill-skip)', idle:'var(--fill-idle)' };
+const ST_LABEL = { ok:'완료', warn:'경고', fail:'실패', run:'진행 중', skip:'건너뜀', idle:'대기' };
+const TAG = { ok:'[COMPLETED]', warn:'[WARNING]', fail:'[FAILED]', run:'[RUNNING]', skip:'[SKIPPED]', idle:'[QUEUED]' };
+const STATUS_BADGE = {
+  running: { label:'분석 중', st:'run' }, completed_with_warnings: { label:'완료 (경고 있음)', st:'warn' },
+  completed: { label:'완료', st:'ok' }, failed: { label:'실패', st:'fail' }, queued: { label:'대기 중', st:'idle' }
+};
+const wrapCode = s => (s || '').split('_').join('_\u200B');
+
+class Component extends DCLogic {
+  state = {
+    route: { view: 'list' },
+    selectedStep: null,
+    fileFilter: '전체',
+    open: {},
+    upload: { started: false, startedAt: 0 },
+    devRun001: 'running',
+    tick: 0,
+    live: ''
+  };
+
+  componentDidMount() {
+    this.onHash = () => this.setState({ route: this.parseHash(), selectedStep: null });
+    window.addEventListener('hashchange', this.onHash);
+    this.onKey = e => { if (e.key === 'Escape' && this.state.selectedStep) this.setState({ selectedStep: null }); };
+    window.addEventListener('keydown', this.onKey);
+    if (!location.hash) location.replace('#/');
+    this.setState({ route: this.parseHash() });
+  }
+  componentWillUnmount() {
+    window.removeEventListener('hashchange', this.onHash);
+    window.removeEventListener('keydown', this.onKey);
+    if (this.timer) clearInterval(this.timer);
+  }
+
+  parseHash() {
+    const h = (location.hash || '#/').slice(1);
+    const [path, query] = h.split('?');
+    const parts = path.split('/').filter(Boolean);
+    if (parts.length === 0) return { view: 'list' };
+    if (parts[0] === '404') return { view: '404', runId: (query || '').replace('id=', '') };
+    if (parts[0] === 'new') {
+      const m = /step=(\d)/.exec(query || '');
+      return { view: 'wizard', step: m ? Math.min(4, Math.max(1, +m[1])) : 1 };
+    }
+    if (parts[0] === 'runs' && parts[1]) {
+      if (!DATA.runs[parts[1]]) return { view: '404', runId: parts[1] };
+      const tab = TABS.find(t => t.id === (parts[2] || 'overview')) || TABS[0];
+      return { view: 'run', runId: parts[1], tab: tab.id };
+    }
+    return { view: 'list' };
+  }
+
+  nav(hash) { location.hash = hash; }
+  runStatus(id) { return id === 'RUN-001' ? this.state.devRun001 : DATA.runs[id].status; }
+
+  runView(id) {
+    const base = DATA.runs[id];
+    const status = this.runStatus(id);
+    if (id === 'RUN-001' && status === 'completed_with_warnings') {
+      const r2 = DATA.runs['RUN-002'];
+      return Object.assign({}, base, {
+        status, stepStates: r2.stepStates, times: r2.times, elapsed: '4시간 07분', finishedAt: '13:20',
+        resultType: 'full', coverage: r2.coverage, variantCalling: r2.variantCalling,
+        warnings: r2.warnings, checks: r2.checks, checkTotal: r2.checkTotal,
+        checkSummary: r2.checkSummary, hiddenChecks: r2.hiddenChecks, inputSummary: true,
+        artifacts: ARTIFACTS_FULL, artifactCount: 17, artifactTotal: '4.2 GB'
+      });
+    }
+    return Object.assign({}, base, { status });
+  }
+
+  segments(r) {
+    return r.order.map(id => ({
+      color: FILL[r.stepStates[id]],
+      title: stepMeta(id).label + ' · ' + ST_LABEL[r.stepStates[id]] + (r.times[id] !== '—' ? ' · ' + r.times[id] : '')
+    }));
+  }
+
+  /* 종결된 단계 = 완료·경고·건너뜀·실패 (건너뜀도 더 진행할 일이 없는 종결 상태) */
+  doneCount(r) { return r.order.filter(id => ['ok','warn','skip','fail'].indexOf(r.stepStates[id]) >= 0).length; }
+
+  defaultStep(r) {
+    const done = r.order.filter(id => ['ok','warn','fail'].indexOf(r.stepStates[id]) >= 0);
+    return done.length ? done[done.length - 1] : r.order[0];
+  }
+
+  toggle(key) { const o = Object.assign({}, this.state.open); o[key] = !o[key]; this.setState({ open: o }); }
+
+  /* 진행률은 시작 시각에서 파생 — setState 배치와 무관하게 시간과 항상 일치 */
+  UPLOAD_MS = 6000;
+
+  uploadPct() {
+    const up = this.state.upload;
+    if (!up.started) return { r1: 0, r2: 0, started: false };
+    const el = Date.now() - up.startedAt;
+    const clamp = v => Math.max(0, Math.min(100, Math.round(v)));
+    return { started: true, r1: clamp(el / this.UPLOAD_MS * 100), r2: clamp((el - this.UPLOAD_MS) / this.UPLOAD_MS * 100) };
+  }
+
+  startUpload() {
+    if (this.state.upload.started) return;
+    this.setState({ upload: { started: true, startedAt: Date.now() } });
+    this.timer = setInterval(() => {
+      const p = this.uploadPct();
+      if (p.r1 >= 100 && p.r2 >= 100) { clearInterval(this.timer); this.timer = null; }
+      this.setState({ tick: Date.now() });
+    }, 200);
+  }
+
+  kv(list) {
+    return list.map(x => ({
+      label: x.label, value: x.value,
+      font: x.mono ? 'var(--font-mono)' : 'var(--font-sans)',
+      size: x.small ? 'var(--fs-caption)' : (x.mono ? 'var(--fs-data)' : 'var(--fs-body)')
+    }));
+  }
+
+  renderVals() {
+    const st = this.state, route = st.route;
+    const isRun = route.view === 'run';
+    const r = isRun ? this.runView(route.runId) : null;
+    const vals = {
+      liveMessage: st.live,
+      isList: route.view === 'list',
+      isWizard: route.view === 'wizard',
+      isRun: isRun,
+      isNotFound: route.view === '404',
+      missingRunId: route.runId || 'wes-unknown',
+      goList: () => this.nav('#/'),
+      goWizard: () => this.nav('#/new?step=1'),
+      nav: {
+        listColor: route.view === 'list' ? 'var(--brand-600)' : 'var(--ink-500)',
+        listUnderline: route.view === 'list' ? 'inset 0 -2px 0 0 var(--brand-600)' : 'none',
+        newColor: route.view === 'wizard' ? 'var(--brand-600)' : 'var(--ink-500)',
+        newUnderline: route.view === 'wizard' ? 'inset 0 -2px 0 0 var(--brand-600)' : 'none'
+      },
+      dev: {
+        run001Label: st.devRun001 === 'running' ? 'running' : 'completed+warn',
+        toggleRun001: () => this.setState({ devRun001: st.devRun001 === 'running' ? 'completed_with_warnings' : 'running' })
+      }
+    };
+
+    /* ---------- 실행 목록 ---------- */
+    const ids = Object.keys(DATA.runs);
+    vals.list = {
+      count: ids.length,
+      runs: ids.map(id => {
+        const rr = this.runView(id);
+        const b = STATUS_BADGE[rr.status];
+        const single = rr.order.length === 1;
+        const done = this.doneCount(rr);
+        let summary;
+        if (rr.status === 'queued') summary = '앞선 분석이 끝나면 시작';
+        else if (single) summary = '사전 점검 중단 · ' + rr.elapsed;
+        else summary = done + '/' + rr.order.length + '단계 · ' + rr.elapsed;
+        return {
+          tag: TAG[b.st], tagColor: 'var(--st-' + b.st + '-fg)',
+          sample: rr.sample, profile: rr.profile,
+          sub: rr.status === 'failed' ? '입력 검증 실패 — 참조 유전체 BWA 인덱스 없음'
+             : 'GRCh38 · IDT xGen Exome Hyb Panel v2',
+          subColor: rr.status === 'failed' ? 'var(--st-fail-fg)' : 'var(--ink-500)',
+          segments: this.segments(rr), showBar: !single, barFallback: single ? '사전 점검' : false,
+          summary: summary, when: rr.when, open: () => this.nav('#/runs/' + id)
+        };
+      })
+    };
+
+    /* ---------- 마법사 ---------- */
+    const step = route.view === 'wizard' ? route.step : 1;
+    const u = this.uploadPct();
+    const uploadDone = u.started && u.r1 >= 100 && u.r2 >= 100;
+    const W = DATA.wizard;
+    const gate = { 1: true, 2: uploadDone, 3: true, 4: uploadDone };
+    const nextOk = gate[step];
+    vals.wiz = {
+      step: step, title: W.titles[step - 1], progress: (step / 4 * 100) + '%',
+      is1: step === 1, is2: step === 2, is3: step === 3, is4: step === 4,
+      steps: W.titles.map((label, i) => {
+        const n = i + 1, done = n < step, cur = n === step;
+        return {
+          num: done ? '✓' : String(n), label: label,
+          nodeBg: done ? 'var(--fill-ok)' : cur ? 'var(--brand-600)' : 'var(--ink-100)',
+          nodeFg: done || cur ? 'var(--surface)' : 'var(--ink-500)',
+          labelColor: done ? 'var(--ink-700)' : cur ? 'var(--ink-900)' : 'var(--ink-400)',
+          labelWeight: cur ? 'var(--w-600)' : 'var(--w-400)',
+          lineColor: n === 4 ? 'transparent' : (n < step ? 'var(--fill-ok)' : 'var(--ink-100)'),
+          cursor: done ? 'pointer' : 'default',
+          go: done ? () => this.nav('#/new?step=' + n) : () => {}
+        };
+      }),
+      profile: W.profile, soon: W.soon, sample: W.sample,
+      noFiles: !u.started, hasFiles: u.started,
+      addFiles: () => this.startUpload(),
+      slots: W.files.map((f, i) => {
+        const pct = i === 0 ? u.r1 : u.r2;
+        return {
+          slot: f.slot, name: f.name, size: f.size,
+          done: pct >= 100, pending: pct < 100,
+          pct: pct + '%', pctLabel: pct + ' %',
+          meta: pct === 0 ? '대기 중' : '42 MB/s · 남은 시간 ' + Math.max(1, Math.round((100 - pct) * 0.9)) + '초'
+        };
+      }),
+      kit: W.kits[0].name, kitsOpen: !!st.open.kits,
+      kitChevron: st.open.kits ? 'rotate(180deg)' : 'rotate(0deg)',
+      toggleKits: () => this.toggle('kits'),
+      kits: W.kits.map(k => ({
+        name: k.name, note: k.note,
+        color: k.ok ? 'var(--ink-900)' : 'var(--ink-400)',
+        noteColor: k.ok ? 'var(--brand-600)' : 'var(--ink-400)',
+        bg: k.ok ? 'var(--brand-050)' : 'transparent',
+        cursor: k.ok ? 'pointer' : 'not-allowed'
+      })),
+      acmgBg: st.open.acmgOff ? 'var(--ink-200)' : 'var(--brand-600)',
+      acmgAlign: st.open.acmgOff ? 'flex-start' : 'flex-end',
+      toggleAcmg: () => this.toggle('acmgOff'),
+      fixed: W.fixed, fixedOpen: !!st.open.fixed,
+      fixedChevron: st.open.fixed ? 'rotate(180deg)' : 'rotate(0deg)',
+      toggleFixed: () => this.toggle('fixed'),
+      summary: [
+        { label:'분석', value: W.profile.name, font:'var(--font-sans)', size:'var(--fs-body)', editStep: 1 },
+        { label:'샘플', value: W.sample, font:'var(--font-mono)', size:'var(--fs-data)', editStep: 2 },
+        { label:'참조 유전체', value:'GRCh38', font:'var(--font-sans)', size:'var(--fs-body)', editStep: false },
+        { label:'Capture kit', value: W.kits[0].name, font:'var(--font-sans)', size:'var(--fs-body)', editStep: 3 },
+        { label:'ACMG 자동 분류', value: st.open.acmgOff ? '사용 안 함' : '사용', font:'var(--font-sans)', size:'var(--fs-body)', editStep: 3 },
+        { label:'실행할 단계', value:'입력 검증 (사전 점검 모드)', font:'var(--font-sans)', size:'var(--fs-body)', editStep: false },
+        { label:'예상 소요', value:'약 2분', font:'var(--font-sans)', size:'var(--fs-body)', editStep: false }
+      ].map(x => Object.assign(x, { edit: x.editStep ? () => this.nav('#/new?step=' + x.editStep) : () => {} })),
+      uploading: u.started && !uploadDone,
+      uploadLabel: '업로드 중 ' + (u.r1 < 100 ? '1' : '2') + '/2 · ' + (u.r1 < 100 ? u.r1 : u.r2) + '%',
+      uploadPct: (u.r1 < 100 ? u.r1 : u.r2) + '%',
+      nextLabel: step === 4 ? '분석 시작' : '다음',
+      nextBg: nextOk ? 'var(--brand-600)' : 'var(--ink-100)',
+      nextFg: nextOk ? 'var(--surface)' : 'var(--ink-400)',
+      nextCursor: nextOk ? 'pointer' : 'not-allowed',
+      blockReason: nextOk ? false : (step === 2
+        ? (u.started ? '업로드가 완료되면 다음 단계로 갈 수 있습니다' : 'FASTQ 파일 2개를 추가해 주세요')
+        : '업로드가 완료되면 시작할 수 있습니다'),
+      prev: () => { if (step === 1) this.nav('#/'); else this.nav('#/new?step=' + (step - 1)); },
+      next: () => {
+        if (!nextOk) return;
+        if (step === 4) { this.setState({ live: '분석이 제출되었습니다' }); this.nav('#/runs/RUN-001'); }
+        else this.nav('#/new?step=' + (step + 1));
+      }
+    };
+
+    if (!isRun) return vals;
+
+    /* ---------- Run Workspace ---------- */
+    const b = STATUS_BADGE[r.status];
+    const done = this.doneCount(r);
+    const single = r.order.length === 1;
+    const cur = r.order.find(id => r.stepStates[id] === 'run');
+    vals.run = {
+      profile: r.profile, sample: r.sample, runId: r.runId,
+      badgeLabel: b.label, badgeFg: 'var(--st-' + b.st + '-fg)', badgeBg: 'var(--st-' + b.st + '-bg)',
+      iconRun: b.st === 'run', iconOk: b.st === 'ok', iconWarn: b.st === 'warn',
+      iconFail: b.st === 'fail', iconIdle: b.st === 'idle',
+      showTape: !single, tapeMd: this.segments(r),
+      progressText: r.status === 'queued' ? '대기 중 — 앞선 분석이 끝나면 시작됩니다'
+        : single ? '사전 점검에서 중단 · ' + r.elapsed
+        : (cur ? stepMeta(cur).label + ' · ' : '') + done + '/' + r.order.length + '단계' + (r.status === 'running' ? ' · ' + r.elapsed + ' 경과' : ' 완료 · ' + r.elapsed + ' 소요'),
+      metaLine: 'GRCh38 · IDT xGen Exome Hyb Panel v2 · ' + (r.mode === 'full' ? '전체 분석 모드' : '사전 점검 모드'),
+      timeLine: r.startedAt + ' 시작' + (r.finishedAt ? ' · ' + r.finishedAt + ' 완료' : ''),
+      tabs: TABS.map(t => ({
+        label: t.label,
+        color: route.tab === t.id ? 'var(--ink-900)' : 'var(--ink-500)',
+        underline: route.tab === t.id ? 'inset 0 -2px 0 0 var(--brand-600)' : 'none',
+        go: () => this.nav('#/runs/' + route.runId + t.path)
+      }))
+    };
+    vals.tab = {
+      overview: route.tab === 'overview', pipeline: route.tab === 'pipeline',
+      results: route.tab === 'results', files: route.tab === 'files',
+      repro: route.tab === 'reproducibility'
+    };
+
+    /* 개요 */
+    const artifactMetric = r.status === 'queued' ? '—' : String(r.artifactCount);
+    vals.ov = {
+      verdictBg: r.status === 'running' ? 'var(--brand-050)' : 'var(--st-' + b.st + '-bg)',
+      verdictFg: r.status === 'running' ? 'var(--brand-600)' : 'var(--st-' + b.st + '-fg)',
+      verdictTitle: r.status === 'running' ? '분석이 진행 중입니다'
+        : r.status === 'queued' ? '아직 시작하지 않았습니다'
+        : r.status === 'failed' ? '사전 점검에서 중단되었습니다' : '분석이 완료되었습니다',
+      verdictBody: r.status === 'running'
+        ? stepMeta(cur).label + ' 단계를 실행하고 있습니다. 남은 단계는 ' + (r.order.length - done) + '개입니다.'
+        : r.status === 'queued' ? '앞선 분석이 끝나면 시작됩니다. 대기 순번 정보는 제공되지 않습니다.'
+        : r.status === 'failed' ? '입력과 참조 데이터 검사에서 문제가 발견되어 분석을 시작하지 못했습니다.'
+        : '모든 단계가 종료되었습니다. 결과 탭에서 지표와 산출물을 확인할 수 있습니다.',
+      metrics: [
+        { label:'완료 단계', value: done + ' / ' + r.order.length, unit:'', note:'남은 단계 ' + (r.order.length - done) + '개' },
+        { label:'경과 시간', value: r.elapsed, unit:'', note: r.startedAt + ' 시작' },
+        { label:'경고', value: String((r.warnings || []).length), unit:'건', note:'—' },
+        { label:'생성된 산출물', value: artifactMetric, unit:'개', note: r.artifactTotal }
+      ],
+      available: [
+        { title:'파이프라인', desc:'단계별 진행 상황과 실행 로그', action:'이동 →',
+          titleColor:'var(--ink-900)', actionColor:'var(--brand-600)', cursor:'pointer',
+          go: () => this.nav('#/runs/' + route.runId + '/pipeline') },
+        { title:'파일', desc: r.artifactCount ? '지금까지 생성된 산출물 ' + r.artifactCount + '개' : '아직 생성된 산출물이 없습니다',
+          action: r.artifactCount ? '이동 →' : '없음',
+          titleColor: r.artifactCount ? 'var(--ink-900)' : 'var(--ink-400)',
+          actionColor: r.artifactCount ? 'var(--brand-600)' : 'var(--ink-400)',
+          cursor: r.artifactCount ? 'pointer' : 'default',
+          go: r.artifactCount ? () => this.nav('#/runs/' + route.runId + '/files') : () => {} },
+        { title:'결과', desc: r.resultType === 'notReady' ? '마지막 단계가 끝나면 볼 수 있습니다' : '판정과 지표',
+          action: r.resultType === 'notReady' ? '준비 중' : '이동 →',
+          titleColor: r.resultType === 'notReady' ? 'var(--ink-400)' : 'var(--ink-900)',
+          actionColor: r.resultType === 'notReady' ? 'var(--ink-400)' : 'var(--brand-600)',
+          cursor: r.resultType === 'notReady' ? 'default' : 'pointer',
+          go: r.resultType === 'notReady' ? () => {} : () => this.nav('#/runs/' + route.runId + '/results') }
+      ],
+      info: this.kv([
+        { label:'분석', value: r.profile }, { label:'샘플', value: r.sample, mono:true },
+        { label:'참조 유전체', value:'GRCh38 · contig style: chr' },
+        { label:'Capture kit', value:'IDT xGen Exome Hyb Panel v2' },
+        { label:'실행 모드', value: r.mode === 'full' ? '전체 분석' : '사전 점검' },
+        { label:'제출 시각', value: r.submittedAt, mono:true }
+      ])
+    };
+
+    /* 파이프라인 */
+    const sel = st.selectedStep && r.stepStates[st.selectedStep] ? st.selectedStep : this.defaultStep(r);
+    const selMeta = stepMeta(sel);
+    const selState = r.stepStates[sel];
+    vals.pipe = {
+      tapeLg: r.order.map(id => {
+        const s = r.stepStates[id], m = stepMeta(id), running = s === 'run';
+        return {
+          name: m.label, time: r.times[id], fg: 'var(--st-' + s + '-fg)', bg: 'var(--st-' + s + '-bg)',
+          stripes: running ? 'repeating-linear-gradient(45deg, rgba(26,77,158,.12) 0 8px, rgba(26,77,158,0) 8px 16px)' : 'none',
+          anim: running ? 'om-stripes 2.5s linear infinite' : 'none',
+          top: m.kind === 'optional' ? 'var(--ink-400)' : 'transparent',
+          ring: id === sel ? 'inset 0 0 0 2px var(--brand-600)' : 'none',
+          title: m.label + ' · ' + ST_LABEL[s],
+          select: () => this.setState({ selectedStep: id, live: m.label + ' 상세를 열었습니다' })
+        };
+      }),
+      rows: r.order.map(id => {
+        const s = r.stepStates[id], m = stepMeta(id), isSel = id === sel, muted = s === 'idle';
+        return {
+          tag: TAG[s], tagColor: muted ? 'var(--ink-400)' : 'var(--st-' + s + '-fg)',
+          name: m.label, sub: m.subtitle, time: r.times[id],
+          nameColor: muted ? 'var(--ink-400)' : 'var(--ink-900)',
+          nameWeight: isSel ? 'var(--w-600)' : 'var(--w-500)',
+          subColor: muted ? 'var(--ink-400)' : 'var(--ink-500)',
+          timeColor: muted ? 'var(--ink-400)' : 'var(--ink-700)',
+          rowBg: isSel ? 'var(--brand-050)' : 'transparent',
+          bb: isSel ? 'var(--brand-600)' : 'var(--ink-100)',
+          chevColor: isSel ? 'var(--brand-600)' : (muted ? 'var(--ink-200)' : 'var(--ink-400)'),
+          markerColor: isSel ? 'var(--brand-600)' : 'transparent',
+          cursor: muted ? 'default' : 'pointer',
+          reason: m.kind === 'optional' && s === 'skip' ? '현재 설정에서는 트리밍하지 않습니다' : false,
+          select: muted ? () => {} : () => this.setState({ selectedStep: id, live: m.label + ' 상세를 열었습니다' })
+        };
+      }),
+      logs: DATA.logs,
+      detailOpen: true,
+      close: () => this.setState({ selectedStep: null }),
+      detail: {
+        name: selMeta.label, id: sel + ' · ' + selMeta.subtitle,
+        tag: TAG[selState], tagColor: 'var(--st-' + selState + '-fg)', tagBg: 'var(--st-' + selState + '-bg)',
+        time: r.times[sel],
+        hasMetrics: !!(selMeta.metrics && selMeta.metrics.length),
+        metrics: selMeta.metrics || [],
+        accordions: [
+          { key: 'io', title: '입력 / 출력', items: (selMeta.io || []).map(t => ({ text: t })) },
+          { key: 'art', title: '산출물', items: (selMeta.artifacts || []).map(t => ({ text: t })) },
+          { key: 'wf', title: '경고 · 실패', items: [{ text: '없음' }] }
+        ].map(a => ({
+          title: a.title, count: a.items.length + '건',
+          open: !!st.open['acc-' + sel + '-' + a.key],
+          chevron: st.open['acc-' + sel + '-' + a.key] ? 'rotate(180deg)' : 'rotate(0deg)',
+          items: a.items, toggle: () => this.toggle('acc-' + sel + '-' + a.key)
+        }))
+      }
+    };
+
+    /* 결과 — RESULT_SECTIONS 순회로 가용 섹션 결정 */
+    const scope = r.resultType === 'full' ? 'full' : 'precheck';
+    const active = {};
+    RESULT_SECTIONS.slice().sort((a, c) => a.order - c.order).forEach(s => {
+      active[s.id] = r.resultType !== 'notReady' && s.scope.indexOf(scope) >= 0 && s.isAvailable(r);
+    });
+    const cov = r.coverage;
+    vals.res = {
+      notReady: r.resultType === 'notReady',
+      notReadyNote: r.notReadyNote || '',
+      goPipeline: () => this.nav('#/runs/' + route.runId + '/pipeline'),
+      hasVerdict: active.verdict,
+      verdictBg: 'var(--st-' + b.st + '-bg)', verdictFg: 'var(--st-' + b.st + '-fg)',
+      verdictTitle: r.resultType === 'precheck' ? '사전 점검에서 중단되었습니다' : '경고 1건과 함께 완료되었습니다',
+      verdictBody: r.resultType === 'precheck'
+        ? '입력과 참조 데이터 검사에서 문제가 발견되어 분석을 시작하지 못했습니다. 분석 산출물은 생성되지 않았습니다.'
+        : 'raw VCF까지 생성되었습니다. MultiQC 리포트를 만들지 못했으나 분석 결과에는 영향이 없습니다.',
+      elapsed: r.elapsed,
+      hasFailures: active.failures,
+      failureCount: (r.failures || []).length,
+      failures: (r.failures || []).map(f => ({ code: wrapCode(f.code), title: f.title, body: f.body })),
+      hasMetrics: active.metrics, metrics: cov ? cov.metrics.map(m => Object.assign({ valueColor: 'var(--ink-900)' }, m)) : [],
+      hasCoverage: active.coverage,
+      targetBases: cov ? '타깃 영역 ' + cov.targetBases + ' bp' : '',
+      breadth: cov ? cov.breadth.map(x => ({ label:x.label, pct:x.pct, color:x.color, width:x.pct + '%' })) : [],
+      lowCoverage: cov ? '20× 미만 구간 ' + cov.low.intervals + '곳 · ' + cov.low.bases + ' bp (' + cov.low.pct + ' %)' : '',
+      coverageNotes: [
+        { body: '20× 미만을 저커버리지 표시 기준으로 사용합니다. 이 값은 본 파이프라인의 보고 기준이며 임상 판정 기준이 아닙니다.' },
+        { body: '중앙값 깊이는 계산하지 않았습니다 — mosdepth를 --no-per-base로 실행하기 때문입니다.' }
+      ],
+      hasVariants: active.variants,
+      variants: r.variantCalling ? this.kv([
+        { label:'raw 변이 레코드', value: r.variantCalling.records, mono:true },
+        { label:'필터 적용', value: r.variantCalling.filtering },
+        { label:'완료 지점', value: r.variantCalling.endpoint },
+        { label:'gVCF', value: r.variantCalling.gvcf, mono:true },
+        { label:'raw VCF', value: r.variantCalling.rawVcf, mono:true }
+      ]) : [],
+      noFilterCode: wrapCode('NO_FILTERING_APPLIED'),
+      hasWarnings: active.warnings,
+      warningCount: (r.warnings || []).length,
+      warnings: (r.warnings || []).map(w => ({ code: wrapCode(w.code), title: w.title, body: w.body, impact: w.impact })),
+      hasChecks: active.checks,
+      checkTotal: r.checkTotal || 0,
+      checkSummary: (r.checkSummary || []).map(c => ({
+        label: '[' + (c.st === 'ok' ? 'PASS' : c.st === 'warn' ? 'WARN' : 'FAIL') + ' ' + c.n + ']',
+        fg: 'var(--st-' + c.st + '-fg)', bg: 'var(--st-' + c.st + '-bg)'
+      })),
+      checks: (r.checks || []).map(c => ({
+        tag: '[' + (c.st === 'ok' ? 'PASS' : c.st === 'warn' ? 'WARN' : 'FAIL') + ']',
+        tagColor: 'var(--st-' + c.st + '-fg)', name: c.name, detail: c.detail,
+        rowBg: c.st === 'fail' ? 'var(--st-fail-bg)' : 'transparent'
+      })),
+      hiddenChecks: r.hiddenChecks || '',
+      hasInputs: active.inputs,
+      inputsOpen: !!st.open.inputs,
+      inputsChevron: st.open.inputs ? 'rotate(180deg)' : 'rotate(0deg)',
+      toggleInputs: () => this.toggle('inputs'),
+      inputs: this.kv(DATA.inputSummary),
+      hasIntendedUse: active.intendedUse && r.resultType !== 'notReady',
+      intendedUse: DATA.intendedUse
+    };
+
+    /* 파일 */
+    const all = r.artifacts || [];
+    const counts = { '전체': all.length };
+    all.forEach(a => { const c = categoryOf(a.kind); counts[c] = (counts[c] || 0) + 1; });
+    const chipLabels = ['전체', '변이 파일', '정렬 파일', '품질 리포트', '요약·기록'];
+    const filter = st.fileFilter;
+    const shown = filter === '전체' ? all : all.filter(a => categoryOf(a.kind) === filter);
+    const byStep = {};
+    shown.forEach(a => { (byStep[a.step] = byStep[a.step] || []).push(a); });
+    const stepNum = id => 'STEP ' + (r.order.indexOf(id) + 1 < 10 ? '0' : '') + (r.order.indexOf(id) + 1);
+    vals.files = {
+      empty: all.length === 0,
+      emptyBody: r.mode === 'full'
+        ? '이 실행은 아직 산출물을 만들지 않았습니다. 단계가 진행되면 파일이 나타납니다.'
+        : '이 실행은 사전 점검 모드로 진행되어 분석 파일을 만들지 않습니다. 입력과 참조 데이터 검사 결과만 확인할 수 있습니다.',
+      has: all.length > 0,
+      count: all.length, total: r.artifactTotal,
+      goResults: () => this.nav('#/runs/' + route.runId + '/results'),
+      showAll: () => this.setState({ fileFilter: '전체' }),
+      filterEmpty: all.length > 0 && shown.length === 0,
+      chips: chipLabels.map(label => {
+        const on = filter === label;
+        return {
+          label: label, count: String(counts[label] || 0),
+          bg: on ? 'var(--brand-100)' : 'var(--surface)',
+          border: on ? 'var(--brand-600)' : 'var(--ink-200)',
+          color: on ? 'var(--brand-700)' : 'var(--ink-700)',
+          countColor: on ? 'var(--brand-600)' : 'var(--ink-400)',
+          select: () => this.setState({ fileFilter: label })
+        };
+      }),
+      groups: Object.keys(byStep).map(id => {
+        const m = stepMeta(id);
+        return {
+          step: stepNum(id), name: m.label, meta: byStep[id].length + '개',
+          files: byStep[id].map(a => {
+            const muted = !!a.missing;
+            const kindC = a.kind === 'VCF' ? ['var(--st-run-fg)', 'var(--st-run-bg)'] : ['var(--ink-700)', 'var(--sunken)'];
+            return {
+              name: a.name, nameColor: muted ? 'var(--ink-400)' : 'var(--ink-900)',
+              kind: '[' + a.kind + ']',
+              kindColor: muted ? 'var(--ink-400)' : kindC[0], kindBg: muted ? 'var(--paper)' : kindC[1],
+              size: a.size, sizeColor: muted ? 'var(--ink-400)' : 'var(--ink-500)',
+              iconColor: muted ? 'var(--ink-300)' : 'var(--ink-400)',
+              desc: a.desc || false, descColor: muted ? 'var(--ink-400)' : 'var(--ink-500)',
+              sha: a.sha || false, downloadable: !!a.downloadable, dlNote: a.dlNote || false
+            };
+          })
+        };
+      })
+    };
+
+    /* 재현성 */
+    vals.repro = {
+      config: this.kv(DATA.repro.config),
+      unsupported: DATA.repro.unsupported,
+      unsupportedCount: DATA.repro.unsupported.length + '개',
+      unsupportedOpen: !!st.open.unsupported,
+      unsupportedChevron: st.open.unsupported ? 'rotate(180deg)' : 'rotate(0deg)',
+      toggleUnsupported: () => this.toggle('unsupported'),
+      refData: this.kv(DATA.repro.refData),
+      tools: DATA.repro.tools,
+      manifest: DATA.repro.manifest,
+      methods: DATA.repro.methods
+    };
+
+    return vals;
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink-950:#0B1116; --ink-900:#17212B; --ink-700:#3A4854; --ink-500:#5F6D79;
+  --ink-400:#8C99A5; --border-strong:#8795A2; --ink-200:#D6DEE5; --ink-100:#E8EDF1;
+  --sunken:#EEF3F7; --surface:#FFFFFF; --paper:#F7F9FB;
+  --brand-700:#143C7B; --brand-600:#1A4D9E; --brand-500:#2461BC; --brand-100:#E7EFFA; --brand-050:#F3F7FC;
+
+  --st-wait-fg:#5F6D79; --st-wait-bg:#EEF3F7; --st-wait-bd:#D6DEE5;
+  --st-run-fg:#1A4D9E;  --st-run-bg:#E7EFFA;  --st-run-bd:#BFD5F0;
+  --st-done-fg:#14663F; --st-done-bg:#E4F1EA; --st-done-bd:#B9DCC9;
+  --st-warn-fg:#8A5300; --st-warn-bg:#FBF0DC; --st-warn-bd:#EDD3A0;
+  --st-fail-fg:#A32217; --st-fail-bg:#FBE7E4; --st-fail-bd:#F0BDB6;
+  --st-skip-fg:#5F6D79; --st-skip-bg:#F7F9FB; --st-skip-bd:#E8EDF1;
+
+  --font-ui:'IBM Plex Sans KR','IBM Plex Sans',system-ui,sans-serif;
+  --font-cond:'IBM Plex Sans Condensed','IBM Plex Sans KR',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+
+  --fs-display:28px; --lh-display:1.20;
+  --fs-h1:22px;      --lh-h1:1.30;
+  --fs-h2:17px;      --lh-h2:1.35;
+  --fs-h3:15px;      --lh-h3:1.40;
+  --fs-body:14px;    --lh-body:1.55;
+  --fs-small:13px;   --lh-small:1.50;
+  --fs-caption:12px; --lh-caption:1.45;
+  --fs-eyebrow:11px; --lh-eyebrow:1.20;
+  --fs-metric-xl:34px; --lh-metric-xl:1.05;
+  --fs-metric-md:20px; --lh-metric-md:1.15;
+  --fs-data:13px;    --lh-data:1.45;
+  --fs-log:12.5px;   --lh-log:1.60;
+
+  --w-400:400; --w-500:500; --w-600:600;
+  --ls-tight:-0.01em; --ls-tighter:-0.02em; --ls-none:0; --ls-wide:0.09em;
+
+  --sp-4:4px; --sp-8:8px; --sp-12:12px; --sp-16:16px; --sp-20:20px;
+  --sp-24:24px; --sp-32:32px; --sp-40:40px; --sp-48:48px; --sp-64:64px;
+
+  --r-sm:4px; --r-md:8px;
+  --el-0:none;
+  --el-1:0 1px 2px rgba(11,17,22,.06), 0 4px 12px rgba(11,17,22,.08);
+  --el-2:0 8px 32px rgba(11,17,22,.16);
+
+  --container:1360px; --rail:400px; --header-h:56px; --row-h:36px;
+  --gutter:24px; --icon:16px;
+  --vp-desktop:1440px; --vp-narrow:1024px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink-700);
+  font-family:var(--font-ui);font-size:var(--fs-body);line-height:var(--lh-body);
+  font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;text-wrap:pretty}
+a{color:var(--brand-600);text-decoration:none}
+a:hover{color:var(--brand-500);text-decoration:underline}
+</style>
+</helmet>
+
+<div style="min-height:100%;background:var(--paper);padding:var(--sp-48) var(--sp-40) var(--sp-64);display:flex;flex-direction:column;gap:var(--sp-64)">
+
+  <header style="display:flex;flex-direction:column;gap:var(--sp-8);max-width:var(--container);width:100%;margin:0 auto">
+    <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">WES ANALYSIS · DESIGN FOUNDATION</div>
+    <h1 style="margin:0;font-size:var(--fs-display);line-height:var(--lh-display);font-weight:var(--w-600);letter-spacing:var(--ls-tight);color:var(--ink-900)">산출물 A — 디자인 파운데이션 시트</h1>
+    <p style="margin:0;max-width:640px;color:var(--ink-500);font-size:var(--fs-small);line-height:var(--lh-small)">토큰이 실제 화면에서 어떻게 보이는지 확인하는 참조 시트입니다. 모든 값은 <span style="font-family:var(--font-mono);font-size:var(--fs-data);background:var(--sunken);border-radius:var(--r-sm);padding:0 var(--sp-4)">:root</span> 변수에서 참조됩니다.</p>
+  </header>
+
+  <!-- A-1 중립 -->
+  <section style="max-width:var(--container);width:100%;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-20)">
+    <div style="display:flex;flex-direction:column;gap:var(--sp-4);border-top:1px solid var(--ink-200);padding-top:var(--sp-16)">
+      <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">A-1</div>
+      <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">색상 — 중립 (화면의 85%)</h2>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(11,1fr);gap:var(--sp-12)">
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="height:var(--sp-64);border-radius:var(--r-sm);background:var(--ink-950);border:1px solid var(--ink-200)"></div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--ink-950</div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">#0B1116</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="height:var(--sp-64);border-radius:var(--r-sm);background:var(--ink-900);border:1px solid var(--ink-200)"></div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--ink-900</div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">#17212B</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="height:var(--sp-64);border-radius:var(--r-sm);background:var(--ink-700);border:1px solid var(--ink-200)"></div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--ink-700</div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">#3A4854</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="height:var(--sp-64);border-radius:var(--r-sm);background:var(--ink-500);border:1px solid var(--ink-200)"></div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--ink-500</div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">#5F6D79</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="height:var(--sp-64);border-radius:var(--r-sm);background:var(--ink-400);border:1px solid var(--ink-200)"></div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--ink-400</div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">#8C99A5</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="height:var(--sp-64);border-radius:var(--r-sm);background:var(--border-strong);border:1px solid var(--ink-200)"></div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--border-strong</div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">#8795A2</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="height:var(--sp-64);border-radius:var(--r-sm);background:var(--ink-200);border:1px solid var(--ink-200)"></div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--ink-200</div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">#D6DEE5</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="height:var(--sp-64);border-radius:var(--r-sm);background:var(--ink-100);border:1px solid var(--ink-200)"></div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--ink-100</div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">#E8EDF1</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="height:var(--sp-64);border-radius:var(--r-sm);background:var(--sunken);border:1px solid var(--ink-200)"></div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--sunken</div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">#EEF3F7</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="height:var(--sp-64);border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--ink-200)"></div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--surface</div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">#FFFFFF</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="height:var(--sp-64);border-radius:var(--r-sm);background:var(--paper);border:1px solid var(--ink-200)"></div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--paper</div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">#F7F9FB</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-2 브랜드 -->
+  <section style="max-width:var(--container);width:100%;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-20)">
+    <div style="display:flex;flex-direction:column;gap:var(--sp-4);border-top:1px solid var(--ink-200);padding-top:var(--sp-16)">
+      <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">A-2</div>
+      <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">색상 — 브랜드 gel blue (화면의 5%)</h2>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(11,1fr);gap:var(--sp-12)">
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="height:var(--sp-64);border-radius:var(--r-sm);background:var(--brand-700);border:1px solid var(--ink-200)"></div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--brand-700</div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">#143C7B</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="height:var(--sp-64);border-radius:var(--r-sm);background:var(--brand-600);border:1px solid var(--ink-200)"></div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--brand-600</div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">#1A4D9E</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="height:var(--sp-64);border-radius:var(--r-sm);background:var(--brand-500);border:1px solid var(--ink-200)"></div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--brand-500</div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">#2461BC</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="height:var(--sp-64);border-radius:var(--r-sm);background:var(--brand-100);border:1px solid var(--ink-200)"></div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--brand-100</div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">#E7EFFA</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="height:var(--sp-64);border-radius:var(--r-sm);background:var(--brand-050);border:1px solid var(--ink-200)"></div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--brand-050</div>
+        <div style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">#F3F7FC</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-3 상태 배지 -->
+  <section style="max-width:var(--container);width:100%;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-20)">
+    <div style="display:flex;flex-direction:column;gap:var(--sp-4);border-top:1px solid var(--ink-200);padding-top:var(--sp-16)">
+      <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">A-3</div>
+      <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">상태 배지 6종</h2>
+      <p style="margin:0;color:var(--ink-500);font-size:var(--fs-small);line-height:var(--lh-small)">아이콘 + 텍스트 + 색의 3중 구성. 테두리는 장식이며 상태 식별은 아이콘·텍스트·전경 대비가 담당합니다.</p>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:var(--sp-32)">
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8);align-items:flex-start">
+        <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--sp-8);border-radius:var(--r-sm);font-size:var(--fs-small);line-height:var(--lh-small);font-weight:var(--w-500);color:var(--st-wait-fg);background:var(--st-wait-bg);border:1px solid var(--st-wait-bd)"><span style="width:var(--icon);height:var(--icon);display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-caption)">○</span>대기</span>
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">4.76:1</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8);align-items:flex-start">
+        <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--sp-8);border-radius:var(--r-sm);font-size:var(--fs-small);line-height:var(--lh-small);font-weight:var(--w-500);color:var(--st-run-fg);background:var(--st-run-bg);border:1px solid var(--st-run-bd)"><span style="width:var(--icon);height:var(--icon);display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-caption)">◐</span>진행 중</span>
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">6.97:1</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8);align-items:flex-start">
+        <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--sp-8);border-radius:var(--r-sm);font-size:var(--fs-small);line-height:var(--lh-small);font-weight:var(--w-500);color:var(--st-done-fg);background:var(--st-done-bg);border:1px solid var(--st-done-bd)"><span style="width:var(--icon);height:var(--icon);display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-caption)">✓</span>완료</span>
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">6.02:1</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8);align-items:flex-start">
+        <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--sp-8);border-radius:var(--r-sm);font-size:var(--fs-small);line-height:var(--lh-small);font-weight:var(--w-500);color:var(--st-warn-fg);background:var(--st-warn-bg);border:1px solid var(--st-warn-bd)"><span style="width:var(--icon);height:var(--icon);display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-caption)">△</span>경고</span>
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">5.61:1</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8);align-items:flex-start">
+        <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--sp-8);border-radius:var(--r-sm);font-size:var(--fs-small);line-height:var(--lh-small);font-weight:var(--w-500);color:var(--st-fail-fg);background:var(--st-fail-bg);border:1px solid var(--st-fail-bd)"><span style="width:var(--icon);height:var(--icon);display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-caption)">✕</span>실패</span>
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">6.31:1</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8);align-items:flex-start">
+        <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--sp-8);border-radius:var(--r-sm);font-size:var(--fs-small);line-height:var(--lh-small);font-weight:var(--w-500);color:var(--st-skip-fg);background:var(--st-skip-bg);border:1px solid var(--st-skip-bd)"><span style="width:var(--icon);height:var(--icon);display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-caption)">⊘</span>취소·건너뜀</span>
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">5.04:1</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-4 타이포그래피 -->
+  <section style="max-width:var(--container);width:100%;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-20)">
+    <div style="display:flex;flex-direction:column;gap:var(--sp-4);border-top:1px solid var(--ink-200);padding-top:var(--sp-16)">
+      <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">A-4</div>
+      <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">타이포그래피 스케일</h2>
+    </div>
+    <div style="display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md)">
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:var(--sp-24);padding:var(--sp-12) var(--sp-20);background:var(--sunken);border-bottom:1px solid var(--ink-200);border-radius:var(--r-md) var(--r-md) 0 0">
+        <span style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">역할 / 크기 · 행간 · 굵기</span>
+        <span style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">샘플</span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:var(--sp-24);align-items:baseline;padding:var(--sp-16) var(--sp-20);border-bottom:1px solid var(--ink-100)">
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">display · 28/1.20 600 -0.01em</span>
+        <span style="font-size:var(--fs-display);line-height:var(--lh-display);font-weight:var(--w-600);letter-spacing:var(--ls-tight);color:var(--ink-900)">참조 유전체 정렬 · 38분 12초</span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:var(--sp-24);align-items:baseline;padding:var(--sp-16) var(--sp-20);border-bottom:1px solid var(--ink-100)">
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">h1 · 22/1.30 600 -0.01em</span>
+        <span style="font-size:var(--fs-h1);line-height:var(--lh-h1);font-weight:var(--w-600);letter-spacing:var(--ls-tight);color:var(--ink-900)">실행 RUN-2026-0418 · 11단계 중 7단계</span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:var(--sp-24);align-items:baseline;padding:var(--sp-16) var(--sp-20);border-bottom:1px solid var(--ink-100)">
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">h2 · 17/1.35 600 0</span>
+        <span style="font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">품질 지표 요약 · 평균 깊이 98.4×</span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:var(--sp-24);align-items:baseline;padding:var(--sp-16) var(--sp-20);border-bottom:1px solid var(--ink-100)">
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">h3 · 15/1.40 600 0</span>
+        <span style="font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">중복 제거 단계 4 / 11</span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:var(--sp-24);align-items:baseline;padding:var(--sp-16) var(--sp-20);border-bottom:1px solid var(--ink-100)">
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">body · 14/1.55 400 0</span>
+        <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-700)">FASTQ 파일 한 쌍을 업로드하면 11단계 파이프라인이 순차적으로 실행되며, 각 단계의 소요 시간은 서버 부하에 따라 최대 6시간까지 늘어날 수 있습니다.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:var(--sp-24);align-items:baseline;padding:var(--sp-16) var(--sp-20);border-bottom:1px solid var(--ink-100)">
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">body-strong · 14/1.55 500 0</span>
+        <span style="font-size:var(--fs-body);line-height:var(--lh-body);font-weight:var(--w-500);color:var(--ink-900)">참조 유전체가 설정되지 않아 실행할 수 없습니다 (오류 코드 412)</span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:var(--sp-24);align-items:baseline;padding:var(--sp-16) var(--sp-20);border-bottom:1px solid var(--ink-100)">
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">small · 13/1.50 400 0</span>
+        <span style="font-size:var(--fs-small);line-height:var(--lh-small);color:var(--ink-700)">마지막 갱신 3초 전 · 남은 예상 시간 2시간 14분</span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:var(--sp-24);align-items:baseline;padding:var(--sp-16) var(--sp-20);border-bottom:1px solid var(--ink-100)">
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">caption · 12/1.45 400 0</span>
+        <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">GRCh38 기준 · 표적 영역 39.2 Mb</span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:var(--sp-24);align-items:baseline;padding:var(--sp-16) var(--sp-20);border-bottom:1px solid var(--ink-100)">
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">eyebrow · 11/1.20 600 +0.09em</span>
+        <span style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">QUALITY METRICS · STEP 07</span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:var(--sp-24);align-items:baseline;padding:var(--sp-16) var(--sp-20);border-bottom:1px solid var(--ink-100)">
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">metric-xl · 34/1.05 500 -0.02em</span>
+        <span style="font-family:var(--font-mono);font-size:var(--fs-metric-xl);line-height:var(--lh-metric-xl);font-weight:var(--w-500);letter-spacing:var(--ls-tighter);color:var(--ink-900)">98.4<span style="font-size:var(--fs-metric-md);color:var(--ink-500)">×</span></span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:var(--sp-24);align-items:baseline;padding:var(--sp-16) var(--sp-20);border-bottom:1px solid var(--ink-100)">
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">metric-md · 20/1.15 500 -0.01em</span>
+        <span style="font-family:var(--font-mono);font-size:var(--fs-metric-md);line-height:var(--lh-metric-md);font-weight:var(--w-500);letter-spacing:var(--ls-tight);color:var(--ink-900)">39,214,880<span style="font-size:var(--fs-caption);color:var(--ink-500)"> reads</span></span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:var(--sp-24);align-items:baseline;padding:var(--sp-16) var(--sp-20);border-bottom:1px solid var(--ink-100)">
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">data · 13/1.45 400 0</span>
+        <span style="font-family:var(--font-mono);font-size:var(--fs-data);line-height:var(--lh-data);color:var(--ink-700)">SAMPLE-0417_R1.fastq.gz · 12.4 GB · BRCA1</span>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:var(--sp-24);align-items:baseline;padding:var(--sp-16) var(--sp-20)">
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">log · 12.5/1.60 400 0</span>
+        <span style="display:block;font-family:var(--font-mono);font-size:var(--fs-log);line-height:var(--lh-log);color:var(--ink-100);background:var(--ink-950);border-radius:var(--r-sm);padding:var(--sp-12) var(--sp-16)">[07/11] bwa mem -t 16 GRCh38.fa R1.fq.gz R2.fq.gz<br>[07/11] 정렬 진행률 62.4% · 경과 38m12s</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- A-5 간격 -->
+  <section style="max-width:var(--container);width:100%;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-20)">
+    <div style="display:flex;flex-direction:column;gap:var(--sp-4);border-top:1px solid var(--ink-200);padding-top:var(--sp-16)">
+      <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">A-5</div>
+      <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">간격 스케일</h2>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+      <div style="display:flex;flex-direction:column;gap:var(--sp-4)"><span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">4px</span><div style="width:var(--sp-4);height:var(--sp-8);background:var(--brand-600);border-radius:var(--r-sm)"></div></div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-4)"><span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">8px</span><div style="width:var(--sp-8);height:var(--sp-8);background:var(--brand-600);border-radius:var(--r-sm)"></div></div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-4)"><span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">12px</span><div style="width:var(--sp-12);height:var(--sp-8);background:var(--brand-600);border-radius:var(--r-sm)"></div></div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-4)"><span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">16px</span><div style="width:var(--sp-16);height:var(--sp-8);background:var(--brand-600);border-radius:var(--r-sm)"></div></div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-4)"><span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">20px</span><div style="width:var(--sp-20);height:var(--sp-8);background:var(--brand-600);border-radius:var(--r-sm)"></div></div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-4)"><span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">24px</span><div style="width:var(--sp-24);height:var(--sp-8);background:var(--brand-600);border-radius:var(--r-sm)"></div></div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-4)"><span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">32px</span><div style="width:var(--sp-32);height:var(--sp-8);background:var(--brand-600);border-radius:var(--r-sm)"></div></div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-4)"><span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">40px</span><div style="width:var(--sp-40);height:var(--sp-8);background:var(--brand-600);border-radius:var(--r-sm)"></div></div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-4)"><span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">48px</span><div style="width:var(--sp-48);height:var(--sp-8);background:var(--brand-600);border-radius:var(--r-sm)"></div></div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-4)"><span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">64px</span><div style="width:var(--sp-64);height:var(--sp-8);background:var(--brand-600);border-radius:var(--r-sm)"></div></div>
+    </div>
+  </section>
+
+  <!-- A-6 반경 · 그림자 -->
+  <section style="max-width:var(--container);width:100%;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-20)">
+    <div style="display:flex;flex-direction:column;gap:var(--sp-4);border-top:1px solid var(--ink-200);padding-top:var(--sp-16)">
+      <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">A-6</div>
+      <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">반경과 그림자</h2>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:var(--sp-40)">
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="width:120px;height:var(--sp-64);background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r-sm)"></div>
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--r-sm · 4px</span>
+        <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">버튼 · 입력 · 배지 · 칩</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="width:120px;height:var(--sp-64);background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r-md)"></div>
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--r-md · 8px</span>
+        <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">패널 · 다이얼로그 · 드로어</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="width:160px;height:var(--sp-64);background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);box-shadow:var(--el-0)"></div>
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--el-0 · none</span>
+        <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">카드 포함 모든 인라인 콘텐츠</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="width:160px;height:var(--sp-64);background:var(--surface);border:1px solid var(--ink-100);border-radius:var(--r-md);box-shadow:var(--el-1)"></div>
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--el-1</span>
+        <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">드롭다운 · 툴팁 · 팝오버</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="width:160px;height:var(--sp-64);background:var(--surface);border:1px solid var(--ink-100);border-radius:var(--r-md);box-shadow:var(--el-2)"></div>
+        <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">--el-2</span>
+        <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">다이얼로그 · 드로어</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 구분 -->
+  <div style="max-width:var(--container);width:100%;margin:0 auto;border-top:1px solid var(--ink-900);padding-top:var(--sp-24);display:flex;flex-direction:column;gap:var(--sp-8)">
+    <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">APP SHELL SKELETON</div>
+    <h1 style="margin:0;font-size:var(--fs-display);line-height:var(--lh-display);font-weight:var(--w-600);letter-spacing:var(--ls-tight);color:var(--ink-900)">산출물 B — 앱 셸 레이아웃 골격</h1>
+    <p style="margin:0;max-width:640px;color:var(--ink-500);font-size:var(--fs-small);line-height:var(--lh-small)">실제 콘텐츠 없이 구조만 보여주는 저해상도 골격입니다. 콘텐츠 영역은 회색 플레이스홀더 블록입니다.</p>
+  </div>
+
+  <!-- B-1 -->
+  <section style="max-width:var(--container);width:100%;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-16)">
+    <div style="display:flex;align-items:baseline;gap:var(--sp-12)">
+      <span style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">B-1</span>
+      <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">데스크톱 1440px</h2>
+      <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">컨테이너 1360 · 12열 · gutter 24 · 레일 400</span>
+    </div>
+
+    <div style="width:var(--vp-desktop);background:var(--paper);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden">
+      <div style="height:var(--header-h);background:var(--surface);border-bottom:1px solid var(--ink-200);display:flex;align-items:center">
+        <div style="max-width:var(--container);width:100%;margin:0 auto;display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:var(--sp-32)">
+            <span style="font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">WES 분석</span>
+            <nav style="display:flex;align-items:center;gap:var(--sp-24)">
+              <span style="font-size:var(--fs-body);line-height:var(--lh-body);font-weight:var(--w-500);color:var(--brand-600);border-bottom:2px solid var(--brand-600);padding-bottom:var(--sp-4)">실행 목록</span>
+              <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-500)">새 분석</span>
+            </nav>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--sp-8);border-radius:var(--r-sm);font-size:var(--fs-small);line-height:var(--lh-small);font-weight:var(--w-500);color:var(--st-warn-fg);background:var(--st-warn-bg);border:1px solid var(--st-warn-bd)"><span style="width:var(--icon);height:var(--icon);display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-caption)">◐</span>사전 점검 모드</span>
+        </div>
+      </div>
+
+      <sc-if value="{{ bannerVisible }}" hint-placeholder-val="{{ true }}">
+        <div style="background:var(--st-warn-bg);border-bottom:1px solid var(--st-warn-bd)">
+          <div style="max-width:var(--container);width:100%;margin:0 auto;padding:var(--sp-12) 0;display:flex;align-items:flex-start;gap:var(--sp-8)">
+            <span style="width:var(--icon);height:var(--icon);display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-small);color:var(--st-warn-fg);flex:none">△</span>
+            <span style="font-size:var(--fs-body);line-height:var(--lh-body);font-weight:var(--w-500);color:var(--st-warn-fg)">이 서버는 아직 분석을 실행할 수 없습니다 — 참조 유전체 미설정</span>
+          </div>
+        </div>
+      </sc-if>
+
+      <div style="max-width:var(--container);width:100%;margin:0 auto;padding:var(--sp-32) 0 var(--sp-48);display:flex;gap:var(--gutter);align-items:flex-start">
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-24)">
+          <div style="height:var(--sp-40);background:var(--ink-100);border:1px solid var(--ink-200);border-radius:var(--r-sm);display:flex;align-items:center;padding:0 var(--sp-12);font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">페이지 제목 · 도구 모음</div>
+          <div style="height:120px;background:var(--ink-100);border:1px solid var(--ink-200);border-radius:var(--r-md);display:flex;align-items:center;padding:0 var(--sp-16);font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">요약 지표 영역 (4열)</div>
+          <div style="background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden">
+            <div style="height:var(--row-h);background:var(--sunken);border-bottom:1px solid var(--ink-200);display:flex;align-items:center;padding:0 var(--sp-16);font-family:var(--font-cond);font-size:var(--fs-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">TABLE HEADER · ROW 36PX</div>
+            <div style="height:var(--row-h);border-bottom:1px solid var(--ink-100);display:flex;align-items:center;padding:0 var(--sp-16)"><div style="height:var(--sp-8);width:60%;background:var(--ink-100);border-radius:var(--r-sm)"></div></div>
+            <div style="height:var(--row-h);border-bottom:1px solid var(--ink-100);background:var(--brand-100);display:flex;align-items:center;padding:0 var(--sp-16)"><div style="height:var(--sp-8);width:46%;background:var(--ink-200);border-radius:var(--r-sm)"></div></div>
+            <div style="height:var(--row-h);border-bottom:1px solid var(--ink-100);display:flex;align-items:center;padding:0 var(--sp-16)"><div style="height:var(--sp-8);width:72%;background:var(--ink-100);border-radius:var(--r-sm)"></div></div>
+            <div style="height:var(--row-h);border-bottom:1px solid var(--ink-100);display:flex;align-items:center;padding:0 var(--sp-16)"><div style="height:var(--sp-8);width:54%;background:var(--ink-100);border-radius:var(--r-sm)"></div></div>
+            <div style="height:var(--row-h);display:flex;align-items:center;padding:0 var(--sp-16)"><div style="height:var(--sp-8);width:38%;background:var(--ink-100);border-radius:var(--r-sm)"></div></div>
+          </div>
+          <div style="height:200px;background:var(--ink-100);border:1px solid var(--ink-200);border-radius:var(--r-md);display:flex;align-items:center;padding:0 var(--sp-16);font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">파이프라인 단계 목록 플레이스홀더</div>
+        </div>
+        <aside style="width:var(--rail);flex:none;display:flex;flex-direction:column;gap:var(--sp-16)">
+          <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">DETAIL RAIL 400PX</div>
+          <div style="height:160px;background:var(--ink-100);border:1px solid var(--ink-200);border-radius:var(--r-md);display:flex;align-items:center;padding:0 var(--sp-16);font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">선택 항목 상세</div>
+          <div style="height:240px;background:var(--ink-100);border:1px solid var(--ink-200);border-radius:var(--r-md);display:flex;align-items:center;padding:0 var(--sp-16);font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">로그 · 산출물 목록</div>
+        </aside>
+      </div>
+
+      <div style="border-top:1px solid var(--ink-200);background:var(--surface)">
+        <div style="max-width:var(--container);width:100%;margin:0 auto;padding:var(--sp-20) 0;font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">연구·교육 목적 전용 — 진단 결과가 아닙니다</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- B-2 그리드 오버레이 -->
+  <section style="max-width:var(--container);width:100%;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-16)">
+    <div style="display:flex;align-items:baseline;gap:var(--sp-12)">
+      <span style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">B-2</span>
+      <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">12열 그리드 오버레이</h2>
+      <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">헤더 · 콘텐츠 · 푸터가 같은 좌측 기준선에서 시작</span>
+    </div>
+
+    <div style="position:relative;width:var(--vp-desktop);background:var(--paper);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden">
+      <div style="height:var(--header-h);background:var(--surface);border-bottom:1px solid var(--ink-200);display:flex;align-items:center">
+        <div style="max-width:var(--container);width:100%;margin:0 auto;display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:var(--sp-32)">
+            <span style="font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">WES 분석</span>
+            <nav style="display:flex;align-items:center;gap:var(--sp-24)">
+              <span style="font-size:var(--fs-body);line-height:var(--lh-body);font-weight:var(--w-500);color:var(--brand-600);border-bottom:2px solid var(--brand-600);padding-bottom:var(--sp-4)">실행 목록</span>
+              <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-500)">새 분석</span>
+            </nav>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--sp-8);border-radius:var(--r-sm);font-size:var(--fs-small);line-height:var(--lh-small);font-weight:var(--w-500);color:var(--st-warn-fg);background:var(--st-warn-bg);border:1px solid var(--st-warn-bd)"><span style="width:var(--icon);height:var(--icon);display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-caption)">◐</span>사전 점검 모드</span>
+        </div>
+      </div>
+      <div style="background:var(--st-warn-bg);border-bottom:1px solid var(--st-warn-bd)">
+        <div style="max-width:var(--container);width:100%;margin:0 auto;padding:var(--sp-12) 0;display:flex;align-items:flex-start;gap:var(--sp-8)">
+          <span style="width:var(--icon);height:var(--icon);display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-small);color:var(--st-warn-fg);flex:none">△</span>
+          <span style="font-size:var(--fs-body);line-height:var(--lh-body);font-weight:var(--w-500);color:var(--st-warn-fg)">이 서버는 아직 분석을 실행할 수 없습니다 — 참조 유전체 미설정</span>
+        </div>
+      </div>
+      <div style="max-width:var(--container);width:100%;margin:0 auto;padding:var(--sp-32) 0 var(--sp-48);display:flex;gap:var(--gutter);align-items:flex-start">
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-24)">
+          <div style="height:var(--sp-40);background:var(--ink-100);border:1px solid var(--ink-200);border-radius:var(--r-sm)"></div>
+          <div style="height:120px;background:var(--ink-100);border:1px solid var(--ink-200);border-radius:var(--r-md)"></div>
+          <div style="height:180px;background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md)"></div>
+        </div>
+        <aside style="width:var(--rail);flex:none;display:flex;flex-direction:column;gap:var(--sp-16)">
+          <div style="height:160px;background:var(--ink-100);border:1px solid var(--ink-200);border-radius:var(--r-md)"></div>
+          <div style="height:140px;background:var(--ink-100);border:1px solid var(--ink-200);border-radius:var(--r-md)"></div>
+        </aside>
+      </div>
+      <div style="border-top:1px solid var(--ink-200);background:var(--surface)">
+        <div style="max-width:var(--container);width:100%;margin:0 auto;padding:var(--sp-20) 0;font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">연구·교육 목적 전용 — 진단 결과가 아닙니다</div>
+      </div>
+
+      <div style="position:absolute;inset:0;pointer-events:none;display:flex;justify-content:center">
+        <div style="max-width:var(--container);width:100%;display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gutter)">
+          <div style="background:rgba(26,77,158,.10);border-left:1px solid rgba(26,77,158,.35);border-right:1px solid rgba(26,77,158,.35)"></div>
+          <div style="background:rgba(26,77,158,.10);border-left:1px solid rgba(26,77,158,.35);border-right:1px solid rgba(26,77,158,.35)"></div>
+          <div style="background:rgba(26,77,158,.10);border-left:1px solid rgba(26,77,158,.35);border-right:1px solid rgba(26,77,158,.35)"></div>
+          <div style="background:rgba(26,77,158,.10);border-left:1px solid rgba(26,77,158,.35);border-right:1px solid rgba(26,77,158,.35)"></div>
+          <div style="background:rgba(26,77,158,.10);border-left:1px solid rgba(26,77,158,.35);border-right:1px solid rgba(26,77,158,.35)"></div>
+          <div style="background:rgba(26,77,158,.10);border-left:1px solid rgba(26,77,158,.35);border-right:1px solid rgba(26,77,158,.35)"></div>
+          <div style="background:rgba(26,77,158,.10);border-left:1px solid rgba(26,77,158,.35);border-right:1px solid rgba(26,77,158,.35)"></div>
+          <div style="background:rgba(26,77,158,.10);border-left:1px solid rgba(26,77,158,.35);border-right:1px solid rgba(26,77,158,.35)"></div>
+          <div style="background:rgba(26,77,158,.10);border-left:1px solid rgba(26,77,158,.35);border-right:1px solid rgba(26,77,158,.35)"></div>
+          <div style="background:rgba(26,77,158,.10);border-left:1px solid rgba(26,77,158,.35);border-right:1px solid rgba(26,77,158,.35)"></div>
+          <div style="background:rgba(26,77,158,.10);border-left:1px solid rgba(26,77,158,.35);border-right:1px solid rgba(26,77,158,.35)"></div>
+          <div style="background:rgba(26,77,158,.10);border-left:1px solid rgba(26,77,158,.35);border-right:1px solid rgba(26,77,158,.35)"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- B-3 좁은 화면 -->
+  <section style="max-width:var(--container);width:100%;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-16)">
+    <div style="display:flex;align-items:baseline;gap:var(--sp-12)">
+      <span style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">B-3</span>
+      <h2 style="margin:0;font-size:var(--fs-h2);line-height:var(--lh-h2);font-weight:var(--w-600);color:var(--ink-900)">좁은 화면 1024px</h2>
+      <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-400)">1120px 미만 — 우측 레일 없음, 메인 전체 폭</span>
+    </div>
+
+    <div style="width:var(--vp-narrow);background:var(--paper);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden">
+      <div style="height:var(--header-h);background:var(--surface);border-bottom:1px solid var(--ink-200);display:flex;align-items:center">
+        <div style="width:100%;padding:0 var(--sp-40);display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:var(--sp-32)">
+            <span style="font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">WES 분석</span>
+            <nav style="display:flex;align-items:center;gap:var(--sp-24)">
+              <span style="font-size:var(--fs-body);line-height:var(--lh-body);font-weight:var(--w-500);color:var(--brand-600);border-bottom:2px solid var(--brand-600);padding-bottom:var(--sp-4)">실행 목록</span>
+              <span style="font-size:var(--fs-body);line-height:var(--lh-body);color:var(--ink-500)">새 분석</span>
+            </nav>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:var(--sp-8);padding:var(--sp-4) var(--sp-8);border-radius:var(--r-sm);font-size:var(--fs-small);line-height:var(--lh-small);font-weight:var(--w-500);color:var(--st-warn-fg);background:var(--st-warn-bg);border:1px solid var(--st-warn-bd)"><span style="width:var(--icon);height:var(--icon);display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-caption)">◐</span>사전 점검 모드</span>
+        </div>
+      </div>
+      <div style="background:var(--st-warn-bg);border-bottom:1px solid var(--st-warn-bd)">
+        <div style="width:100%;padding:var(--sp-12) var(--sp-40);display:flex;align-items:flex-start;gap:var(--sp-8)">
+          <span style="width:var(--icon);height:var(--icon);display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-small);color:var(--st-warn-fg);flex:none">△</span>
+          <span style="font-size:var(--fs-body);line-height:var(--lh-body);font-weight:var(--w-500);color:var(--st-warn-fg)">이 서버는 아직 분석을 실행할 수 없습니다 — 참조 유전체 미설정</span>
+        </div>
+      </div>
+      <div style="padding:var(--sp-32) var(--sp-40) var(--sp-48);display:flex;flex-direction:column;gap:var(--sp-24)">
+        <div style="height:var(--sp-40);background:var(--ink-100);border:1px solid var(--ink-200);border-radius:var(--r-sm);display:flex;align-items:center;padding:0 var(--sp-12);font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">페이지 제목 · 도구 모음</div>
+        <div style="height:120px;background:var(--ink-100);border:1px solid var(--ink-200);border-radius:var(--r-md);display:flex;align-items:center;padding:0 var(--sp-16);font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">요약 지표 영역 (4열)</div>
+        <div style="background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden">
+          <div style="height:var(--row-h);background:var(--sunken);border-bottom:1px solid var(--ink-200);display:flex;align-items:center;padding:0 var(--sp-16);font-family:var(--font-cond);font-size:var(--fs-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">TABLE HEADER · ROW 36PX</div>
+          <div style="height:var(--row-h);border-bottom:1px solid var(--ink-100);display:flex;align-items:center;padding:0 var(--sp-16)"><div style="height:var(--sp-8);width:64%;background:var(--ink-100);border-radius:var(--r-sm)"></div></div>
+          <div style="height:var(--row-h);border-bottom:1px solid var(--ink-100);display:flex;align-items:center;padding:0 var(--sp-16)"><div style="height:var(--sp-8);width:48%;background:var(--ink-100);border-radius:var(--r-sm)"></div></div>
+          <div style="height:var(--row-h);display:flex;align-items:center;padding:0 var(--sp-16)"><div style="height:var(--sp-8);width:56%;background:var(--ink-100);border-radius:var(--r-sm)"></div></div>
+        </div>
+        <div style="height:180px;background:var(--ink-100);border:1px solid var(--ink-200);border-radius:var(--r-md);display:flex;align-items:center;padding:0 var(--sp-16);font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">상세 영역 — 레일 대신 메인 하단으로 이동</div>
+      </div>
+      <div style="border-top:1px solid var(--ink-200);background:var(--surface)">
+        <div style="padding:var(--sp-20) var(--sp-40);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">연구·교육 목적 전용 — 진단 결과가 아닙니다</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;bannerVisible&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;B-1 앱 셸&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { bannerVisible: this.props.bannerVisible ?? true };
+  }
+}
+</script>
+</body>
+</html>

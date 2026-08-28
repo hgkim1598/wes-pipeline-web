@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink-950:#0B1116; --ink-900:#17212B; --ink-700:#3A4854; --ink-500:#5F6D79;
+  --ink-400:#8C99A5; --border-strong:#8795A2; --ink-200:#D6DEE5; --ink-100:#E8EDF1;
+  --sunken:#EEF3F7; --surface:#FFFFFF; --paper:#F7F9FB;
+  --brand-700:#143C7B; --brand-600:#1A4D9E; --brand-500:#2461BC; --brand-100:#E7EFFA; --brand-050:#F3F7FC;
+
+  --st-idle-fg:#5F6D79; --st-idle-bg:#EEF3F7; --st-idle-bd:#D6DEE5;
+  --st-run-fg:#1A4D9E;  --st-run-bg:#E7EFFA;  --st-run-bd:#BFD5F0;
+  --st-ok-fg:#14663F;   --st-ok-bg:#E4F1EA;   --st-ok-bd:#B9DCC9;
+  --st-warn-fg:#8A5300; --st-warn-bg:#FBF0DC; --st-warn-bd:#EDD3A0;
+  --st-fail-fg:#A32217; --st-fail-bg:#FBE7E4; --st-fail-bd:#F0BDB6;
+  --st-skip-fg:#5F6D79; --st-skip-bg:#F7F9FB; --st-skip-bd:#E8EDF1;
+  --st-ok-fg-inv:#4FA87A;   /* S4 반전 행 전용 */
+
+  --font-sans:'IBM Plex Sans KR','IBM Plex Sans',system-ui,sans-serif;
+  --font-cond:'IBM Plex Sans Condensed','IBM Plex Sans KR',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+
+  --fs-display:28px; --lh-display:1.20;
+  --fs-h2:17px;      --lh-h2:1.35;
+  --fs-h3:15px;      --lh-h3:1.40;
+  --fs-body:14px;    --lh-body:1.55;
+  --fs-small:13px;   --lh-small:1.50;
+  --fs-caption:12px; --lh-caption:1.45;
+  --fs-eyebrow:11px; --lh-eyebrow:1.20;
+  --fs-data:13px;    --lh-data:1.45;
+
+  --w-400:400; --w-500:500; --w-600:600;
+  --ls-tight:-0.01em; --ls-wide:0.09em;
+
+  --sp-4:4px; --sp-8:8px; --sp-12:12px; --sp-16:16px; --sp-20:20px;
+  --sp-24:24px; --sp-32:32px; --sp-40:40px; --sp-48:48px; --sp-64:64px;
+
+  --r-sm:4px; --r-md:8px; --radius-pill:999px; --r-bar:6px;
+
+  --icon:16px; --row-h:36px; --row-h-step:44px; --underline:2px; --chev:12px;
+  --pad-pill-x:12px; --hit:24px;
+  --tape-gap:2px; --tape-cell-min:24px;
+  --tape-h-t1:40px; --tape-h-t2:40px; --tape-h-t3:40px; --tape-h-t4:12px;
+  --fs-label:11px; --pad-cell-x:6px;
+  --tape-current:4px; --tape-optional:2px;
+  --w-900:900px; --w-600w:600px; --w-375:375px;
+  --col-tag:104px; --col-sub:72px; --col-time:56px; --col-name-min:120px;
+  --marker:8px; --spin:12px; --divider:1px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink-700);
+  font-family:var(--font-sans);font-size:var(--fs-body);line-height:var(--lh-body);
+  font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;text-wrap:pretty}
+a{color:var(--brand-600);text-decoration:none}
+a:hover{color:var(--brand-500);text-decoration:underline}
+ol,ul{list-style:none;margin:0;padding:0}
+@keyframes om-ring{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes om-stripes{from{background-position:0 0}to{background-position:32px 0}}
+@keyframes om-spin{to{transform:rotate(360deg)}}
+@keyframes om-bgpulse{0%,100%{background-color:var(--brand-100)}50%{background-color:var(--brand-050)}}
+@media (prefers-reduced-motion: reduce){
+  [data-anim]{animation:none !important}
+}
+</style>
+</helmet>
+
+<div style="padding:var(--sp-48) var(--sp-40) var(--sp-64);min-width:calc(var(--w-900) + var(--sp-64) + var(--sp-64) + var(--sp-40));display:flex;flex-direction:column;gap:var(--sp-64);align-items:flex-start">
+
+  <header style="display:flex;flex-direction:column;gap:var(--sp-8)">
+    <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">RUNTAPE · CURRENT STEP · SELECTED ROW</div>
+    <h1 style="margin:0;font-size:var(--fs-display);line-height:var(--lh-display);font-weight:var(--w-600);letter-spacing:var(--ls-tight);color:var(--ink-900)">진행 표시 3종 비교</h1>
+    <span style="font-size:var(--fs-small);line-height:var(--lh-small);color:var(--ink-500)">progress는 완료 단계 비율입니다. 단계 내부 진행률·잔여 시간은 백엔드에 없으므로 현재 단계는 불확정으로만 표현합니다.</span>
+  </header>
+
+  <!-- ================= 섹션 1 ================= -->
+  <section style="width:100%;background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);padding:var(--sp-32);display:flex;flex-direction:column;gap:var(--sp-32)">
+    <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">SECTION 1 — RUNTAPE FORM · 900PX</div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">T1 — 라벨 밖 (기준)</h2>
+      <ol style="width:var(--w-900);display:flex;gap:var(--tape-gap)">
+        <sc-for list="{{ tape }}" as="c" hint-placeholder-count="8">
+          <li style="flex:1;min-width:var(--tape-cell-min);display:flex;flex-direction:column;gap:var(--sp-8);align-items:center" aria-label="{{ c.aria }}">
+            <div style="width:100%;height:var(--tape-h-t1);border-radius:var(--r-sm);background:{{ c.bg }};border-bottom:var(--tape-current) solid {{ c.bar }};border-top:var(--tape-optional) dashed {{ c.top }}"></div>
+            <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700);text-align:center">{{ c.name }}</span>
+            <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500);text-align:center">{{ c.time }}</span>
+          </li>
+        </sc-for>
+      </ol>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">셀은 상태만, 텍스트는 밖. 라벨 길이가 셀 폭을 흔들지 않아 가장 안정적이지만 높이를 많이 쓴다.</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--sp-12);border-top:1px solid var(--ink-100);padding-top:var(--sp-20)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">T2 — 라벨 안</h2>
+      <ol style="width:var(--w-900);display:flex;gap:var(--tape-gap)">
+        <sc-for list="{{ tape }}" as="c" hint-placeholder-count="8">
+          <li style="flex:1;min-width:var(--tape-cell-min);display:flex;flex-direction:column;gap:var(--sp-8);align-items:stretch" aria-label="{{ c.aria }}">
+            <div style="height:var(--tape-h-t2);border-radius:var(--r-sm);background:{{ c.bg }};border-bottom:var(--tape-current) solid {{ c.bar }};border-top:var(--tape-optional) dashed {{ c.top }};display:flex;align-items:center;justify-content:center;padding:0 var(--pad-cell-x)">
+              <span style="font-size:var(--fs-label);line-height:var(--lh-caption);font-weight:var(--w-500);color:{{ c.fg }};text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ c.name }}">{{ c.name }}</span>
+            </div>
+            <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500);text-align:center">{{ c.time }}</span>
+          </li>
+        </sc-for>
+      </ol>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">셀과 라벨이 한 덩어리로 읽히고 상태색이 텍스트에도 실린다. 900px에서도 "참조 유전체 정렬"이 2~3줄로 접힌다.</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--sp-12);border-top:1px solid var(--ink-100);padding-top:var(--sp-20)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">T3 — 라벨·시간 모두 안</h2>
+      <ol style="width:var(--w-900);display:flex;gap:var(--tape-gap)">
+        <sc-for list="{{ tape }}" as="c" hint-placeholder-count="8">
+          <li style="flex:1;min-width:var(--tape-cell-min);display:flex" aria-label="{{ c.aria }}">
+            <div style="flex:1;min-width:0;height:var(--tape-h-t3);border-radius:var(--r-sm);background:{{ c.bg }};border-bottom:var(--tape-current) solid {{ c.bar }};border-top:var(--tape-optional) dashed {{ c.top }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-4);padding:0 var(--pad-cell-x)">
+              <span style="font-size:var(--fs-label);line-height:var(--lh-caption);font-weight:var(--w-500);color:{{ c.fg }};text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ c.name }}">{{ c.name }}</span>
+              <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:{{ c.fgQuiet }};text-align:center">{{ c.time }}</span>
+            </div>
+          </li>
+        </sc-for>
+      </ol>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">띠 하나로 완결되어 세로 공간이 가장 적게 든다. 셀 안 정보가 2줄이라 좁아질 때 가장 먼저 깨진다.</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--sp-12);border-top:1px solid var(--ink-100);padding-top:var(--sp-20)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">T4 — 연속 바형</h2>
+      <div style="width:var(--w-900);display:flex;flex-direction:column;gap:var(--sp-8)">
+        <div style="display:grid;grid-template-columns:repeat(8,1fr)">
+          <sc-for list="{{ tape }}" as="c" hint-placeholder-count="8">
+            <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700);text-align:center;padding:0 var(--sp-4);word-break:keep-all;overflow-wrap:anywhere">{{ c.name }}</span>
+          </sc-for>
+        </div>
+        <ol style="display:flex;height:var(--tape-h-t4);border-radius:var(--r-bar);overflow:hidden">
+          <sc-for list="{{ tape }}" as="c" hint-placeholder-count="8">
+            <li style="flex:1;min-width:0;background:{{ c.bg }};border-right:var(--divider) solid var(--surface);border-bottom:var(--tape-current) solid {{ c.bar }}" aria-label="{{ c.aria }}"></li>
+          </sc-for>
+        </ol>
+        <div style="display:grid;grid-template-columns:repeat(8,1fr)">
+          <sc-for list="{{ tape }}" as="c" hint-placeholder-count="8">
+            <span style="font-family:var(--font-mono);font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500);text-align:center">{{ c.time }}</span>
+          </sc-for>
+        </div>
+      </div>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">"진행 바" 인상이 가장 강하다. 그래서 완료 비율을 시간 진행률로 오해할 위험도 가장 크고, 12px 높이에서는 상태 배경색 구분이 약해진다.</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--sp-24);border-top:1px solid var(--ink-200);padding-top:var(--sp-24)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">반응형 — 600px / 375px</h2>
+
+      <div style="display:flex;flex-wrap:wrap;gap:var(--sp-40);align-items:flex-start">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500)">T2 · 600px</span>
+          <ol style="width:var(--w-600w);display:flex;gap:var(--tape-gap)">
+            <sc-for list="{{ tape }}" as="c" hint-placeholder-count="8">
+              <li style="flex:1;min-width:var(--tape-cell-min);display:flex;flex-direction:column;gap:var(--sp-8)">
+                <div style="height:var(--tape-h-t2);border-radius:var(--r-sm);background:{{ c.bg }};border-bottom:var(--tape-current) solid {{ c.bar }};display:flex;align-items:center;justify-content:center;padding:0 var(--pad-cell-x)">
+                  <span style="font-size:var(--fs-label);line-height:var(--lh-caption);font-weight:var(--w-500);color:{{ c.fg }};text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ c.name }}">{{ c.name }}</span>
+                </div>
+                <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500);text-align:center">{{ c.time }}</span>
+              </li>
+            </sc-for>
+          </ol>
+          <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">셀 폭 73px — 한글이 3~4줄로 접히며 셀 높이가 라벨에 끌려간다</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500)">T2 · 375px — 폴백: 라벨 밖으로</span>
+          <ol style="width:var(--w-375);display:flex;gap:var(--tape-gap)">
+            <sc-for list="{{ tape }}" as="c" hint-placeholder-count="8">
+              <li style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-4);align-items:center">
+                <div style="width:100%;height:var(--tape-h-t1);border-radius:var(--r-sm);background:{{ c.bg }};border-bottom:var(--tape-current) solid {{ c.bar }}"></div>
+                <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">{{ c.index }}</span>
+              </li>
+            </sc-for>
+          </ol>
+          <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">셀 폭 44px — 셀 안 한글 불가. 순번만 남기고 이름은 아래 단계 목록이 담당</span>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:var(--sp-40);align-items:flex-start">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500)">T3 · 600px</span>
+          <ol style="width:var(--w-600w);display:flex;gap:var(--tape-gap)">
+            <sc-for list="{{ tape }}" as="c" hint-placeholder-count="8">
+              <li style="flex:1;min-width:var(--tape-cell-min);display:flex">
+                <div style="flex:1;min-width:0;height:var(--tape-h-t3);border-radius:var(--r-sm);background:{{ c.bg }};border-bottom:var(--tape-current) solid {{ c.bar }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-4);padding:0 var(--pad-cell-x)">
+                  <span style="font-size:var(--fs-label);line-height:var(--lh-caption);font-weight:var(--w-500);color:{{ c.fg }};text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ c.name }}">{{ c.name }}</span>
+                  <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:{{ c.fgQuiet }};text-align:center">{{ c.time }}</span>
+                </div>
+              </li>
+            </sc-for>
+          </ol>
+          <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">라벨 3줄 + 시간까지 들어가 72px를 넘긴다 — 이 폭에서는 사실상 실패</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500)">T3 · 375px — 폴백: 셀만</span>
+          <ol style="width:var(--w-375);display:flex;gap:var(--tape-gap)">
+            <sc-for list="{{ tape }}" as="c" hint-placeholder-count="8">
+              <li style="flex:1;min-width:0;height:var(--tape-h-t1);border-radius:var(--r-sm);background:{{ c.bg }};border-bottom:var(--tape-current) solid {{ c.bar }}" aria-label="{{ c.aria }}"></li>
+            </sc-for>
+          </ol>
+          <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">셀 안 텍스트 전면 제거. aria-label만 유지</span>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:var(--sp-40);align-items:flex-start">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500)">T4 · 600px</span>
+          <div style="width:var(--w-600w);display:flex;flex-direction:column;gap:var(--sp-8)">
+            <div style="display:grid;grid-template-columns:repeat(8,1fr)">
+              <sc-for list="{{ tape }}" as="c" hint-placeholder-count="8">
+                <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700);text-align:center;padding:0 var(--sp-4);overflow-wrap:anywhere">{{ c.name }}</span>
+              </sc-for>
+            </div>
+            <ol style="display:flex;height:var(--tape-h-t4);border-radius:var(--r-bar);overflow:hidden">
+              <sc-for list="{{ tape }}" as="c" hint-placeholder-count="8">
+                <li style="flex:1;min-width:0;background:{{ c.bg }};border-right:var(--divider) solid var(--surface);border-bottom:var(--tape-current) solid {{ c.bar }}"></li>
+              </sc-for>
+            </ol>
+          </div>
+          <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">바는 폭에 무관하게 견디지만 라벨 그리드가 3~4줄로 늘어난다. 시간 줄은 생략</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500)">T4 · 375px — 폴백: 라벨 제거</span>
+          <div style="width:var(--w-375);display:flex;flex-direction:column;gap:var(--sp-8)">
+            <ol style="display:flex;height:var(--tape-h-t4);border-radius:var(--r-bar);overflow:hidden">
+              <sc-for list="{{ tape }}" as="c" hint-placeholder-count="8">
+                <li style="flex:1;min-width:0;background:{{ c.bg }};border-right:var(--divider) solid var(--surface);border-bottom:var(--tape-current) solid {{ c.bar }}" aria-label="{{ c.aria }}"></li>
+              </sc-for>
+            </ol>
+            <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-700)">변이 검출<span style="padding:0 var(--sp-8);color:var(--ink-400)">·</span>6/8단계</span>
+          </div>
+          <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">가장 잘 축소된다. 대신 현재 단계는 아래 텍스트로만 전달</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 섹션 2 ================= -->
+  <section style="width:100%;background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);padding:var(--sp-32);display:flex;flex-direction:column;gap:var(--sp-32)">
+    <div style="display:flex;flex-direction:column;gap:var(--sp-4)">
+      <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">SECTION 2 — CURRENT STEP · T2 FORM</div>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">좌: 애니메이션 / 우: 정지 대체 (prefers-reduced-motion). 움직이는 요소는 7번째 셀 하나뿐.</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--sp-16)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">P1 — 하단 바 (기준)</h2>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+        <ol style="width:var(--w-900);display:flex;gap:var(--tape-gap)">
+          <sc-for list="{{ p1 }}" as="c" hint-placeholder-count="8">
+            <li style="flex:1;min-width:var(--tape-cell-min);display:flex;flex-direction:column;gap:var(--sp-8)" aria-label="{{ c.aria }}">
+              <div style="position:relative;height:var(--tape-h-t2);border-radius:var(--r-sm);background:{{ c.bg }};background-image:{{ c.stripes }};border-bottom:var(--tape-current) solid {{ c.bar }};border-top:var(--tape-optional) dashed {{ c.top }};display:flex;align-items:center;justify-content:center;gap:var(--sp-4);padding:0 var(--pad-cell-x)" data-anim="{{ c.animFlag }}">
+                <sc-if value="{{ c.spinner }}" hint-placeholder-val="{{ false }}">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--brand-600);animation:{{ c.spinAnim }}" data-anim="1"><path d="M14 8a6 6 0 1 1-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+                </sc-if>
+                <span style="font-size:var(--fs-label);line-height:var(--lh-caption);font-weight:var(--w-500);color:{{ c.fg }};text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ c.name }}">{{ c.name }}</span>
+                <sc-if value="{{ c.ring }}" hint-placeholder-val="{{ false }}">
+                  <span style="position:absolute;inset:0;border-radius:var(--r-sm);box-shadow:inset 0 0 0 var(--underline) var(--brand-600);animation:{{ c.ringAnim }}" data-anim="1"></span>
+                </sc-if>
+              </div>
+              <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500);text-align:center">{{ c.time }}</span>
+            </li>
+          </sc-for>
+        </ol>
+        <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">정적이라 판단 부담이 없다. 대신 "지금 돌고 있다"는 감각이 없어 멈춘 실행과 구분되지 않는다.</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--sp-16);border-top:1px solid var(--ink-100);padding-top:var(--sp-20)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">P2 — 테두리 펄스 <span style="font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:var(--w-400);color:var(--ink-500)">1.8s ease-in-out</span></h2>
+      <div style="display:flex;flex-wrap:wrap;gap:var(--sp-24)">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <ol style="width:var(--w-900);display:flex;gap:var(--tape-gap)">
+            <sc-for list="{{ p2 }}" as="c" hint-placeholder-count="8">
+              <li style="flex:1;min-width:var(--tape-cell-min);display:flex;flex-direction:column;gap:var(--sp-8)" aria-label="{{ c.aria }}">
+                <div style="position:relative;height:var(--tape-h-t2);border-radius:var(--r-sm);background:{{ c.bg }};border-top:var(--tape-optional) dashed {{ c.top }};display:flex;align-items:center;justify-content:center;padding:0 var(--pad-cell-x)">
+                  <span style="font-size:var(--fs-label);line-height:var(--lh-caption);font-weight:var(--w-500);color:{{ c.fg }};text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ c.name }}">{{ c.name }}</span>
+                  <sc-if value="{{ c.ring }}" hint-placeholder-val="{{ false }}">
+                    <span style="position:absolute;inset:0;border-radius:var(--r-sm);box-shadow:inset 0 0 0 var(--underline) var(--brand-600);animation:{{ c.ringAnim }}" data-anim="1"></span>
+                  </sc-if>
+                </div>
+                <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500);text-align:center">{{ c.time }}</span>
+              </li>
+            </sc-for>
+          </ol>
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">animated</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <ol style="width:var(--w-600w);display:flex;gap:var(--tape-gap)">
+            <sc-for list="{{ p2s }}" as="c" hint-placeholder-count="8">
+              <li style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-8)">
+                <div style="position:relative;height:var(--tape-h-t2);border-radius:var(--r-sm);background:{{ c.bg }};display:flex;align-items:center;justify-content:center;padding:0 var(--pad-cell-x)">
+                  <span style="font-size:var(--fs-label);line-height:var(--lh-caption);font-weight:var(--w-500);color:{{ c.fg }};text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ c.name }}">{{ c.name }}</span>
+                  <sc-if value="{{ c.ring }}" hint-placeholder-val="{{ false }}">
+                    <span style="position:absolute;inset:0;border-radius:var(--r-sm);box-shadow:inset 0 0 0 var(--underline) var(--brand-600)"></span>
+                  </sc-if>
+                </div>
+              </li>
+            </sc-for>
+          </ol>
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">reduced-motion — 테두리 고정</span>
+        </div>
+      </div>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">inset box-shadow라 레이아웃이 밀리지 않는다. 다만 테두리 어휘가 포커스 링과 겹쳐 "선택된 셀"로 오해될 수 있다.</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--sp-16);border-top:1px solid var(--ink-100);padding-top:var(--sp-20)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">P3 — 불확정 줄무늬 <span style="font-size:var(--fs-body);font-weight:var(--w-600);color:var(--brand-600)">(선택 후보)</span> <span style="font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:var(--w-400);color:var(--ink-500)">2.5s linear</span></h2>
+      <div style="display:flex;flex-wrap:wrap;gap:var(--sp-24)">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <ol style="width:var(--w-900);display:flex;gap:var(--tape-gap)">
+            <sc-for list="{{ p3 }}" as="c" hint-placeholder-count="8">
+              <li style="flex:1;min-width:var(--tape-cell-min);display:flex;flex-direction:column;gap:var(--sp-8)" aria-label="{{ c.aria }}">
+                <div style="height:var(--tape-h-t2);border-radius:var(--r-sm);background-color:{{ c.bg }};background-image:{{ c.stripes }};animation:{{ c.stripeAnim }};border-top:var(--tape-optional) dashed {{ c.top }};display:flex;align-items:center;justify-content:center;padding:0 var(--pad-cell-x)" data-anim="1">
+                  <span style="font-size:var(--fs-label);line-height:var(--lh-caption);font-weight:var(--w-500);color:{{ c.fg }};text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ c.name }}">{{ c.name }}</span>
+                </div>
+                <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500);text-align:center">{{ c.time }}</span>
+              </li>
+            </sc-for>
+          </ol>
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">animated</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <ol style="width:var(--w-600w);display:flex;gap:var(--tape-gap)">
+            <sc-for list="{{ p3s }}" as="c" hint-placeholder-count="8">
+              <li style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-8)">
+                <div style="height:var(--tape-h-t2);border-radius:var(--r-sm);background-color:{{ c.bg }};background-image:{{ c.stripes }};display:flex;align-items:center;justify-content:center;padding:0 var(--pad-cell-x)">
+                  <span style="font-size:var(--fs-label);line-height:var(--lh-caption);font-weight:var(--w-500);color:{{ c.fg }};text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ c.name }}">{{ c.name }}</span>
+                </div>
+              </li>
+            </sc-for>
+          </ol>
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">reduced-motion — 줄무늬 정지</span>
+        </div>
+      </div>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">"진행 중이지만 진행률은 모름"을 관용적으로 전달하고 방향성 오해가 없다. 정지 상태에서도 패턴이 남아 신호가 유지되는 유일한 안.</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--sp-16);border-top:1px solid var(--ink-100);padding-top:var(--sp-20)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">P4 — 셀 안 스피너 <span style="font-size:var(--fs-body);font-weight:var(--w-600);color:var(--brand-600)">(선택 후보)</span> <span style="font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:var(--w-400);color:var(--ink-500)">1.2s linear</span></h2>
+      <div style="display:flex;flex-wrap:wrap;gap:var(--sp-24)">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <ol style="width:var(--w-900);display:flex;gap:var(--tape-gap)">
+            <sc-for list="{{ p4 }}" as="c" hint-placeholder-count="8">
+              <li style="flex:1;min-width:var(--tape-cell-min);display:flex;flex-direction:column;gap:var(--sp-8)" aria-label="{{ c.aria }}">
+                <div style="height:var(--tape-h-t2);border-radius:var(--r-sm);background:{{ c.bg }};border-top:var(--tape-optional) dashed {{ c.top }};display:flex;align-items:center;justify-content:center;gap:var(--sp-4);padding:0 var(--pad-cell-x)">
+                  <sc-if value="{{ c.spinner }}" hint-placeholder-val="{{ false }}">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--brand-600);animation:{{ c.spinAnim }}" data-anim="1"><path d="M14 8a6 6 0 1 1-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+                  </sc-if>
+                  <span style="font-size:var(--fs-label);line-height:var(--lh-caption);font-weight:var(--w-500);color:{{ c.fg }};text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ c.name }}">{{ c.name }}</span>
+                </div>
+                <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500);text-align:center">{{ c.time }}</span>
+              </li>
+            </sc-for>
+          </ol>
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">animated</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <ol style="width:var(--w-600w);display:flex;gap:var(--tape-gap)">
+            <sc-for list="{{ p4s }}" as="c" hint-placeholder-count="8">
+              <li style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-8)">
+                <div style="height:var(--tape-h-t2);border-radius:var(--r-sm);background:{{ c.bg }};display:flex;align-items:center;justify-content:center;gap:var(--sp-4);padding:0 var(--pad-cell-x)">
+                  <sc-if value="{{ c.spinner }}" hint-placeholder-val="{{ false }}">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:var(--brand-600)"><path d="M14 8a6 6 0 1 1-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+                  </sc-if>
+                  <span style="font-size:var(--fs-label);line-height:var(--lh-caption);font-weight:var(--w-500);color:{{ c.fg }};text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ c.name }}">{{ c.name }}</span>
+                </div>
+              </li>
+            </sc-for>
+          </ol>
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">reduced-motion — 호 정지</span>
+        </div>
+      </div>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">의미가 가장 즉시 읽힌다. 다만 1.2초 회전은 이 시트에서 가장 눈에 띄는 움직임이고, 좁은 셀에서 라벨 공간을 12px 빼앗는다.</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--sp-16);border-top:1px solid var(--ink-100);padding-top:var(--sp-20)">
+      <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">P5 — 배경 명도 펄스 <span style="font-family:var(--font-mono);font-size:var(--fs-caption);font-weight:var(--w-400);color:var(--ink-500)">2s ease-in-out</span></h2>
+      <div style="display:flex;flex-wrap:wrap;gap:var(--sp-24)">
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <ol style="width:var(--w-900);display:flex;gap:var(--tape-gap)">
+            <sc-for list="{{ p5 }}" as="c" hint-placeholder-count="8">
+              <li style="flex:1;min-width:var(--tape-cell-min);display:flex;flex-direction:column;gap:var(--sp-8)" aria-label="{{ c.aria }}">
+                <div style="height:var(--tape-h-t2);border-radius:var(--r-sm);background-color:{{ c.bg }};animation:{{ c.bgAnim }};border-top:var(--tape-optional) dashed {{ c.top }};display:flex;align-items:center;justify-content:center;padding:0 var(--pad-cell-x)" data-anim="1">
+                  <span style="font-size:var(--fs-label);line-height:var(--lh-caption);font-weight:var(--w-500);color:{{ c.fg }};text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ c.name }}">{{ c.name }}</span>
+                </div>
+                <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-500);text-align:center">{{ c.time }}</span>
+              </li>
+            </sc-for>
+          </ol>
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">animated</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--sp-8)">
+          <ol style="width:var(--w-600w);display:flex;gap:var(--tape-gap)">
+            <sc-for list="{{ p5s }}" as="c" hint-placeholder-count="8">
+              <li style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-8)">
+                <div style="height:var(--tape-h-t2);border-radius:var(--r-sm);background-color:{{ c.bg }};display:flex;align-items:center;justify-content:center;padding:0 var(--pad-cell-x)">
+                  <span style="font-size:var(--fs-label);line-height:var(--lh-caption);font-weight:var(--w-500);color:{{ c.fg }};text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ c.name }}">{{ c.name }}</span>
+                </div>
+              </li>
+            </sc-for>
+          </ol>
+          <span style="font-family:var(--font-mono);font-size:var(--fs-caption);color:var(--ink-400)">reduced-motion — brand-100 고정</span>
+        </div>
+      </div>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">가장 조용하다. 두 색의 명도 차가 작아 하루 종일 보는 화면에 부담이 없지만, 눈치채지 못할 가능성도 그만큼 크다.</span>
+    </div>
+  </section>
+
+  <!-- ================= 섹션 3 ================= -->
+  <section style="width:100%;background:var(--surface);border:1px solid var(--ink-200);border-radius:var(--r-md);padding:var(--sp-32);display:flex;flex-direction:column;gap:var(--sp-32)">
+    <div style="display:flex;flex-direction:column;gap:var(--sp-4)">
+      <div style="font-family:var(--font-cond);font-size:var(--fs-eyebrow);line-height:var(--lh-eyebrow);font-weight:var(--w-600);letter-spacing:var(--ls-wide);text-transform:uppercase;color:var(--ink-500)">SECTION 3 — SELECTED ROW</div>
+      <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">4행 "참조 유전체 정렬" 선택, 6행 "커버리지 검사" hover. 좌측 세로 바 방식은 제외.</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(480px,1fr));gap:var(--sp-40)">
+
+      <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+        <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">S1 — 배경만</h2>
+        <div style="border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden">
+          <sc-for list="{{ s1 }}" as="r" hint-placeholder-count="8">
+            <div style="min-height:var(--row-h-step);display:flex;align-items:center;gap:var(--sp-8);padding:0 var(--sp-12);background:{{ r.bg }};border-bottom:{{ r.bb }}">
+              <span style="width:var(--col-tag);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:{{ r.tagC }}">{{ r.tag }}</span>
+              <span style="flex:1;min-width:var(--col-name-min);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-body);font-weight:{{ r.nameW }};color:{{ r.nameC }}">{{ r.name }}</span>
+              <span style="width:var(--col-sub);flex:none;font-size:var(--fs-small);color:{{ r.subC }}">{{ r.sub }}</span>
+              <span style="width:var(--col-time);flex:none;text-align:right;font-family:var(--font-mono);font-size:var(--fs-data);color:{{ r.timeC }}">{{ r.time }}</span>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:{{ r.chevC }}"><path d="M6.5 4 10.5 8 6.5 12" stroke="currentColor" stroke-width="1.5"></path></svg>
+            </div>
+          </sc-for>
+        </div>
+        <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">가장 조용하고 목록 리듬을 깨지 않는다. brand-050이 옅어 hover(sunken)와 명도가 비슷해 혼동 위험이 있다.</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+        <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">S2 — 행 카드화</h2>
+        <div style="border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden;background:var(--paper);padding:var(--sp-4)">
+          <sc-for list="{{ s2 }}" as="r" hint-placeholder-count="8">
+            <div style="min-height:var(--row-h-step);display:flex;align-items:center;gap:var(--sp-8);padding:0 var(--sp-12);background:{{ r.bg }};border:{{ r.border }};border-radius:{{ r.radius }};border-bottom:{{ r.bb }}">
+              <span style="width:var(--col-tag);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:{{ r.tagC }}">{{ r.tag }}</span>
+              <span style="flex:1;min-width:var(--col-name-min);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-body);font-weight:{{ r.nameW }};color:{{ r.nameC }}">{{ r.name }}</span>
+              <span style="width:var(--col-sub);flex:none;font-size:var(--fs-small);color:{{ r.subC }}">{{ r.sub }}</span>
+              <span style="width:var(--col-time);flex:none;text-align:right;font-family:var(--font-mono);font-size:var(--fs-data);color:{{ r.timeC }}">{{ r.time }}</span>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:{{ r.chevC }}"><path d="M6.5 4 10.5 8 6.5 12" stroke="currentColor" stroke-width="1.5"></path></svg>
+            </div>
+          </sc-for>
+        </div>
+        <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">선택 행이 물리적으로 분리되어 가장 명확하다. 대신 목록 전체가 --paper 판 위에 놓여야 하고 구분선 리듬이 사라진다.</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+        <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">S3 — 우측 방향 마커</h2>
+        <div style="border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden">
+          <sc-for list="{{ s3 }}" as="r" hint-placeholder-count="8">
+            <div style="min-height:var(--row-h-step);display:flex;align-items:center;gap:var(--sp-8);padding:0 var(--sp-12);background:{{ r.bg }};border-bottom:{{ r.bb }}">
+              <span style="width:var(--col-tag);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:{{ r.tagC }}">{{ r.tag }}</span>
+              <span style="flex:1;min-width:var(--col-name-min);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-body);font-weight:{{ r.nameW }};color:{{ r.nameC }}">{{ r.name }}</span>
+              <span style="width:var(--col-sub);flex:none;font-size:var(--fs-small);color:{{ r.subC }}">{{ r.sub }}</span>
+              <span style="width:var(--col-time);flex:none;text-align:right;font-family:var(--font-mono);font-size:var(--fs-data);color:{{ r.timeC }}">{{ r.time }}</span>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:{{ r.chevC }}"><path d="M6.5 4 10.5 8 6.5 12" stroke="currentColor" stroke-width="1.5"></path></svg>
+              <svg width="8" height="12" viewBox="0 0 8 12" style="flex:none;color:{{ r.markerC }}"><path d="M0 0 8 6 0 12Z" fill="currentColor"></path></svg>
+            </div>
+          </sc-for>
+        </div>
+        <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">우측 패널을 가리키는 방향성이 유일하게 명시된다. 레일이 없는 1024px 이하에서는 마커가 가리킬 대상이 없어진다.</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+        <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">S4 — 배경 반전</h2>
+        <div style="border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden">
+          <sc-for list="{{ s4 }}" as="r" hint-placeholder-count="8">
+            <div style="min-height:var(--row-h-step);display:flex;align-items:center;gap:var(--sp-8);padding:0 var(--sp-12);background:{{ r.bg }};border-bottom:{{ r.bb }}">
+              <span style="width:var(--col-tag);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:{{ r.tagC }}">{{ r.tag }}</span>
+              <span style="flex:1;min-width:var(--col-name-min);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-body);font-weight:{{ r.nameW }};color:{{ r.nameC }}">{{ r.name }}</span>
+              <span style="width:var(--col-sub);flex:none;font-size:var(--fs-small);color:{{ r.subC }}">{{ r.sub }}</span>
+              <span style="width:var(--col-time);flex:none;text-align:right;font-family:var(--font-mono);font-size:var(--fs-data);color:{{ r.timeC }}">{{ r.time }}</span>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:{{ r.chevC }}"><path d="M6.5 4 10.5 8 6.5 12" stroke="currentColor" stroke-width="1.5"></path></svg>
+            </div>
+          </sc-for>
+        </div>
+        <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">스캔 중 즉시 찾을 수 있다. 다만 ink-950 로그 패널과 같은 반전 어휘를 쓰고, 상태 전경색을 밝은 값으로 다시 정의해야 한다.</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+        <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">S5 — 좌우 여백 축소</h2>
+        <div style="border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden">
+          <sc-for list="{{ s5 }}" as="r" hint-placeholder-count="8">
+            <div style="min-height:var(--row-h-step);display:flex;align-items:center;gap:var(--sp-8);padding:0 {{ r.padX }};background:{{ r.bg }};border-bottom:{{ r.bb }}">
+              <span style="width:var(--col-tag);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:{{ r.tagC }}">{{ r.tag }}</span>
+              <span style="flex:1;min-width:var(--col-name-min);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-body);font-weight:{{ r.nameW }};color:{{ r.nameC }}">{{ r.name }}</span>
+              <span style="width:var(--col-sub);flex:none;font-size:var(--fs-small);color:{{ r.subC }}">{{ r.sub }}</span>
+              <span style="width:var(--col-time);flex:none;text-align:right;font-family:var(--font-mono);font-size:var(--fs-data);color:{{ r.timeC }}">{{ r.time }}</span>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:{{ r.chevC }}"><path d="M6.5 4 10.5 8 6.5 12" stroke="currentColor" stroke-width="1.5"></path></svg>
+            </div>
+          </sc-for>
+        </div>
+        <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">배경 확장으로 선택을 알리지만 태그·단계명 열이 좌측으로 12px 이동해 표의 기준선이 흔들린다.</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:var(--sp-12)">
+        <h2 style="margin:0;font-size:var(--fs-h3);line-height:var(--lh-h3);font-weight:var(--w-600);color:var(--ink-900)">S6 — 하단 밑줄</h2>
+        <div style="border:1px solid var(--ink-200);border-radius:var(--r-md);overflow:hidden">
+          <sc-for list="{{ s6 }}" as="r" hint-placeholder-count="8">
+            <div style="min-height:var(--row-h-step);display:flex;align-items:center;gap:var(--sp-8);padding:0 var(--sp-12);background:{{ r.bg }};border-bottom:{{ r.bb }}">
+              <span style="width:var(--col-tag);flex:none;font-family:var(--font-mono);font-size:var(--fs-data);font-weight:var(--w-500);color:{{ r.tagC }}">{{ r.tag }}</span>
+              <span style="flex:1;min-width:var(--col-name-min);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-body);font-weight:{{ r.nameW }};color:{{ r.nameC }}">{{ r.name }}</span>
+              <span style="width:var(--col-sub);flex:none;font-size:var(--fs-small);color:{{ r.subC }}">{{ r.sub }}</span>
+              <span style="width:var(--col-time);flex:none;text-align:right;font-family:var(--font-mono);font-size:var(--fs-data);color:{{ r.timeC }}">{{ r.time }}</span>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="flex:none;color:{{ r.chevC }}"><path d="M6.5 4 10.5 8 6.5 12" stroke="currentColor" stroke-width="1.5"></path></svg>
+            </div>
+          </sc-for>
+        </div>
+        <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--ink-500)">탭 밑줄과 어휘가 통일된다. 다만 행 사이 구분선과 밑줄이 같은 위치라 "선택"보다 "구분선이 진해진 행"으로 읽힐 수 있다.</span>
+      </div>
+
+    </div>
+  </section>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1120}}">
+class Component extends DCLogic {
+  steps = [
+    { st: 'ok',   tag: 'COMPLETED', name: '입력 검증',        sub: '—',        time: '00:12', tapeTime: '12초' },
+    { st: 'ok',   tag: 'COMPLETED', name: '원본 품질 검사',   sub: 'FastQC',   time: '04:31', tapeTime: '4분 31초' },
+    { st: 'skip', tag: 'SKIPPED',   name: '전처리',           sub: '—',        time: '—',     tapeTime: '—', optional: true },
+    { st: 'ok',   tag: 'COMPLETED', name: '참조 유전체 정렬', sub: 'BWA-MEM',  time: '38:12', tapeTime: '38분 12초', selected: true },
+    { st: 'ok',   tag: 'COMPLETED', name: 'BAM 정리·보정',    sub: 'GATK',     time: '22:04', tapeTime: '22분 04초' },
+    { st: 'ok',   tag: 'COMPLETED', name: '커버리지 검사',    sub: 'mosdepth', time: '03:18', tapeTime: '3분 18초', hover: true },
+    { st: 'run',  tag: 'RUNNING',   name: '변이 검출',        sub: 'GATK',     time: '18:32', tapeTime: '18분 32초', current: true },
+    { st: 'idle', tag: 'PENDING',   name: '결과 정리',        sub: '—',        time: '—',     tapeTime: '—', muted: true }
+  ];
+
+  STRIPES = 'repeating-linear-gradient(45deg, rgba(26,77,158,.12) 0 8px, rgba(26,77,158,0) 8px 16px)';
+
+  tape(mode) {
+    return this.steps.map((s, i) => {
+      const cur = !!s.current;
+      const c = {
+        name: s.name,
+        time: s.tapeTime,
+        index: (i + 1) + '/8',
+        bg: 'var(--st-' + s.st + '-bg)',
+        fg: 'var(--st-' + s.st + '-fg)',
+        fgQuiet: s.st === 'ok' || s.st === 'run' ? 'var(--ink-500)' : 'var(--ink-400)',
+        top: s.optional ? 'var(--ink-400)' : 'transparent',
+        bar: 'transparent',
+        stripes: 'none',
+        ring: false,
+        ringAnim: 'none',
+        spinner: false,
+        spinAnim: 'none',
+        bgAnim: 'none',
+        stripeAnim: 'none',
+        animFlag: '',
+        aria: s.name + ', ' + s.tag + (s.tapeTime !== '—' ? ', ' + s.tapeTime : '')
+      };
+      if (cur) {
+        if (mode === 'bar' || mode === 'plain') c.bar = 'var(--brand-600)';
+        if (mode === 'ring' || mode === 'ringStatic') c.ring = true;
+        if (mode === 'ring') c.ringAnim = 'om-ring 1.8s ease-in-out infinite';
+        if (mode === 'stripes' || mode === 'stripesStatic') c.stripes = this.STRIPES;
+        if (mode === 'stripes') c.stripeAnim = 'om-stripes 2.5s linear infinite';
+        if (mode === 'spin' || mode === 'spinStatic') c.spinner = true;
+        if (mode === 'spin') c.spinAnim = 'om-spin 1.2s linear infinite';
+        if (mode === 'bgpulse') c.bgAnim = 'om-bgpulse 2s ease-in-out infinite';
+      }
+      return c;
+    });
+  }
+
+  rows(variant) {
+    return this.steps.map(s => {
+      const sel = !!s.selected, hov = !!s.hover, inv = sel && variant === 's4';
+      const r = {
+        tag: '[' + s.tag + ']',
+        name: s.name,
+        sub: s.sub,
+        time: s.time,
+        tagC: s.muted ? 'var(--ink-400)' : 'var(--st-' + s.st + '-fg)',
+        nameC: s.muted ? 'var(--ink-400)' : 'var(--ink-900)',
+        subC: s.muted ? 'var(--ink-400)' : 'var(--ink-500)',
+        timeC: s.muted ? 'var(--ink-400)' : 'var(--ink-700)',
+        chevC: s.muted ? 'var(--ink-200)' : 'var(--ink-400)',
+        nameW: 'var(--w-500)',
+        bg: hov ? 'var(--sunken)' : 'transparent',
+        bb: '1px solid var(--ink-100)',
+        border: '0 solid transparent',
+        radius: '0',
+        padX: 'var(--sp-12)',
+        markerC: 'transparent'
+      };
+      if (sel) {
+        r.nameW = 'var(--w-600)';
+        if (variant === 's1') r.bg = 'var(--brand-050)';
+        if (variant === 's2') { r.bg = 'var(--surface)'; r.border = '1px solid var(--ink-200)'; r.radius = 'var(--r-sm)'; r.bb = '1px solid var(--ink-200)'; }
+        if (variant === 's3') { r.bg = 'var(--brand-050)'; r.chevC = 'var(--brand-600)'; r.markerC = 'var(--brand-600)'; }
+        if (variant === 's5') { r.bg = 'var(--brand-050)'; r.padX = '0px'; }
+        if (variant === 's6') r.bb = 'var(--underline) solid var(--brand-600)';
+      }
+      if (variant === 's2' && !sel) r.bb = '1px solid transparent';
+      if (inv) {
+        r.bg = 'var(--ink-900)';
+        r.nameC = 'var(--paper)';
+        r.subC = 'var(--ink-200)';
+        r.timeC = 'var(--paper)';
+        r.tagC = 'var(--st-ok-fg-inv)';
+        r.chevC = 'var(--ink-400)';
+        r.bb = '1px solid var(--ink-900)';
+      }
+      return r;
+    });
+  }
+
+  renderVals() {
+    return {
+      tape: this.tape('bar'),
+      p1: this.tape('bar'),
+      p2: this.tape('ring'),
+      p2s: this.tape('ringStatic'),
+      p3: this.tape('stripes'),
+      p3s: this.tape('stripesStatic'),
+      p4: this.tape('spin'),
+      p4s: this.tape('spinStatic'),
+      p5: this.tape('bgpulse'),
+      p5s: this.tape('none'),
+      s1: this.rows('s1'),
+      s2: this.rows('s2'),
+      s3: this.rows('s3'),
+      s4: this.rows('s4'),
+      s5: this.rows('s5'),
+      s6: this.rows('s6')
+    };
+  }
+}
+</script>
+</body>
+</html>
