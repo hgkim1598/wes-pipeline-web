@@ -28,3 +28,6 @@ backend/.env
 # Local deployment archives
 wes-results-api-patch.tar.gz
 wes-web_c0a94a5.tar.gz
+
+# Local Claude Design references
+docs/design/
