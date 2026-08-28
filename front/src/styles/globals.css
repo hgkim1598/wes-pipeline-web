@@ -13,7 +13,7 @@
 
   body {
     background-color: var(--color-paper);
-    color: var(--color-ink-700);
+    color: var(--color-text);
     font-family: var(--font-sans);
     font-size: var(--text-body);
     line-height: var(--leading-body);
@@ -36,7 +36,7 @@
   h4,
   h5,
   h6 {
-    color: var(--color-ink-900);
+    color: var(--color-text-strong);
     font-weight: var(--font-weight-semibold);
   }
 
@@ -64,12 +64,12 @@
     본문 안에 섞이는 링크가 아니라 대부분 내비게이션이라서 시안을 따른다.
   */
   a {
-    color: var(--color-brand-600);
+    color: var(--color-brand);
     text-decoration: none;
   }
 
   a:hover {
-    color: var(--color-brand-500);
+    color: var(--color-brand-hover);
     text-decoration: underline;
   }
 
@@ -82,8 +82,8 @@
   }
 
   ::selection {
-    background-color: var(--color-brand-100);
-    color: var(--color-ink-900);
+    background-color: var(--color-brand-selected);
+    color: var(--color-text-strong);
   }
 
   /*
@@ -106,16 +106,22 @@
 
 /*
   모션 — SC 2.3.3.
-  장식용 애니메이션을 애초에 만들지 않지만, 나중에 추가되는 전환도
-  reduce 설정에서는 멈추도록 기준을 둔다.
+
+  전역에서 모든 animation/transition을 끄는 reset은 만들지 않는다.
+  그런 reset은 상태 전환을 알려주는 의미 있는 모션까지 함께 죽인다.
+
+  대신 움직임이 있는 요소에 data-anim을 붙이고(시안 prototype.html의
+  규칙과 동일), reduce 설정에서 그 요소만 멈춘다.
+  장식용 animation은 애초에 만들지 않으므로 대상은 진행 상태 표시처럼
+  실제로 움직여야 하는 것에 한정된다.
 */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+  [data-anim] {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  html {
+    scroll-behavior: auto;
   }
 }
