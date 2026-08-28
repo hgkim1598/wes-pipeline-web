@@ -35,8 +35,15 @@ export function TabsRoot({
     <Tabs.Root
       value={value}
       defaultValue={defaultValue}
-      // Base UI의 값 타입은 any라서 문자열로 좁혀 전달한다.
-      onValueChange={(next) => onValueChange?.(String(next))}
+      onValueChange={(next) => {
+        // Base UI의 값 타입은 any이고, 선택할 수 있는 탭이 없을 때
+        // 자동 변경(reason: initial/disabled/missing)으로 null이 올 수 있다.
+        // String()으로 감싸면 그 null이 "null" 문자열이 되어 탭 id처럼
+        // 흘러간다. 이 wrapper는 문자열 탭 id만 밖으로 내보낸다.
+        if (typeof next === 'string') {
+          onValueChange?.(next)
+        }
+      }}
       className={className}
     >
       {children}

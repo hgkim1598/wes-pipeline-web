@@ -40,26 +40,45 @@ export function SectionHeader({
   return (
     <div
       className={cx(
-        'flex items-baseline justify-between gap-4 border-b border-border-subtle pb-4',
+        // 좁은 화면에서 액션이 다음 줄로 내려갈 수 있게 wrap을 허용한다.
+        // 한 줄일 때의 간격(gap-x-4)은 그대로 두고, 줄이 나뉘었을 때만
+        // 세로 간격이 생긴다.
+        'flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-b border-border-subtle pb-4',
         className,
       )}
     >
-      <div className="flex min-w-0 flex-col gap-1">
+      {/*
+        basis-64가 줄바꿈 기준이다. 제목 영역에 이만큼도 남지 않으면
+        제목을 몇 글자로 찌그러뜨리는 대신 액션이 아래로 내려간다.
+        min-w-0이 있어야 긴 문자열이 부모 밖으로 밀고 나가지 않는다.
+      */}
+      <div className="flex min-w-0 flex-1 basis-64 flex-col gap-1">
         {eyebrow ? (
           <span className="font-cond text-eyebrow font-semibold tracking-wide text-text-muted uppercase">
             {eyebrow}
           </span>
         ) : null}
-        <div className="flex items-baseline gap-3">
-          <Heading className="text-h2 font-semibold text-text-strong">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+          {/*
+            run id·파일명처럼 공백 없는 식별자가 들어온다. truncate로 정보를
+            숨기지 않고 줄을 넘긴다. break-all이 아니라 overflow-wrap이라
+            끊을 곳이 있으면 단어 단위를 지킨다.
+
+            min-w-0이 flex item에도 필요하다. 없으면 min-width:auto가
+            min-content(=끊기지 않는 문자열 전체 폭)로 풀려서 break-words가
+            동작할 기회 자체가 없고 페이지가 가로로 밀린다.
+          */}
+          <Heading className="min-w-0 text-h2 font-semibold break-words text-text-strong">
             {title}
           </Heading>
           {meta ? (
-            <span className="text-small text-text-muted">{meta}</span>
+            <span className="min-w-0 text-small break-words text-text-muted">
+              {meta}
+            </span>
           ) : null}
         </div>
       </div>
-      {action}
+      {action ? <div className="shrink-0">{action}</div> : null}
     </div>
   )
 }

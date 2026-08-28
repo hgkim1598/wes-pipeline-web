@@ -127,6 +127,7 @@ function Showcase() {
         <EmptyState
           icon={<Inbox size={32} strokeWidth={1.5} aria-hidden="true" />}
           title="Example empty title"
+          titleLevel={3}
           description="다음에 무엇을 하면 되는지 적는 자리입니다."
           action={<Button variant="primary">Example action</Button>}
         />
