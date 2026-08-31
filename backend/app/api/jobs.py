@@ -18,7 +18,14 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Response
 
 from .. import config, db
-from ..schemas import CreateJobRequest, CreateJobResponse, JobStateResponse, StepState
+from ..schemas import (
+    CreateJobRequest,
+    CreateJobResponse,
+    JobListItem,
+    JobListResponse,
+    JobStateResponse,
+    StepState,
+)
 from ..services import config_builder, pipeline_executor, run_status_reader, worker
 from . import uploads
 
@@ -131,15 +138,19 @@ def create_job(payload: CreateJobRequest) -> CreateJobResponse:
 
     db.execute(
         """INSERT INTO jobs
-           (job_id, run_id, profile_id, capture_kit_id, status, run_dir, config_path,
-            samplesheet_path, run_mode, planned_steps, original_options,
+           (job_id, run_id, profile_id, capture_kit_id, sample_id, status, run_dir,
+            config_path, samplesheet_path, run_mode, planned_steps, original_options,
             unsupported_options, created_at, updated_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (
             run_id,
             run_id,
             payload.profileId,
             capture_kit_id,
+            # The sanitised name, i.e. exactly what went into the samplesheet and
+            # what main.sh will use. Stored so the job list never has to re-parse
+            # that file to label a row.
+            sample_id,
             worker.QUEUED,
             str(run_dir),
             str(config_path),
@@ -175,6 +186,64 @@ _FALLBACK_STATUS = {
     worker.EXEC_FAILED: "failed",
     worker.DONE: "failed",  # exited without leaving a status document
 }
+
+
+@router.get("", response_model=JobListResponse)
+@router.get("/", response_model=JobListResponse, include_in_schema=False)
+def list_jobs() -> JobListResponse:
+    """Every job this server knows about, newest first.
+
+    One database query for all rows, then the run-level status document per row
+    (see run_status_reader.read_summary). No filtering, search, sort parameters
+    or pagination: the run list screen does not have those controls, and adding
+    them now would fix a contract nothing has asked for yet.
+    """
+    rows = db.query_all(
+        # created_at is ISO-8601 with a fixed offset, so string ordering is
+        # chronological. job_id breaks ties: it embeds the creation timestamp
+        # plus a random suffix, which makes the order stable across requests
+        # even when two jobs share a created_at.
+        "SELECT * FROM jobs ORDER BY created_at DESC, job_id DESC"
+    )
+
+    items: list[JobListItem] = []
+    for row in rows:
+        planned: list[str] = db.loads(row["planned_steps"], [])
+        summary = run_status_reader.read_summary(Path(row["run_dir"]))
+
+        if summary is None:
+            # The pipeline has written nothing yet; report the backend's own
+            # orchestration state, exactly as get_job() does.
+            status = _FALLBACK_STATUS.get(row["status"], "failed")
+            completed = 0
+        else:
+            status = summary["status"]
+            completed = summary["completedStepCount"]
+
+        # Same override as get_job(): a cancel the backend initiated but the
+        # pipeline could not record must still read as cancelled.
+        if row["status"] == worker.CANCELLED and status != "cancelled":
+            status = "cancelled"
+
+        items.append(
+            JobListItem(
+                jobId=row["job_id"],
+                runId=row["run_id"],
+                status=status,
+                sampleId=row["sample_id"],
+                profileId=row["profile_id"],
+                captureKitId=row["capture_kit_id"],
+                runMode=row["run_mode"],
+                createdAt=row["created_at"],
+                startedAt=row["started_at"],
+                finishedAt=row["finished_at"],
+                error=row["error"],
+                plannedStepCount=len(planned),
+                completedStepCount=completed,
+            )
+        )
+
+    return JobListResponse(jobs=items)
 
 
 @router.get("/{job_id}", response_model=JobStateResponse)

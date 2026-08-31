@@ -30,6 +30,10 @@ CREATE TABLE IF NOT EXISTS jobs (
     run_id            TEXT NOT NULL,
     profile_id        TEXT NOT NULL,
     capture_kit_id    TEXT,
+    -- The biological sample name the submission carried. Nullable: rows created
+    -- before this column existed cannot have one, and it is never back-filled
+    -- by re-parsing the generated samplesheet.
+    sample_id         TEXT,
     status            TEXT NOT NULL,      -- backend orchestration state
     run_dir           TEXT NOT NULL,
     config_path       TEXT NOT NULL,
@@ -64,8 +68,35 @@ CREATE TABLE IF NOT EXISTS uploads (
 """
 
 
+# Columns added after the first release.
+#
+# CREATE TABLE IF NOT EXISTS does nothing to a table that already exists, so a
+# database created before a column was introduced never gains it. This map is
+# applied on every connect() and is the whole migration story here: there is no
+# version table and no migration framework, which matches the rest of this
+# module (stdlib sqlite3, no ORM).
+#
+# Only NULLable columns may be listed. ALTER TABLE ADD COLUMN is a metadata-only
+# change in SQLite -- it does not rewrite or copy the table, and existing rows
+# read back as NULL -- so it cannot lose data. Anything that needs a rewrite
+# (dropping, retyping, adding NOT NULL) does not belong here and needs a real
+# decision.
+_ADDED_COLUMNS: dict[str, dict[str, str]] = {
+    "jobs": {"sample_id": "TEXT"},
+}
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat()
+
+
+def _apply_column_upgrades(conn: sqlite3.Connection) -> None:
+    """Add any missing NULLable column, leaving existing rows untouched."""
+    for table, columns in _ADDED_COLUMNS.items():
+        present = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        for name, declaration in columns.items():
+            if name not in present:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {declaration}")
 
 
 def connect() -> sqlite3.Connection:
@@ -75,6 +106,7 @@ def connect() -> sqlite3.Connection:
         _conn = sqlite3.connect(config.DB_PATH, check_same_thread=False)
         _conn.row_factory = sqlite3.Row
         _conn.executescript(SCHEMA)
+        _apply_column_upgrades(_conn)
         _conn.commit()
     return _conn
 

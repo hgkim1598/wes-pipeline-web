@@ -187,6 +187,40 @@ def _check_only_status(run_dir: Path) -> tuple[str, str | None]:
     return "failed", reason
 
 
+def read_summary(run_dir: Path) -> dict[str, Any] | None:
+    """The run-level verdict only, for the job list.
+
+    read() below is the authority for one job and merges the recorded plan with
+    a document per planned step. A list would repeat that for every row, so this
+    reads the run-level document alone and takes the completed count from the
+    `completed_steps` list main.sh maintains there.
+
+    That keeps a list request at one file read per job (two for check_only,
+    which has to look at 00_input_validation to know whether the preflight
+    passed) while reusing the same status maps as read(), so the list and the
+    detail endpoint cannot disagree about a status.
+
+    None means "no run_status.json", exactly as in read().
+    """
+    run_status = _read_json(run_dir / "status" / "run_status.json")
+    if run_status is None:
+        return None
+
+    pipeline_status = str(run_status.get("status") or "")
+
+    if pipeline_status == "check_only":
+        status, _ = _check_only_status(run_dir)
+    else:
+        status = RUN_STATUS_MAP.get(pipeline_status, "failed")
+
+    completed = run_status.get("completed_steps")
+    return {
+        "status": status,
+        "pipelineStatus": pipeline_status,
+        "completedStepCount": len(completed) if isinstance(completed, list) else 0,
+    }
+
+
 def _collect_failure_reason(run_dir: Path, run_status: dict[str, Any]) -> str | None:
     for step_id in run_status.get("failed_steps") or []:
         doc = read_step_document(run_dir, str(step_id))

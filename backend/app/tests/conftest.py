@@ -645,6 +645,9 @@ def make_job(env):
         planned: list[str] | None = None,
         run_dir: Path | None = None,
         error: str | None = None,
+        # None reproduces a row written before jobs.sample_id existed.
+        sample_id: str | None = None,
+        created_at: str | None = None,
     ) -> str:
         if planned is None:
             planned = (
@@ -663,16 +666,17 @@ def make_job(env):
             )
         db.execute(
             """INSERT INTO jobs
-               (job_id, run_id, profile_id, capture_kit_id, status, run_dir,
+               (job_id, run_id, profile_id, capture_kit_id, sample_id, status, run_dir,
                 config_path, samplesheet_path, run_mode, planned_steps,
                 original_options, unsupported_options, error, started_at,
                 finished_at, created_at, updated_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 run_id,
                 run_id,
                 profile_id,
                 "idt_xgen_exome_hyb_panel_v2",
+                sample_id,
                 status,
                 str(run_dir if run_dir is not None else config.RUNS_ROOT / run_id),
                 str(config.JOBS_ROOT / run_id / "run_config.json"),
@@ -684,7 +688,7 @@ def make_job(env):
                 error,
                 "2026-08-21T14:26:59+09:00",
                 "2026-08-21T14:27:22+09:00",
-                db.now_iso(),
+                created_at or db.now_iso(),
                 db.now_iso(),
             ),
         )

@@ -96,6 +96,43 @@ class JobStateResponse(BaseModel):
     unsupportedOptions: list[str] = Field(default_factory=list)
 
 
+class JobListItem(BaseModel):
+    """One row of GET /api/jobs.
+
+    Deliberately not JobStateResponse. That model carries steps, logTail and the
+    pipeline's own vocabulary because a client polling one job needs them; a list
+    would multiply all of it by the number of rows. Everything here is either a
+    column on the jobs row or comes from the run-level status document.
+
+    `status` is reconciled the same way GET /api/jobs/{id} reconciles it, so the
+    two endpoints report the same state for the same job.
+    """
+
+    jobId: str
+    runId: str
+    status: JobStatus
+    # Null for rows created before the column existed. Never back-filled by
+    # re-parsing the generated samplesheet, and never substituted with runId.
+    sampleId: str | None = None
+    profileId: str
+    captureKitId: str | None = None
+    runMode: str
+    createdAt: str
+    startedAt: str | None = None
+    finishedAt: str | None = None
+    error: str | None = None
+
+    # Step counts, not a progress percentage: plannedStepCount is the recorded
+    # plan on the job row, completedStepCount is the length of the pipeline's own
+    # completed_steps list. Both are 0 before the pipeline writes anything.
+    plannedStepCount: int = 0
+    completedStepCount: int = 0
+
+
+class JobListResponse(BaseModel):
+    jobs: list[JobListItem] = Field(default_factory=list)
+
+
 # --- results --------------------------------------------------------------
 #
 # Appended for GET /api/jobs/{id}/results and the artifact endpoints. Nothing
