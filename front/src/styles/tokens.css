@@ -158,15 +158,33 @@
 
   /*
     서체
-    IBM Plex는 저장소에 없고, 이번 단계에서 CDN이나 폰트 패키지를
-    추가하지 않는다. 설치돼 있으면 사용하고 없으면 시스템 폰트로
-    폴백한다. 자체 호스팅 여부는 별도 판단이 필요하다.
+
+    UI 서체는 Pretendard Variable이다. 실제 파일을 self-host하므로
+    (styles/index.css의 @import) 이제 폴백이 아니라 이 글꼴이 렌더링된다.
+    family 이름 "Pretendard Variable"은 package README가 가변 다이나믹
+    서브셋에 지정한 이름 그대로다.
+
+    두 번째 Pretendard는 사용자 PC에 정적 Pretendard가 설치돼 있을 때를
+    위한 자리다. 그 뒤는 웹폰트가 아직 도착하지 않았을 때의 시스템 폴백이다.
   */
   --font-sans:
-    "IBM Plex Sans KR", "IBM Plex Sans", system-ui, -apple-system, "Segoe UI",
+    "Pretendard Variable", Pretendard, system-ui, -apple-system, "Segoe UI",
     "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  /*
+    eyebrow용 역할 이름. 지금은 --font-sans와 같은 글꼴을 쓴다.
+
+    Pretendard에는 condensed 자족이 없다. 이전 값(IBM Plex Sans Condensed)도
+    저장소에 파일이 없어 실제로는 한 번도 축약 서체로 렌더링된 적이 없으므로,
+    이 변경으로 없어지는 시각 요소는 없다. eyebrow의 구분은 계속 크기(11px)·
+    weight(600)·자간(0.09em)·대문자가 담당한다.
+
+    역할 이름을 남겨두는 이유는, 나중에 진짜 축약 서체를 도입할 때 호출부를
+    건드리지 않고 이 한 줄만 바꾸면 되기 때문이다.
+  */
   --font-cond:
-    "IBM Plex Sans Condensed", "IBM Plex Sans KR", system-ui, sans-serif;
+    "Pretendard Variable", Pretendard, system-ui, -apple-system, "Segoe UI",
+    "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  /* mono는 이번 작업 범위 밖이다. 값을 바꾸지 않는다. */
   --font-mono:
     "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 

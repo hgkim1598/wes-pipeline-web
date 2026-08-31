@@ -1,7 +1,24 @@
 /*
   스타일 진입점. main.tsx가 이 파일 하나만 import한다.
-  순서: Tailwind → 토큰 정의 → 전역 base
+  순서: 웹폰트 → Tailwind → 토큰 정의 → 전역 base
 */
+
+/*
+  Pretendard Variable (self-host).
+
+  공식 package(pretendard, OFL-1.1, orioncactus/pretendard)를 node_modules에서
+  그대로 가져온다. CDN을 쓰지 않으므로 오프라인·로컬 VM 환경에서도 동일하게
+  렌더링된다.
+
+  dynamic-subset을 고른 이유: 한글 글리프가 92개 unicode-range 조각으로 나뉘어
+  있어 브라우저가 실제로 쓰는 조각만 내려받는다. 단일 variable 파일은 2.0MB를
+  항상 받는다. README도 한글 웹에는 이 방식을 권한다.
+
+  variable 하나로 45~920 weight를 덮으므로 현재 쓰는 400/500/600에
+  static 파일을 따로 붙일 필요가 없다.
+*/
+@import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
+
 @import "tailwindcss";
 @import "./tokens.css";
 @import "./globals.css";
