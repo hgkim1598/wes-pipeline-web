@@ -7,6 +7,7 @@ import { MessageBlock } from '@/components/ui/MessageBlock'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { TabsList, TabsPanel, TabsRoot, TabsTab } from '@/components/ui/Tabs'
+import { HealthCheckPage } from '@/features/health/HealthCheckPage'
 
 /*
   공통 primitive가 실제 브라우저에서 어떻게 렌더링되는지 확인하는
@@ -45,24 +46,32 @@ function Showcase() {
 
       <section className="flex flex-col gap-4">
         <SectionHeader eyebrow="STATUS" title="Status badge" meta="6 tones" />
-        <div className="flex flex-wrap items-center gap-3">
-          <StatusBadge tone="idle">Idle</StatusBadge>
-          <StatusBadge tone="running">Running</StatusBadge>
-          <StatusBadge tone="success">Success</StatusBadge>
-          <StatusBadge tone="warning">Warning</StatusBadge>
-          <StatusBadge tone="failure">Failure</StatusBadge>
-          <StatusBadge tone="cancelled">Cancelled</StatusBadge>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <StatusBadge tone="running" size="sm">
-            Running
-          </StatusBadge>
-          <StatusBadge tone="success" size="sm">
-            Success
-          </StatusBadge>
-          <StatusBadge tone="failure" size="sm" className="font-mono text-data">
-            FAIL
-          </StatusBadge>
+        {/*
+          surface 패널 위에서 렌더링한다. badge-shapes-2의 E안도
+          `background:var(--surface)` 패널 안에 있고, cancelled의 배경이
+          페이지 배경(paper)과 같은 값이라 paper 위에서는 알약이 사라진다.
+          시안과 나란히 놓고 비교하기 위해 문구도 E안과 같은 한국어를 쓴다.
+        */}
+        <div className="flex flex-col gap-3 rounded-md border border-border bg-surface p-8">
+          <div className="flex flex-wrap items-center gap-3">
+            <StatusBadge tone="idle">대기 중</StatusBadge>
+            <StatusBadge tone="running">분석 중</StatusBadge>
+            <StatusBadge tone="success">완료</StatusBadge>
+            <StatusBadge tone="warning">완료 (경고 있음)</StatusBadge>
+            <StatusBadge tone="failure">실패</StatusBadge>
+            <StatusBadge tone="cancelled">취소됨</StatusBadge>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <StatusBadge tone="running" size="sm">
+              분석 중
+            </StatusBadge>
+            <StatusBadge tone="success" size="sm">
+              완료
+            </StatusBadge>
+            <StatusBadge tone="cancelled" size="sm">
+              취소됨
+            </StatusBadge>
+          </div>
         </div>
       </section>
 
@@ -139,7 +148,10 @@ function Showcase() {
 function App() {
   return (
     <Routes>
+      {/* 공통 primitive 확인용 개발 화면. 제품 화면이 아니다. */}
       <Route path="/" element={<Showcase />} />
+      {/* backend 연결 확인용 첫 vertical slice. */}
+      <Route path="/health" element={<HealthCheckPage />} />
     </Routes>
   )
 }

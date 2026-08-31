@@ -217,12 +217,31 @@
   --tracking-normal: 0;
   --tracking-tight: -0.01em; /* display · h1 */
   --tracking-tighter: -0.02em; /* metric-xl */
-  --tracking-wide: 0.09em; /* eyebrow */
+  --tracking-wide: 0.09em; /* eyebrow — 영문·숫자 Condensed */
+  /*
+    한글 라벨용 자간. 시안의 --ls-wide-kr(0.06em)이다.
+    영문 eyebrow(0.09em)를 한글에 그대로 쓰면 낱자가 흩어져 보여서
+    시안이 별도 값을 둔다. 표 머리글·한글 eyebrow가 이 값을 쓴다.
+    근거: docs/design/components.html :root --ls-wide-kr
+  */
+  --tracking-wide-kr: 0.06em;
 
-  /* 반경 — 조작 요소는 4, 담는 요소는 8. 그 외 없음 */
-  --radius-sm: 0.25rem; /* 버튼 · 입력 · 배지 · 칩 */
+  /* 반경 — 조작 요소는 4, 담는 요소는 8. 그 외는 알약뿐 */
+  --radius-sm: 0.25rem; /* 버튼 · 입력 · 칩 */
   --radius-md: 0.5rem; /* 패널 · 카드 · 다이얼로그 · 드로어 */
-  --radius-pill: 9999px; /* RunTape 현재 단계 마커 (유일) */
+  /*
+    알약. StatusBadge와 RunTape 현재 단계 마커가 쓴다.
+    badge-shapes-2가 "신설 토큰: --radius-pill: 999px — StatusBadge 전용"으로
+    도입했고, prototype·pipeline-tab·results-* 등 제품 화면이 모두 배지에
+    이 값을 쓴다. 초기 시안(components.html C1)의 사각 배지는 구세대다.
+  */
+  --radius-pill: 9999px;
+
+  /*
+    알약 배지의 가로 padding. 세로는 spacing 스케일의 4px(py-1)을 쓴다.
+    근거: docs/design/prototype.html :root --pad-pill-x:12px
+  */
+  --pad-pill-x: 0.75rem; /* 12px */
 
   /*
     그림자 — 인라인 콘텐츠(카드 포함)는 elevation 0.
