@@ -1879,6 +1879,57 @@ def need(path, label):
     return True
 
 
+# The five files bwa loads for an index, in no particular order.
+BWA_INDEX_EXTS = ("amb", "ann", "bwt", "pac", "sa")
+
+
+def check_bwa_index(ref):
+    """Resolve the index prefix the way bwa does, then require THAT one complete.
+
+    bwa.c bwa_idx_infer_prefix() probes "<hint>.64.bwt" first; if that file
+    opens it returns "<hint>.64" as the prefix without looking at anything else.
+    Only when that probe fails does it try "<hint>.bwt" -> "<hint>".
+    bwa_idx_load_from_disk() then loads .amb/.ann/.pac/.sa at the prefix it was
+    handed and fails if one is missing -- it never falls back to the other
+    prefix. run_alignment() passes the FASTA path as that hint, so the same
+    resolution decides what an actual `bwa mem` here would use.
+
+    Two consequences this check reproduces:
+      * a ".64" set (how the Broad GRCh38 bundle ships) is a normal, usable
+        index. Requiring the unsuffixed names failed a perfectly good bundle.
+      * "some complete set exists somewhere" is the wrong question. A stray
+        <ref>.64.bwt hides a complete unsuffixed set from bwa, so it has to fail
+        here rather than hours later in 03_alignment.
+    """
+    for suffix in (".64", ""):
+        prefix = ref + suffix
+        # Existence only, matching the fopen() probe bwa makes. A zero-byte
+        # .bwt still selects the prefix; it is reported as incomplete below,
+        # which is what bwa would do too.
+        if not os.path.isfile(prefix + ".bwt"):
+            continue
+        missing = [ext for ext in BWA_INDEX_EXTS
+                   if not (os.path.isfile(f"{prefix}.{ext}")
+                           and os.path.getsize(f"{prefix}.{ext}") > 0)]
+        if missing:
+            errors.append(
+                f"BWA index at '{prefix}.*' is incomplete: missing or empty "
+                f"{', '.join('.' + e for e in missing)}. bwa resolves the reference "
+                f"to this prefix because '{prefix}.bwt' exists, and it never falls "
+                "back to another naming variant, so an index at the other prefix "
+                "would not be used. Rebuild it with `bwa index`.")
+        else:
+            notes.append(
+                f"BWA index: '{prefix}.*' complete "
+                f"({'64-bit .64 naming' if suffix else 'standard naming'}; "
+                "this is the prefix bwa resolves the reference to)")
+        return
+
+    errors.append(
+        f"BWA index not found: neither '{ref}.64.bwt' nor '{ref}.bwt' exists. "
+        "Run `bwa index` on the reference; the pipeline never builds it.")
+
+
 ref_ok = need(ref, "reference_fasta")
 bed_ok = need(bed, "target_bed")
 coverage_bed_ok = need(coverage_bed, "coverage_bed")
@@ -1889,8 +1940,7 @@ dict_path = os.path.splitext(ref)[0] + ".dict"
 if ref_ok:
     need(fai, "reference FASTA index (.fai)")
     need(dict_path, "reference sequence dictionary (.dict)")
-    for ext in ("amb", "ann", "bwt", "pac", "sa"):
-        need(f"{ref}.{ext}", f"BWA index (.{ext})")
+    check_bwa_index(ref)
 
 if os.path.isfile(fai) and os.path.isfile(dict_path):
     fai_rows = []
