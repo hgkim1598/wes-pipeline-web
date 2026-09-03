@@ -1,4 +1,5 @@
-import { Inbox, RefreshCw } from 'lucide-react'
+import { Inbox, Plus, RefreshCw } from 'lucide-react'
+import { Link } from 'react-router'
 
 import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/Button'
@@ -16,9 +17,7 @@ import { useRunListQuery } from '@/features/runs/useRunListQuery'
   "이 목록은 이 브라우저에만 저장됩니다"는 localStorage 기반이던 과거 설계의
   문구다. 지금의 출처는 FastAPI + SQLite이므로 그 문장을 쓰지 않는다.
 
-  시안에 있는 "새 분석" 버튼도 두지 않았다. 제출 화면이 아직 없어서 눌러도
-  갈 곳이 없고, 없는 기능을 있는 것처럼 보이게 하지 않는다(CLAUDE.md 35장).
-  화면이 생기는 단계에서 이 자리에 들어온다.
+  시안의 "새 분석" 버튼은 /new가 실제로 동작하게 된 뒤에 넣었다.
 
   검색·필터·정렬·페이지네이션도 없다. backend에 해당 파라미터가 없고
   (backend/app/api/jobs.py list_jobs), 조작만 먼저 만들면 동작하지 않는
@@ -47,17 +46,26 @@ export function RunListPage() {
           ) : null}
         </div>
 
-        {/* 오류·빈 상태는 각자 자기 자리에 조치 버튼을 갖는다. 여기서는 중복을 만들지 않는다. */}
-        {jobs && jobs.length > 0 ? (
-          <Button
-            variant="secondary"
-            onClick={() => void refetch()}
-            disabled={isFetching}
+        <div className="flex items-center gap-3">
+          {/* 오류·빈 상태는 각자 자기 자리에 다시 확인 버튼을 갖는다. */}
+          {jobs && jobs.length > 0 ? (
+            <Button
+              variant="secondary"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+            >
+              <RefreshCw size={16} strokeWidth={1.5} aria-hidden="true" />
+              {isFetching ? '확인 중' : '다시 확인'}
+            </Button>
+          ) : null}
+          <Link
+            to="/new"
+            className="inline-flex h-8 items-center gap-2 rounded-sm bg-brand px-4 text-body font-medium whitespace-nowrap text-surface no-underline hover:bg-brand-hover hover:no-underline active:bg-brand-active"
           >
-            <RefreshCw size={16} strokeWidth={1.5} aria-hidden="true" />
-            {isFetching ? '확인 중' : '다시 확인'}
-          </Button>
-        ) : null}
+            <Plus size={16} strokeWidth={1.5} aria-hidden="true" />
+            새 분석
+          </Link>
+        </div>
       </div>
 
       {isPending ? (
@@ -87,15 +95,24 @@ function RunList({
         title="아직 실행한 분석이 없습니다"
         description={
           <>
-            서버에 기록된 분석 실행이 없습니다. 분석을 제출하면 이 목록에
-            나타납니다. 제출 화면은 아직 준비 중입니다.
+            서버에 기록된 분석 실행이 없습니다. FASTQ 한 쌍을 올려 첫 분석을
+            제출하면 이 목록에 나타납니다.
           </>
         }
         action={
-          <Button variant="secondary" onClick={onRefresh}>
-            <RefreshCw size={16} strokeWidth={1.5} aria-hidden="true" />
-            다시 확인
-          </Button>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Link
+              to="/new"
+              className="inline-flex h-8 items-center gap-2 rounded-sm bg-brand px-4 text-body font-medium whitespace-nowrap text-surface no-underline hover:bg-brand-hover hover:no-underline active:bg-brand-active"
+            >
+              <Plus size={16} strokeWidth={1.5} aria-hidden="true" />
+              새 분석
+            </Link>
+            <Button variant="secondary" onClick={onRefresh}>
+              <RefreshCw size={16} strokeWidth={1.5} aria-hidden="true" />
+              다시 확인
+            </Button>
+          </div>
         }
       />
     )

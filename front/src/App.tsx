@@ -8,6 +8,7 @@ import { SectionHeader } from '@/components/ui/SectionHeader'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { TabsList, TabsPanel, TabsRoot, TabsTab } from '@/components/ui/Tabs'
 import { HealthCheckPage } from '@/features/health/HealthCheckPage'
+import { NewAnalysisPage } from '@/features/new-analysis/NewAnalysisPage'
 import { RunDetailPlaceholderPage } from '@/features/runs/RunDetailPlaceholderPage'
 import { RunListPage } from '@/features/runs/RunListPage'
 
@@ -156,6 +157,8 @@ function App() {
       <Route path="/health" element={<HealthCheckPage />} />
       {/* 첫 제품 화면. GET /api/jobs 하나에만 의존한다. */}
       <Route path="/runs" element={<RunListPage />} />
+      {/* 업로드 + 제출. 단계는 ?step=n으로 표현한다. */}
+      <Route path="/new" element={<NewAnalysisPage />} />
       {/*
         목록의 행이 가리키는 곳. 상세 화면은 다음 단계라서 지금은 자리표다.
         route가 없으면 행 클릭이 빈 화면으로 떨어진다.
