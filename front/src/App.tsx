@@ -8,6 +8,8 @@ import { SectionHeader } from '@/components/ui/SectionHeader'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { TabsList, TabsPanel, TabsRoot, TabsTab } from '@/components/ui/Tabs'
 import { HealthCheckPage } from '@/features/health/HealthCheckPage'
+import { RunDetailPlaceholderPage } from '@/features/runs/RunDetailPlaceholderPage'
+import { RunListPage } from '@/features/runs/RunListPage'
 
 /*
   공통 primitive가 실제 브라우저에서 어떻게 렌더링되는지 확인하는
@@ -152,6 +154,13 @@ function App() {
       <Route path="/" element={<Showcase />} />
       {/* backend 연결 확인용 첫 vertical slice. */}
       <Route path="/health" element={<HealthCheckPage />} />
+      {/* 첫 제품 화면. GET /api/jobs 하나에만 의존한다. */}
+      <Route path="/runs" element={<RunListPage />} />
+      {/*
+        목록의 행이 가리키는 곳. 상세 화면은 다음 단계라서 지금은 자리표다.
+        route가 없으면 행 클릭이 빈 화면으로 떨어진다.
+      */}
+      <Route path="/runs/:jobId" element={<RunDetailPlaceholderPage />} />
     </Routes>
   )
 }
