@@ -15,6 +15,15 @@
      하나의 Error로 뭉개지 않고 kind를 남긴다.
 
   인증 · retry · interceptor는 없다. 필요해진 시점에 근거를 갖고 추가한다.
+
+  현재 제공하는 것은 세 가지다.
+
+    getJson    JSON 응답을 읽는 GET
+    postJson   JSON 본문을 보내고 JSON 응답을 읽는 POST
+    putBinary  이진 본문을 보내고 본문 없는 응답(204)을 받는 PUT
+
+  뒤의 둘은 chunk upload 때문에 생겼다(POST /api/uploads,
+  PUT /api/uploads/{id}/{chunk}). 셋 다 같은 실패 정규화를 쓴다.
 */
 
 /**
@@ -84,15 +93,16 @@ async function readErrorDetail(response: Response): Promise<string | undefined> 
 }
 
 /**
- * JSON GET 요청 하나.
+ * 요청 하나를 보내고 2xx 응답만 돌려준다.
  *
- * 반환 타입이 unknown인 것은 의도다. 응답 shape의 책임은 계약을 아는
- * feature에 있고, 여기서 타입을 주장하면 검증 없이 통과해 버린다.
+ * 경로 검증 · 취소 처리 · network/http 실패 정규화가 전부 여기 모인다.
+ * 본문을 어떻게 읽을지는 호출부가 정한다 — JSON일 수도, 없을 수도 있다.
  */
-export async function getJson(
+async function send(
   path: string,
-  options?: { signal?: AbortSignal },
-): Promise<unknown> {
+  init: RequestInit,
+  signal?: AbortSignal,
+): Promise<Response> {
   if (!path.startsWith('/')) {
     throw new ApiError(`API 경로는 상대경로여야 합니다: ${path}`, {
       kind: 'network',
@@ -101,11 +111,7 @@ export async function getJson(
 
   let response: Response
   try {
-    response = await fetch(path, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-      signal: options?.signal,
-    })
+    response = await fetch(path, { ...init, signal })
   } catch (cause) {
     // 취소는 실패가 아니다. React Query가 취소로 인식하도록 그대로 던진다.
     if (cause instanceof DOMException && cause.name === 'AbortError') {
@@ -126,6 +132,16 @@ export async function getJson(
     })
   }
 
+  return response
+}
+
+/**
+ * 본문을 JSON으로 읽는다.
+ *
+ * 반환 타입이 unknown인 것은 의도다. 응답 shape의 책임은 계약을 아는
+ * feature에 있고, 여기서 타입을 주장하면 검증 없이 통과해 버린다.
+ */
+async function readJson(response: Response): Promise<unknown> {
   try {
     return (await response.json()) as unknown
   } catch (cause) {
@@ -136,4 +152,57 @@ export async function getJson(
       cause,
     })
   }
+}
+
+/** JSON GET 요청 하나. */
+export async function getJson(
+  path: string,
+  options?: { signal?: AbortSignal },
+): Promise<unknown> {
+  const response = await send(
+    path,
+    { method: 'GET', headers: { Accept: 'application/json' } },
+    options?.signal,
+  )
+  return readJson(response)
+}
+
+/** JSON 본문을 보내는 POST 요청 하나. */
+export async function postJson(
+  path: string,
+  body: unknown,
+  options?: { signal?: AbortSignal },
+): Promise<unknown> {
+  const response = await send(
+    path,
+    {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    options?.signal,
+  )
+  return readJson(response)
+}
+
+/**
+ * 이진 본문을 보내는 PUT 요청 하나.
+ *
+ * upload chunk 전용이다. backend는 204를 돌려주므로 본문을 읽지 않는다.
+ * 성공 응답에 본문이 있더라도 무시한다 — 계약에 없는 값이다.
+ */
+export async function putBinary(
+  path: string,
+  body: Blob,
+  options?: { signal?: AbortSignal },
+): Promise<void> {
+  await send(
+    path,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body,
+    },
+    options?.signal,
+  )
 }
