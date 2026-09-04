@@ -619,6 +619,38 @@ run_optional_cmd() {
     return 0
 }
 
+# --- BAM header reads --------------------------------------------------------
+#
+# read_bam_header <bam>            header text on stdout, samtools' own status
+# bam_header_sorted_by_coordinate <header>
+# bam_header_has_sample <header> <sample>
+#
+# Why the header is read in full before it is examined, instead of the shorter
+# `samtools view -H "$bam" | grep -q ...`:
+#
+#   `grep -q` exits at the first match and closes the pipe. samtools is then
+#   killed by SIGPIPE and exits 141. This script runs under `set -o pipefail`,
+#   so the pipeline reports 141 even though grep matched, and a perfectly good
+#   BAM is recorded as a failed check.
+#
+#   It is not intermittent in the way it looks: @HD is the FIRST header line, so
+#   the match - and the close - happen immediately, while samtools still has
+#   thousands of @SQ lines to write. A real run produced PIPESTATUS=141 0 on a
+#   BAM whose header did contain `@HD VN:1.5 SO:coordinate`.
+#
+#   Command substitution reads to EOF, so there is no early reader, samtools
+#   always runs to completion, and the status returned is its real one. The
+#   greps below read a here-string, where an early exit costs nothing.
+#
+# The read and the checks are separate on purpose: "samtools could not read the
+# header" and "the header says the wrong thing" are different failures and must
+# not be reported as the same check.
+read_bam_header() { samtools view -H "$1" 2>/dev/null; }
+
+bam_header_sorted_by_coordinate() { grep -q '^@HD.*SO:coordinate' <<< "$1"; }
+
+bam_header_has_sample() { grep -q "SM:$2" <<< "$1"; }
+
 # =============================================================================
 # 2b. Step lifecycle
 #
@@ -2883,15 +2915,23 @@ run_alignment() {
             touch -- "$lane_done"
         fi
 
-        if samtools view -H "$lane_bam" 2>/dev/null | grep -q '^@HD.*SO:coordinate'; then
-            step_check_pass "sort_order_${unit}" "@HD reports SO:coordinate"
+        # `local` on its own line: `local h=$(cmd)` returns local's status, not
+        # the command's, and the read failure would go unnoticed.
+        local lane_header
+        if lane_header=$(read_bam_header "$lane_bam"); then
+            if bam_header_sorted_by_coordinate "$lane_header"; then
+                step_check_pass "sort_order_${unit}" "@HD reports SO:coordinate"
+            else
+                step_check_fail "sort_order_${unit}" "@HD does not report SO:coordinate"
+            fi
+            if bam_header_has_sample "$lane_header" "$sample"; then
+                step_check_pass "read_group_${unit}" "SM:${sample} present in @RG"
+            else
+                step_check_fail "read_group_${unit}" "SM:${sample} missing from the lane BAM @RG"
+            fi
         else
-            step_check_fail "sort_order_${unit}" "@HD does not report SO:coordinate"
-        fi
-        if samtools view -H "$lane_bam" 2>/dev/null | grep -q "SM:${sample}"; then
-            step_check_pass "read_group_${unit}" "SM:${sample} present in @RG"
-        else
-            step_check_fail "read_group_${unit}" "SM:${sample} missing from the lane BAM @RG"
+            step_check_fail "bam_header_${unit}" \
+                "samtools view -H could not read the lane BAM header"
         fi
 
         run_cmd_stdout "flagstat_${unit}" "$lane_dir/${unit}.flagstat.txt" samtools flagstat -@ "$THREADS" "$lane_bam" || true
@@ -2953,21 +2993,32 @@ run_alignment() {
         touch -- "$sample_done"
     fi
 
-    if samtools view -H "$SAMPLE_BAM" 2>/dev/null | grep -q '^@HD.*SO:coordinate'; then
-        step_check_pass "sample_sort_order" "@HD reports SO:coordinate"
-    else
-        step_check_fail "sample_sort_order" "sample BAM @HD does not report SO:coordinate"
-    fi
+    # One read, then both checks. The sort-order check and the SM survey used to
+    # invoke samtools separately; a single header keeps them from disagreeing.
+    local sample_header
+    if sample_header=$(read_bam_header "$SAMPLE_BAM"); then
+        if bam_header_sorted_by_coordinate "$sample_header"; then
+            step_check_pass "sample_sort_order" "@HD reports SO:coordinate"
+        else
+            step_check_fail "sample_sort_order" "sample BAM @HD does not report SO:coordinate"
+        fi
 
-    local sm_values sm_count
-    sm_values=$(samtools view -H "$SAMPLE_BAM" 2>/dev/null \
-        | awk '/^@RG/ {for (i=1;i<=NF;i++) if ($i ~ /^SM:/) print substr($i,4)}' | sort -u)
-    sm_count=$(printf '%s\n' "$sm_values" | grep -c . || true)
-    if [[ "$sm_count" == "1" && "$sm_values" == "$SAMPLE_ID" ]]; then
-        step_check_pass "sample_read_group" "all read groups carry SM:${SAMPLE_ID}"
+        local sm_values sm_count
+        # awk and sort both read to EOF, so this pipeline was never exposed to
+        # the SIGPIPE problem; it reads the saved header only to avoid a second
+        # samtools invocation.
+        sm_values=$(awk '/^@RG/ {for (i=1;i<=NF;i++) if ($i ~ /^SM:/) print substr($i,4)}' \
+            <<< "$sample_header" | sort -u)
+        sm_count=$(printf '%s\n' "$sm_values" | grep -c . || true)
+        if [[ "$sm_count" == "1" && "$sm_values" == "$SAMPLE_ID" ]]; then
+            step_check_pass "sample_read_group" "all read groups carry SM:${SAMPLE_ID}"
+        else
+            step_check_fail "sample_read_group" \
+                "the merged BAM must carry exactly one SM equal to '${SAMPLE_ID}' (found: $(printf '%s' "$sm_values" | tr '\n' ' '))"
+        fi
     else
-        step_check_fail "sample_read_group" \
-            "the merged BAM must carry exactly one SM equal to '${SAMPLE_ID}' (found: $(printf '%s' "$sm_values" | tr '\n' ' '))"
+        step_check_fail "sample_bam_header" \
+            "samtools view -H could not read the merged sample BAM header"
     fi
 
     if samtools idxstats "$SAMPLE_BAM" >/dev/null 2>&1; then
@@ -3325,10 +3376,16 @@ PYDUP
     fi
     [[ -n "$final_total" ]] && step_metric analysis_ready_records "$final_total" num
 
-    if samtools view -H "$final_part" 2>/dev/null | grep -q "SM:${SAMPLE_ID}"; then
-        step_check_pass "read_group_sample" "SM:${SAMPLE_ID} present"
+    local final_header
+    if final_header=$(read_bam_header "$final_part"); then
+        if bam_header_has_sample "$final_header" "$SAMPLE_ID"; then
+            step_check_pass "read_group_sample" "SM:${SAMPLE_ID} present"
+        else
+            step_check_fail "read_group_sample" "SM:${SAMPLE_ID} missing from the analysis-ready BAM"
+        fi
     else
-        step_check_fail "read_group_sample" "SM:${SAMPLE_ID} missing from the analysis-ready BAM"
+        step_check_fail "analysis_ready_bam_header" \
+            "samtools view -H could not read the analysis-ready BAM header"
     fi
 
     # Publish only now: body and index together, and only if nothing failed.
@@ -4863,10 +4920,13 @@ validate_bam_artifact() {
         || { printf 'BAM index missing for %s' "$(basename -- "$bam")"; return 1; }
     samtools idxstats "$bam" >/dev/null 2>&1 \
         || { printf 'BAM index unreadable for %s' "$(basename -- "$bam")"; return 1; }
-    samtools view -H "$bam" 2>/dev/null | grep -q '^@HD.*SO:coordinate' \
+    local header
+    header=$(read_bam_header "$bam") \
+        || { printf 'cannot read the BAM header of %s' "$(basename -- "$bam")"; return 1; }
+    bam_header_sorted_by_coordinate "$header" \
         || { printf '%s is not coordinate-sorted' "$(basename -- "$bam")"; return 1; }
     if [[ -n "$expect" ]]; then
-        samtools view -H "$bam" 2>/dev/null | grep -q "SM:${expect}" \
+        bam_header_has_sample "$header" "$expect" \
             || { printf '%s does not carry SM:%s' "$(basename -- "$bam")" "$expect"; return 1; }
     fi
     return 0
