@@ -4644,25 +4644,25 @@ PYSUMMARY
     # report and deliberately makes no interpretive claim.
     {
         printf '# Methods — run `%s`\n\n' "$RUN_ID"
-        printf '- Pipeline: %s %s\n' "$PIPELINE_NAME" "$PIPELINE_VERSION"
-        printf '- Sample: `%s`\n' "${SAMPLE_ID:-unknown}"
-        printf '- Assay: whole exome sequencing, paired-end Illumina, germline\n'
-        printf '- Reference bundle: `%s` (assembly `%s`, contig style `%s`, as declared in the run config)\n' \
+        printf -- '- Pipeline: %s %s\n' "$PIPELINE_NAME" "$PIPELINE_VERSION"
+        printf -- '- Sample: `%s`\n' "${SAMPLE_ID:-unknown}"
+        printf -- '- Assay: whole exome sequencing, paired-end Illumina, germline\n'
+        printf -- '- Reference bundle: `%s` (assembly `%s`, contig style `%s`, as declared in the run config)\n' \
             "${BUNDLE_ID:-unnamed}" "$ASSEMBLY" "$CONTIG_STYLE"
-        printf '- Capture design: `%s` `%s` (version `%s`, design ID `%s`)\n' \
+        printf -- '- Capture design: `%s` `%s` (version `%s`, design ID `%s`)\n' \
             "$TARGET_BED_MANUFACTURER" "$TARGET_BED_CAPTURE_KIT_NAME" \
             "$TARGET_BED_CAPTURE_KIT_VERSION" "$TARGET_BED_DESIGN_ID"
-        printf '- Capture-kit profile: `%s` (selection mode `%s`)\n' \
+        printf -- '- Capture-kit profile: `%s` (selection mode `%s`)\n' \
             "$CAPTURE_KIT_ID" "$CAPTURE_KIT_MODE"
-        printf '- Target BED: `%s` (build `%s`, source `%s`, declared SHA-256 `%s`)\n' \
+        printf -- '- Target BED: `%s` (build `%s`, source `%s`, declared SHA-256 `%s`)\n' \
             "$TARGET_BED_FILE_NAME" "$TARGET_BED_GENOME_BUILD" \
             "$TARGET_BED_SOURCE" "$TARGET_BED_SHA256"
-        printf '- Coverage BED: `%s` (declared SHA-256 `%s`)\n' \
+        printf -- '- Coverage BED: `%s` (declared SHA-256 `%s`)\n' \
             "$(basename -- "$COVERAGE_BED")" "$COVERAGE_BED_SHA256"
         if [[ -n "$TARGET_BED_SOURCE_URL" ]]; then
-            printf '- Target BED source URL: %s\n' "$TARGET_BED_SOURCE_URL"
+            printf -- '- Target BED source URL: %s\n' "$TARGET_BED_SOURCE_URL"
         fi
-        printf '- Core endpoint: raw VCF. **No variant filtering was applied to it.**\n\n'
+        printf -- '- Core endpoint: raw VCF. **No variant filtering was applied to it.**\n\n'
         printf '## Steps executed\n\n'
         printf '| Step | Status | Seconds |\n|---|---|---|\n'
         local f sid st el
@@ -4688,6 +4688,52 @@ PYSUMMARY
         printf -- '- Reference resources were checked for structural compatibility (contig names, contig lengths, coordinate ranges). That is not proof of shared build provenance: the assembly above is the one declared in the run config, and the exact release of each resource is the operator'"'"'s record, not a pipeline measurement.\n'
     } > "${out}.part"
     mv -f -- "${out}.part" "$out"
+
+    # ---- verify what was actually written ----------------------------------
+    #
+    # This exists because the document was once produced silently broken. Every
+    # `printf '- ...'` above failed with "printf: - : invalid option" - the
+    # format string starts with a dash, so the builtin parsed it as options -
+    # and the entire provenance bullet block was missing from methods.md while
+    # the step still reported completed/exit 0.
+    #
+    # Two separate reasons that failure was invisible, both still true for any
+    # future generation bug, which is why this check is here and not just the
+    # `--` fix above:
+    #
+    #   1. `{ ...; } > file` exits with the status of its LAST command. The
+    #      earlier printf failures could not affect it.
+    #   2. run_pipeline calls `dispatch_step "$step" || rc=$?`. Being on the
+    #      left of `||` disables errexit for the whole dynamic extent of that
+    #      call, so `set -Eeuo pipefail` never fired inside here either.
+    #
+    # So the document is checked against the sections it must always contain.
+    # `grep -F --` is deliberate: these markers start with a dash too.
+    local -a required=(
+        "# Methods — run"
+        "- Pipeline:"
+        "- Sample:"
+        "- Assay:"
+        "- Reference bundle:"
+        "- Capture design:"
+        "- Capture-kit profile:"
+        "- Target BED:"
+        "- Coverage BED:"
+        "- Core endpoint: raw VCF"
+        "## Steps executed"
+        "## Tool versions"
+        "## Resource checksums"
+        "## Limitations"
+    )
+    local marker missing=()
+    for marker in "${required[@]}"; do
+        grep -qF -- "$marker" "$out" || missing+=("$marker")
+    done
+    if (( ${#missing[@]} > 0 )); then
+        log "  methods.md is incomplete; missing: ${missing[*]}"
+        return 1
+    fi
+    return 0
 }
 
 run_finalization() {
@@ -4698,7 +4744,27 @@ run_finalization() {
     artifact_count=$(write_artifact_manifest)
     step_metric artifact_count "${artifact_count:-0}" num
     write_provenance
-    write_final_report
+
+    # write_final_report returns non-zero when methods.md came out incomplete.
+    # Calling it bare would discard that: errexit is already disabled here
+    # (run_pipeline invokes dispatch_step on the left of `||`), so nothing else
+    # would notice.
+    #
+    # Severity is a WARNING, not a failure, and that follows this file's own
+    # rule rather than being a new judgement: run_final_validation() fails the
+    # run only for CORE ANALYSIS artifacts - analysis-ready BAM, gVCF, raw VCF,
+    # its index - and records everything else that is degraded as a warning
+    # (see the AUD-BLOCKER-002 note there). methods.md is a human-readable
+    # provenance record; when it is broken the raw VCF and every core artifact
+    # are still valid and downloadable. Marking the whole analysis failed would
+    # be the wrong report. Staying silent, which is what used to happen, is the
+    # other wrong report.
+    if ! write_final_report; then
+        step_warning "METHODS_DOCUMENT_INCOMPLETE" \
+            "methods.md was not written completely; see the finalization log for the missing sections" \
+            "Analysis results and core artifacts are unaffected. The human-readable reproducibility record is incomplete, so record the run configuration from provenance.json instead" \
+            "true"
+    fi
 
     step_output artifact_manifest "$RUN_DIR/artifact_manifest.json"
     step_output provenance "$RUN_DIR/provenance.json"
