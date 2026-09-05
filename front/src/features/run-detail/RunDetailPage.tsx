@@ -4,16 +4,20 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/Button'
 import { MessageBlock } from '@/components/ui/MessageBlock'
-import { RunTape } from '@/components/ui/RunTape'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { TabsList, TabsPanel, TabsRoot, TabsTab } from '@/components/ui/Tabs'
+import { DiagnosticList } from '@/components/ui/DiagnosticNote'
 import { ArtifactsView } from '@/features/run-detail/components/ArtifactsView'
 import { DeveloperDetails } from '@/features/run-detail/components/DeveloperDetails'
 import { LogPanel } from '@/features/run-detail/components/LogPanel'
 import { ResultsView } from '@/features/run-detail/components/ResultsView'
 import { RunHeader } from '@/features/run-detail/components/RunHeader'
 import { StepDetailRail } from '@/features/run-detail/components/StepDetailRail'
-import { StepTable } from '@/features/run-detail/components/StepTable'
+import {
+  STEP_DETAIL_PANEL_ID,
+  StepTable,
+} from '@/features/run-detail/components/StepTable'
+import { collectDiagnostics } from '@/features/run-detail/diagnostics'
 import {
   findStepStatus,
   useArtifactsQuery,
@@ -21,7 +25,6 @@ import {
   useResultsQuery,
   useStepDetailQuery,
 } from '@/features/run-detail/queries'
-import { toTapeCells } from '@/features/run-detail/tape'
 import { useCancelJobMutation } from '@/features/run-detail/useCancelJobMutation'
 import { useRunListQuery } from '@/features/runs/useRunListQuery'
 import { isTerminalStatus } from '@/features/runs/status'
@@ -104,6 +107,16 @@ export function RunDetailPage() {
     ? describeStep(job.currentStep).label
     : null
 
+  /*
+    진단을 단계별로 배분한다. 출처와 실행 중 동작은 diagnostics.ts에 설명이
+    있다. 계획된 단계 목록을 함께 넘기는 것은 --check-only 실행의 귀속
+    때문이다.
+  */
+  const diagnostics = collectDiagnostics(
+    results.data,
+    job.steps.map((s) => s.stepId),
+  )
+
   return (
     <Shell wide>
       <RunHeader
@@ -169,48 +182,74 @@ export function RunDetailPage() {
         <TabsPanel value="pipeline">
           <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-6">
             <div className="flex min-w-0 flex-1 flex-col gap-10">
+              {/*
+                시안에는 여기에 라벨이 붙은 lg RunTape가 하나 더 있었지만
+                뺐다. 바로 아래 표가 같은 8단계를 이름·상태·소요시간까지
+                포함해 보여주고, 헤더에도 md 띠가 이미 있다. 한 화면에 같은
+                정보를 세 번 그리는 것은 UI chrome이지 정보가 아니다.
+              */}
               <section className="flex flex-col gap-4">
                 <SectionHeader
                   eyebrow="PIPELINE"
-                  title="단계"
-                  meta={
-                    <>
-                      <span className="font-mono text-data">
-                        {job.steps.length}
-                      </span>
-                      단계 계획
-                    </>
+                  title="단계별 진행"
+                  meta={`${job.steps.length}단계 계획`}
+                />
+                <StepTable
+                  steps={job.steps}
+                  currentStepId={job.currentStep}
+                  selectedStepId={selectedStepId}
+                  diagnosticsByStep={diagnostics.byStep}
+                  onSelect={(stepId) =>
+                    setSelectedStepId((prev) =>
+                      prev === stepId ? null : stepId,
+                    )
                   }
                 />
-                {/* 라벨·소요시간까지 포함한 lg 형태. 시안의 파이프라인 탭. */}
-                <div className="overflow-x-auto">
-                  <RunTape
-                    size="lg"
-                    cells={toTapeCells(job, true)}
-                    className="min-w-[36rem]"
-                  />
-                </div>
               </section>
 
-              <StepTable
-                steps={job.steps}
-                currentStepId={job.currentStep}
-                selectedStepId={selectedStepId}
-                onSelect={(stepId) =>
-                  setSelectedStepId((prev) => (prev === stepId ? null : stepId))
-                }
-              />
+              {/*
+                어느 단계에도 귀속되지 않은 진단. backend가 stepId를 주지
+                않은 경우이며(diagnostics.ts 참고) 버리지 않고 여기서 보여준다.
+              */}
+              {diagnostics.unattributed.length > 0 ? (
+                <section className="flex flex-col gap-4">
+                  <SectionHeader
+                    title="실행 전반의 확인 사항"
+                    meta={`${diagnostics.unattributed.length}건`}
+                  />
+                  <DiagnosticList diagnostics={diagnostics.unattributed} />
+                </section>
+              ) : null}
 
               <LogPanel lines={job.logTail} />
 
-              <section className="flex flex-col gap-4">
-                <SectionHeader title="실행 정보" />
-                <dl className="flex flex-col">
+              {/*
+                실행 조건 — Layer 3.
+
+                이전에는 12행 KV 표가 로그 바로 아래 같은 크기로 펼쳐져 있었다.
+                거기에는 `상태: completed_with_warnings`, `pipeline 상태`,
+                `완료 단계 비율`처럼 backend 내부 어휘가 그대로 들어 있었는데,
+                그 값들은 이미 헤더가 사람이 읽는 말로 전달하고 있다. 같은 것을
+                두 번, 한 번은 내부 표현으로 보여주면 사용자가 데이터 모델을
+                배워야 하는 화면이 된다.
+
+                지우지는 않는다 — 전문가에게는 실제로 필요한 값이다. 접어서
+                내린다.
+              */}
+              <details className="border-t border-border pt-4">
+                <summary className="inline-flex min-h-6 cursor-pointer items-center text-small font-medium text-text-muted">
+                  실행 조건과 식별자
+                </summary>
+                <dl className="mt-3 flex flex-col">
                   <InfoRow label="job / run ID" value={job.jobId} mono />
                   {job.runId !== job.jobId ? (
                     <InfoRow label="run ID" value={job.runId} mono />
                   ) : null}
-                  <InfoRow label="샘플" value={listItem?.sampleId ?? '정보 없음'} mono />
+                  <InfoRow
+                    label="샘플"
+                    value={listItem?.sampleId ?? '정보 없음'}
+                    mono
+                  />
                   <InfoRow label="분석 profile" value={job.profileId} mono />
                   <InfoRow
                     label="capture kit"
@@ -237,15 +276,24 @@ export function RunDetailPage() {
                   <InfoRow label="시작" value={isoOrDash(job.startedAt)} />
                   <InfoRow label="종료" value={isoOrDash(job.finishedAt)} />
                 </dl>
-              </section>
+              </details>
             </div>
 
             {/*
-              우측 레일. 시안의 400px sticky 레일이며, lg 미만에서는 본문 아래로
-              내려간다(드로어 전환은 refinement 범위).
+              우측 레일 — 단계를 선택했을 때만 존재한다.
+
+              이전에는 선택이 없어도 같은 폭의 빈 aside가 남아 안내문만 담고
+              있었다. 내용이 없는 패널이 화면의 30%를 차지하면 그것은 정보가
+              아니라 dashboard 모양이다. 무엇을 누르면 무엇이 열리는지는 표의
+              각 행에 있는 "상세"가 말한다.
+
+              시안의 400px sticky 레일이며, lg 미만에서는 본문 아래로 내려간다.
             */}
             {selectedStepId ? (
-              <aside className="w-full flex-none border-t border-border pt-6 lg:sticky lg:top-6 lg:w-rail lg:border-t-0 lg:border-l lg:pl-6">
+              <aside
+                id={STEP_DETAIL_PANEL_ID}
+                className="w-full flex-none border-t border-border pt-6 lg:sticky lg:top-6 lg:w-rail lg:border-t-0 lg:border-l lg:pl-6"
+              >
                 <StepDetailRail
                   stepId={selectedStepId}
                   detail={step.data}
@@ -253,14 +301,7 @@ export function RunDetailPage() {
                   error={step.error}
                 />
               </aside>
-            ) : (
-              <aside className="w-full flex-none border-t border-border pt-6 lg:w-rail lg:border-t-0 lg:border-l lg:pl-6">
-                <p className="text-body text-text-muted">
-                  단계를 선택하면 지표 · 검증 · 입력/출력 · 산출물과 실패 사유를
-                  볼 수 있습니다.
-                </p>
-              </aside>
-            )}
+            ) : null}
           </div>
         </TabsPanel>
 

@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
 
 import { ApiError } from '@/api/client'
+import { DiagnosticList } from '@/components/ui/DiagnosticNote'
 import { MessageBlock } from '@/components/ui/MessageBlock'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import type { StepDetail } from '@/features/run-detail/api'
+import { byPriority, toDiagnostic } from '@/features/run-detail/diagnostics'
 import { describeStepStatus } from '@/features/run-detail/stepStatus'
 import { formatDuration, formatTimestamp } from '@/features/runs/time'
 import { describeStep } from '@/registries/steps'
@@ -41,6 +43,18 @@ export function StepDetailRail({
 }: StepDetailRailProps) {
   const definition = describeStep(stepId)
 
+  /*
+    이 레일의 진단은 /steps/{stepId}에서 온다. /results와 달리 실행 중에도
+    응답하므로, 끝나지 않은 실행에서도 구조화된 진단을 볼 수 있는 유일한
+    자리다(features/run-detail/diagnostics.ts의 출처 설명 참고).
+  */
+  const railDiagnostics = detail
+    ? [
+        ...detail.failures.map((item, i) => toDiagnostic(item, true, i)),
+        ...detail.warnings.map((item, i) => toDiagnostic(item, false, i)),
+      ].sort(byPriority)
+    : []
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2 border-b border-border pb-4">
@@ -54,7 +68,10 @@ export function StepDetailRail({
         {detail ? (
           <div className="flex flex-wrap items-center gap-3">
             <StatusBadge tone={describeStepStatus(detail.status).tone} size="sm">
-              {describeStepStatus(detail.status).label}
+              {/* 표와 같은 규칙 — warning도 사용자에게는 완료다. */}
+              {detail.status === 'warning'
+                ? '완료'
+                : describeStepStatus(detail.status).label}
             </StatusBadge>
             {detail.elapsedSeconds > 0 ? (
               <span className="font-mono text-data text-text">
@@ -70,6 +87,16 @@ export function StepDetailRail({
         ) : null}
       </div>
 
+      {/*
+        Layer 1 — 이 단계의 성질. 이번 Run의 측정값이 아니다.
+        아래의 지표·검증은 전부 이번 실행에서 나온 값이므로, 설명이 그것과
+        같은 표 안에 섞이면 어디까지가 실제 결과인지 알 수 없게 된다
+        (CLAUDE.md 21장). 그래서 표 밖, 배경 없는 문단으로 둔다.
+      */}
+      {definition.purpose ? (
+        <p className="text-body text-text-muted">{definition.purpose}</p>
+      ) : null}
+
       {isPending ? (
         <p role="status" className="text-body text-text-muted">
           단계 정보를 불러오는 중입니다.
@@ -80,45 +107,15 @@ export function StepDetailRail({
 
       {detail ? (
         <>
-          {detail.failures.length > 0 ? (
-            <MessageBlock
-              tone="danger"
-              title={`이 단계에서 ${detail.failures.length}건 실패`}
-            >
-              <ul className="flex flex-col gap-2">
-                {detail.failures.map((failure, index) => (
-                  <li key={`${failure.code}-${index}`} className="flex flex-col gap-1">
-                    {failure.code ? (
-                      <code className="text-caption">{failure.code}</code>
-                    ) : null}
-                    <span>{failure.message}</span>
-                  </li>
-                ))}
-              </ul>
-            </MessageBlock>
-          ) : null}
+          {/*
+            진단. 목록·결과 화면과 같은 어휘를 쓴다 — 같은 사건이 화면마다
+            다른 모양으로 보이면 사용자가 두 번 배워야 한다.
 
-          {detail.warnings.length > 0 ? (
-            <MessageBlock
-              tone="warning"
-              title={`경고 ${detail.warnings.length}건`}
-            >
-              <ul className="flex flex-col gap-2">
-                {detail.warnings.map((warning, index) => (
-                  <li key={`${warning.code}-${index}`} className="flex flex-col gap-1">
-                    {warning.code ? (
-                      <code className="text-caption">{warning.code}</code>
-                    ) : null}
-                    <span>{warning.message}</span>
-                    {warning.impact ? (
-                      <span className="text-caption text-text-muted">
-                        {warning.impact}
-                      </span>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </MessageBlock>
+            여기서는 compact를 쓰지 않는다. 상세 레일은 code와 backend 원문,
+            impact까지 볼 수 있는 자리다(Layer 3).
+          */}
+          {railDiagnostics.length > 0 ? (
+            <DiagnosticList diagnostics={railDiagnostics} />
           ) : null}
 
           <RailSection title="시간">
