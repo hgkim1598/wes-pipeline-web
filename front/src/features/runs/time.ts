@@ -72,3 +72,41 @@ export function formatTimestamp(
 
   return { display, machine: value, full: FULL.format(parsed) }
 }
+
+/**
+ * 초 단위 소요 시간을 사람이 읽는 표기로.
+ *
+ * backend가 주는 elapsedSeconds(step의 실제 소요, /results의 run 소요)를 그대로
+ * 옮긴다. 브라우저 시계로 계산한 값이 아니라 서버가 기록한 값이므로 신뢰할 수
+ * 있다.
+ */
+export function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '—'
+  const total = Math.round(seconds)
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const secs = total % 60
+
+  if (hours > 0) return `${hours}시간 ${minutes}분`
+  if (minutes > 0) return `${minutes}분 ${secs}초`
+  return `${secs}초`
+}
+
+/**
+ * 두 ISO 시각의 차이. 둘 다 서버가 준 값일 때만 쓴다.
+ *
+ * 실행 중인 run의 경과 시간을 "지금 - startedAt"으로 만들지 않는다. 브라우저
+ * 시계와 서버 시계가 다르면 사용자가 보는 숫자가 틀리고 그 오차를 확인할 방법도
+ * 없다. 실행 중에는 시작 시각만 보여주고, 단계별 소요는 backend가 기록한 step
+ * elapsedSeconds를 쓴다.
+ */
+export function durationBetween(
+  startedAt: string | null,
+  finishedAt: string | null,
+): string | null {
+  if (!startedAt || !finishedAt) return null
+  const start = new Date(startedAt).getTime()
+  const end = new Date(finishedAt).getTime()
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return null
+  return formatDuration((end - start) / 1000)
+}

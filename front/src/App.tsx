@@ -9,7 +9,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { TabsList, TabsPanel, TabsRoot, TabsTab } from '@/components/ui/Tabs'
 import { HealthCheckPage } from '@/features/health/HealthCheckPage'
 import { NewAnalysisPage } from '@/features/new-analysis/NewAnalysisPage'
-import { RunDetailPlaceholderPage } from '@/features/runs/RunDetailPlaceholderPage'
+import { RunDetailPage } from '@/features/run-detail/RunDetailPage'
 import { RunListPage } from '@/features/runs/RunListPage'
 
 /*
@@ -160,10 +160,11 @@ function App() {
       {/* 업로드 + 제출. 단계는 ?step=n으로 표현한다. */}
       <Route path="/new" element={<NewAnalysisPage />} />
       {/*
-        목록의 행이 가리키는 곳. 상세 화면은 다음 단계라서 지금은 자리표다.
-        route가 없으면 행 클릭이 빈 화면으로 떨어진다.
+        실행 상세 워크스페이스. 탭은 경로 세그먼트라 뒤로가기·새로고침·링크
+        공유가 그대로 동작한다. 세그먼트가 없으면 파이프라인 탭이 기본이다.
       */}
-      <Route path="/runs/:jobId" element={<RunDetailPlaceholderPage />} />
+      <Route path="/runs/:jobId" element={<RunDetailPage />} />
+      <Route path="/runs/:jobId/:tab" element={<RunDetailPage />} />
     </Routes>
   )
 }

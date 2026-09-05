@@ -38,6 +38,27 @@ const JOB_STATUS_VIEW: Record<string, JobStatusView> = {
   cancelled: { tone: 'cancelled', label: '취소됨' },
 }
 
+/*
+  terminal 상태 — 더 이상 바뀌지 않는 상태.
+
+  polling을 멈출 시점이자, 결과·산출물을 요청해도 되는 시점이다. 판단이
+  화면마다 흩어지면 어떤 화면은 영원히 폴링하고 어떤 화면은 너무 일찍 멈춘다.
+  근거: backend/app/schemas.py의 JobStatus 6종 중 queued·running만 진행 중이다.
+*/
+const ACTIVE_STATUSES = ['queued', 'running'] as const
+
+/**
+ * 더 이상 바뀌지 않는 상태인가.
+ *
+ * queued·running만 진행 중으로 보고 나머지는 전부 terminal로 취급한다.
+ * 모르는 상태를 terminal 쪽에 두는 것은 의도다 — 반대로 두면 backend가 상태를
+ * 하나 추가했을 때 화면이 영원히 3초마다 서버를 두드린다. 멈춘 화면은
+ * 사용자가 새로고침으로 복구할 수 있지만 끝나지 않는 폴링은 그럴 수 없다.
+ */
+export function isTerminalStatus(status: string): boolean {
+  return !ACTIVE_STATUSES.some((active) => active === status)
+}
+
 /**
  * 모르는 상태가 와도 화면을 세우지 않는다.
  *

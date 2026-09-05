@@ -98,8 +98,15 @@ export function NewAnalysisPage() {
         files: { r1: r1.token, r2: r2.token },
       },
       {
-        // 목록 무효화는 mutation이 이미 했다. 여기서는 이동만 한다.
-        onSuccess: () => navigate('/runs'),
+        /*
+          목록 무효화는 mutation이 이미 했다. 여기서는 이동만 한다.
+
+          목록이 아니라 방금 만든 실행의 관찰 화면으로 보낸다. createJob이
+          jobId를 돌려주므로(POST /api/jobs -> CreateJobResponse.jobId,
+          features/new-analysis/jobApi.ts) 추측 없이 주소를 만들 수 있다.
+        */
+        onSuccess: (jobId) =>
+          navigate(`/runs/${encodeURIComponent(jobId)}/pipeline`),
       },
     )
   }

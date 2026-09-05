@@ -1,4 +1,5 @@
 import type { StatusTone } from '@/components/ui/StatusBadge'
+import { TONE_FILL_CLASS } from '@/components/ui/statusFill'
 import { cx } from '@/lib/cx'
 
 /*
@@ -21,16 +22,6 @@ import { cx } from '@/lib/cx'
   막대는 옆의 숫자를 그대로 옮긴 그림이라 aria-hidden이다. 의미는 텍스트가
   전부 전달하므로 스크린 리더에서 같은 정보가 두 번 읽히지 않는다.
 */
-
-/** 채움 색은 상태를 따른다. 텍스트가 얹히지 않는 면적 전용 토큰이다. */
-const FILL_CLASS: Record<StatusTone, string> = {
-  idle: 'bg-fill-idle',
-  running: 'bg-fill-running',
-  success: 'bg-fill-success',
-  warning: 'bg-fill-warning',
-  failure: 'bg-fill-failure',
-  cancelled: 'bg-fill-skip',
-}
 
 export interface StepProgressProps {
   completedStepCount: number
@@ -66,7 +57,7 @@ export function StepProgress({
         className="h-1.5 w-full overflow-hidden rounded-sm bg-fill-idle"
       >
         <div
-          className={cx('h-full', FILL_CLASS[tone])}
+          className={cx('h-full', TONE_FILL_CLASS[tone])}
           style={{ width: `${percent}%` }}
         />
       </div>
