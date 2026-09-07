@@ -98,6 +98,31 @@ class RunBuilder:
             path.write_bytes(content)
         return path
 
+    def final_validation(self, rows: list[tuple[str, str, str]] | None = None) -> Path:
+        """run_final_validation()'s consolidated table.
+
+        Reproduces the real shape of `wes-20260907-014650-fcb1c2`: PASS 8 /
+        WARN 3 / FAIL 0. The WARN rows matter -- main.sh's vwarn() writes them
+        here and nowhere else, so a fixture with only PASS rows cannot catch
+        the bug where the API read the step document instead of this file.
+        """
+        if rows is None:
+            rows = [
+                ("analysis_ready_bam", "PASS", "present"),
+                ("gvcf", "PASS", "present"),
+                ("raw_vcf", "PASS", "present"),
+                ("raw_vcf_index", "PASS", "present"),
+                ("step_00_input_validation", "PASS", "completed (core)"),
+                ("step_01_raw_qc", "PASS", "completed (core)"),
+                ("step_02_preprocessing", "PASS", "completed (core)"),
+                ("step_03_alignment", "PASS", "completed (core)"),
+                ("step_04_processing", "WARN", "completed with warnings (core)"),
+                ("step_05_coverage_qc", "WARN", "completed with warnings (core)"),
+                ("step_06_variant_calling", "WARN", "completed with warnings (core)"),
+            ]
+        body = "".join(f"{name}\t{status}\t{detail}\n" for name, status, detail in rows)
+        return self.file("final_validation.tsv", "check\tstatus\tdetail\n" + body)
+
     def raw(self, relative_path: str, text: str) -> Path:
         """Write a file verbatim; used to plant malformed JSON."""
         path = self.run_dir / relative_path
@@ -574,7 +599,7 @@ class RunBuilder:
         self.file("logs/software_versions.txt", "bwa=0.7.17\n")
         self.file(f"06_variant_calling/{sample}.raw.vcf.gz", b"\x1f\x8bRAWVCF")
         self.file("05_coverage_qc/mosdepth.regions.bed.gz", b"\x1f\x8bREGIONS")
-        self.file("final_validation.tsv", "check\tstatus\tdetail\n")
+        self.final_validation()
         self.file("core_summary.json.placeholder", "unused")
         self.file("methods.md", "# Methods\n")
 

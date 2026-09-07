@@ -289,14 +289,233 @@ def test_full_input_summary_falls_back_to_the_metrics_document(
     assert summary["sample"] == "SRR2962669.subset_5M"
 
 
-def test_full_check_table_comes_from_finalization(client, make_job, run):
+def test_full_check_table_comes_from_final_validation_tsv(client, make_job, run):
+    """The full run's table is final_validation.tsv, not the step document.
+
+    main.sh records the three verdicts through vpass / vwarn / vfail, and only
+    vpass and vfail also call step_check_*. The WARN rows therefore exist only
+    in the TSV. Reading the step document returned a table that was silently
+    short by every warning.
+
+    The fixture makes the two sources differ on purpose: the TSV has 11 rows,
+    the 99_finalization document has 2.
+    """
     run().as_completed_full()
     job_id = make_job(run_mode="full")
 
     checks = client.get(f"/api/jobs/{job_id}/results").json()["checks"]
-    by_name = {c["name"]: c["status"] for c in checks}
-    assert by_name["raw_vcf"] == "PASS"
-    assert by_name["analysis_ready_bam"] == "PASS"
+
+    assert len(checks) == 11
+    by_status: dict[str, int] = {}
+    for check in checks:
+        by_status[check["status"]] = by_status.get(check["status"], 0) + 1
+    assert by_status == {"PASS": 8, "WARN": 3}
+
+
+def test_full_check_table_includes_the_warn_rows(client, make_job, run):
+    """The rows the old implementation dropped."""
+    run().as_completed_full()
+    job_id = make_job(run_mode="full")
+
+    checks = client.get(f"/api/jobs/{job_id}/results").json()["checks"]
+    by_name = {c["name"]: c for c in checks}
+
+    for step_id in ("step_04_processing", "step_05_coverage_qc", "step_06_variant_calling"):
+        assert by_name[step_id]["status"] == "WARN", step_id
+        assert by_name[step_id]["detail"] == "completed with warnings (core)"
+
+    # PASS rows are still there, with their detail intact.
+    assert by_name["raw_vcf"]["status"] == "PASS"
+    assert by_name["analysis_ready_bam"]["status"] == "PASS"
+    assert by_name["raw_vcf"]["detail"] == "present"
+
+
+def test_a_warn_check_is_never_reported_as_pass(client, make_job, run):
+    """Guard against 'fixing' the count by relabelling."""
+    run().as_completed_full()
+    job_id = make_job(run_mode="full")
+
+    checks = client.get(f"/api/jobs/{job_id}/results").json()["checks"]
+
+    assert {c["name"] for c in checks if c["status"] == "PASS"}.isdisjoint(
+        {"step_04_processing", "step_05_coverage_qc", "step_06_variant_calling"}
+    )
+
+
+def test_checks_and_warnings_stay_separate_contracts(client, make_job, run):
+    """A WARN row in `checks` does not replace or duplicate `warnings`.
+
+    They answer different questions:
+
+        checks    the final validation table: name / status / detail
+        warnings  structured diagnostics: code / message / impact / canContinue
+
+    A WARN row naming a step is not the same object as the diagnostic that
+    made that step warn, and neither is derivable from the other.
+    """
+    run().as_completed_full()
+    job_id = make_job(run_mode="full")
+
+    body = client.get(f"/api/jobs/{job_id}/results").json()
+
+    warn_checks = [c for c in body["checks"] if c["status"] == "WARN"]
+    assert warn_checks, "the fixture must produce WARN rows"
+    assert body["warnings"], "warnings must survive alongside them"
+
+    # Different shapes, not two views of one list.
+    assert set(warn_checks[0]) == {"name", "status", "detail"}
+    assert set(body["warnings"][0]) == {
+        "stepId",
+        "code",
+        "message",
+        "impact",
+        "canContinue",
+    }
+    assert body["warnings"][0]["code"] == "MULTIQC_MISSING"
+
+
+def test_step_detail_still_reports_the_step_document(client, make_job, run):
+    """GET /steps/99_finalization reports the STEP, not the run.
+
+    It must keep returning the step document's own validation.results even
+    though /results now reads the fuller TSV. The two endpoints answer
+    different questions and are deliberately not unified.
+    """
+    run().as_completed_full()
+    job_id = make_job(run_mode="full")
+
+    body = client.get(f"/api/jobs/{job_id}/steps/99_finalization").json()
+
+    results = body["validation"]["results"]
+    assert len(results) == 2
+    assert {r["name"] for r in results} == {"raw_vcf", "analysis_ready_bam"}
+    assert all(r["status"] == "PASS" for r in results)
+
+
+# --- legacy and fault handling ----------------------------------------------
+
+
+def test_missing_final_validation_falls_back_to_the_step_document(
+    client, make_job, run
+):
+    """Runs written before this file was read must keep working.
+
+    Absent file -> fall back. The fallback table is the shorter one, and that
+    is the honest answer for such a run: nothing else recorded those rows.
+    """
+    builder = run().as_completed_full()
+    (builder.run_dir / "final_validation.tsv").unlink()
+    job_id = make_job(run_mode="full")
+
+    checks = client.get(f"/api/jobs/{job_id}/results").json()["checks"]
+
+    assert len(checks) == 2
+    assert {c["name"] for c in checks} == {"raw_vcf", "analysis_ready_bam"}
+
+
+def test_header_only_final_validation_is_an_empty_table_not_a_fallback(
+    client, make_job, run
+):
+    """Present and well formed but with no rows means the table is empty.
+
+    Falling back here would report a table the run did not write.
+    """
+    builder = run().as_completed_full()
+    builder.final_validation(rows=[])
+    job_id = make_job(run_mode="full")
+
+    assert client.get(f"/api/jobs/{job_id}/results").json()["checks"] == []
+
+
+def test_malformed_final_validation_is_reported_not_hidden(client, make_job, run):
+    """A present-but-unusable file is a data fault, like malformed JSON.
+
+    Silently falling back would hide a broken run behind a shorter table that
+    still looks valid.
+    """
+    builder = run().as_completed_full()
+    builder.raw("final_validation.tsv", "name\toutcome\tnote\nraw_vcf\tPASS\tpresent\n")
+    job_id = make_job(run_mode="full")
+
+    response = client.get(f"/api/jobs/{job_id}/results")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "malformedPipelineDocument"
+
+
+def test_truncated_row_is_reported_as_malformed(client, make_job, run):
+    """A partial row is a damaged table, not a shorter one.
+
+    main.sh appends here without an atomic replace, so a crash mid-write can
+    leave an incomplete final line. Skipping it would return a table that
+    looks complete while understating the verdict -- and the row most likely
+    lost is a WARN or FAIL, which is the same silent omission this whole fix
+    exists to remove.
+    """
+    builder = run().as_completed_full()
+    builder.raw(
+        "final_validation.tsv",
+        "check\tstatus\tdetail\nraw_vcf\tPASS\tpresent\nstep_04_proc",
+    )
+    job_id = make_job(run_mode="full")
+
+    response = client.get(f"/api/jobs/{job_id}/results")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "malformedPipelineDocument"
+
+
+def test_row_without_a_check_name_is_reported_as_malformed(client, make_job, run):
+    """Same rule for a row this reader cannot represent for another reason.
+
+    A nameless row cannot be shown or matched, so dropping it would be the
+    same silent loss by a different route.
+    """
+    builder = run().as_completed_full()
+    builder.raw(
+        "final_validation.tsv",
+        "check\tstatus\tdetail\nraw_vcf\tPASS\tpresent\n\tWARN\tno name\n",
+    )
+    job_id = make_job(run_mode="full")
+
+    response = client.get(f"/api/jobs/{job_id}/results")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]["code"] == "malformedPipelineDocument"
+
+
+def test_blank_lines_are_still_ignored(client, make_job, run):
+    """A blank line carries no verdict, so it is not damage."""
+    builder = run().as_completed_full()
+    builder.raw(
+        "final_validation.tsv",
+        "check\tstatus\tdetail\n\nraw_vcf\tPASS\tpresent\n\nstep_04\tWARN\twarned\n\n",
+    )
+    job_id = make_job(run_mode="full")
+
+    checks = client.get(f"/api/jobs/{job_id}/results").json()["checks"]
+
+    assert checks == [
+        {"name": "raw_vcf", "status": "PASS", "detail": "present"},
+        {"name": "step_04", "status": "WARN", "detail": "warned"},
+    ]
+
+
+def test_precheck_checks_are_unchanged(client, make_job, run):
+    """A check-only run still reports 00_input_validation's own table.
+
+    final_validation.tsv belongs to finalization, which a precheck never
+    reaches. This contract is untouched.
+    """
+    run().as_passing_precheck()
+    job_id = make_job()
+
+    body = client.get(f"/api/jobs/{job_id}/results").json()
+
+    assert body["resultType"] == "precheck"
+    names = {c["name"] for c in body["checks"]}
+    assert names
+    assert "raw_vcf" not in names
 
 
 def test_full_warnings_carry_their_step(client, make_job, run):

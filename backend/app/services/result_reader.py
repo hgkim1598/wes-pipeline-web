@@ -51,6 +51,12 @@ OPTIONAL_STEP_CONFIG_KEYS = {
 PRECHECK_STEP_ID = "00_input_validation"
 FINAL_STEP_ID = "99_finalization"
 
+# The consolidated pass/warn/fail table of a full run, written by main.sh's
+# run_final_validation(). It is the only place the WARN rows exist -- see
+# _final_validation_checks() for why.
+FINAL_VALIDATION_TSV = "final_validation.tsv"
+FINAL_VALIDATION_HEADER = ("check", "status", "detail")
+
 # main.sh derives these key names from the mosdepth thresholds header, so the
 # set depends on how mosdepth was invoked. Matched by pattern rather than
 # hard-coded, so a different --thresholds list needs no code change.
@@ -108,6 +114,91 @@ def _read_json(path: Path, *, required: bool) -> Any:
 
 def _step_document(run_dir: Path, step_id: str) -> dict | None:
     return _read_json(run_dir / "status" / "steps" / f"{step_id}.json", required=False)
+
+
+def _final_validation_checks(run_dir: Path) -> list[dict] | None:
+    """The full run's consolidated check table, from final_validation.tsv.
+
+    Why this file and not 99_finalization's own validation.results: main.sh
+    records the three verdicts through three helpers, and only two of them
+    reach the step document (script/main.sh, run_final_validation):
+
+        vpass()  -> TSV  + step_check_pass()
+        vwarn()  -> TSV                       <- no step_check_* call
+        vfail()  -> TSV  + step_check_fail()
+
+    So a run whose table is PASS 8 / WARN 3 / FAIL 0 leaves only the 8 PASS
+    rows in the step document. The WARN rows exist nowhere else, which is why
+    the counters in the step's metrics (validation_warn) disagreed with the
+    rows the API returned. The TSV is the complete table; the step document is
+    a partial copy of it.
+
+    Policy, following _read_json's treatment of malformed JSON:
+
+        file absent            -> None, so the caller falls back to the step
+                                  document for runs written before this was read
+        file present and sound -> the table
+        header mismatch        -> MalformedPipelineDocument
+        blank line             -> ignored
+        non-blank but unusable -> MalformedPipelineDocument
+
+    Nothing here degrades to a shorter table. A run reaching this code has
+    written core_summary.json, so the table is finished; a row that cannot be
+    read means the file is damaged, and reporting a valid-looking subset of a
+    damaged verdict table is worse than reporting the damage.
+
+    Row shape matches ``checks_of`` exactly, so both sources of `checks`
+    produce the same contract.
+    """
+    path = run_dir / FINAL_VALIDATION_TSV
+    if not path.is_file():
+        return None
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        log.error("unreadable pipeline document %s: %s", path, exc)
+        raise MalformedPipelineDocument(f"{path.name} could not be read") from exc
+
+    lines = [line for line in text.splitlines() if line.strip()]
+    if not lines:
+        log.error("pipeline document %s is empty", path)
+        raise MalformedPipelineDocument(f"{path.name} is empty")
+
+    # The header fixes the column order. Reading rows without checking it would
+    # silently mis-assign name/status/detail if main.sh ever reorders them.
+    header = tuple(field.strip() for field in lines[0].split("\t")[:3])
+    if header != FINAL_VALIDATION_HEADER:
+        log.error("pipeline document %s has an unexpected header: %r", path, header)
+        raise MalformedPipelineDocument(f"{path.name} has an unexpected header")
+
+    out: list[dict] = []
+    for number, line in enumerate(lines[1:], start=2):
+        # maxsplit keeps any tab inside the detail text with the detail.
+        fields = line.split("\t", 2)
+        if len(fields) < 3 or not fields[0].strip():
+            # A row this reader cannot represent -- truncated by a crash
+            # mid-write (main.sh appends here without an atomic replace), or
+            # otherwise corrupt.
+            #
+            # It is NOT skipped. By the time /results reads this file the run
+            # has produced core_summary.json, so finalization completed and the
+            # table is supposed to be finished. Dropping an unreadable row
+            # would understate the verdict -- and a dropped row is most likely
+            # a WARN or FAIL, since those are what the table exists to record.
+            # Silently losing warning rows is the exact bug this function was
+            # written to fix, so it is not reintroduced one line lower.
+            log.error(
+                "pipeline document %s has a malformed row at line %d: %r",
+                path,
+                number,
+                line,
+            )
+            raise MalformedPipelineDocument(
+                f"{path.name} has a malformed row at line {number}"
+            )
+        name, status, detail = (field.strip() for field in fields)
+        out.append({"name": name, "status": status, "detail": detail})
+    return out
 
 
 # --- shared adapters --------------------------------------------------------
@@ -509,6 +600,10 @@ def _read_full(run_dir: Path, run_status: dict) -> dict[str, Any]:
     coverage = _coverage(run_dir)
     variant_calling = _variant_calling(run_dir)
 
+    final_checks = _final_validation_checks(run_dir)
+    if final_checks is None:
+        final_checks = checks_of(_step_document(run_dir, FINAL_STEP_ID))
+
     steps = summary.get("steps")
     elapsed_total = None
     if isinstance(steps, list):
@@ -526,8 +621,14 @@ def _read_full(run_dir: Path, run_status: dict) -> dict[str, Any]:
         "schemaVersion": _as_str(summary.get("pipeline_version")),
         "sample": _as_str(summary.get("sample")),
         "elapsedSeconds": elapsed_total,
-        # The consolidated pass/warn/fail table, as finalization recorded it.
-        "checks": checks_of(_step_document(run_dir, FINAL_STEP_ID)),
+        # The consolidated pass/warn/fail table.
+        #
+        # final_validation.tsv is the source of truth for a full run: it is the
+        # only place the WARN rows exist (see _final_validation_checks). The
+        # 99_finalization step document is the fallback for runs written before
+        # this was read, and it is still what GET /steps/99_finalization
+        # returns -- that endpoint reports the step, this one reports the run.
+        "checks": final_checks,
         "warnings": warnings_of(summary.get("warnings")),
         "failures": _full_failures(run_dir, run_status),
         "inputSummary": _input_summary(input_metrics),
