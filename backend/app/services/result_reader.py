@@ -240,19 +240,90 @@ def _coverage(run_dir: Path) -> dict | None:
         "meanTargetDepth": _as_number(doc.get("mean_target_depth")),
         "targetNonoverlapBases": _as_number(doc.get("target_nonoverlap_bases")),
         "breadth": breadth,
-        "lowCoverageBasesPct": _as_number(doc.get("low_coverage_bases_pct")),
-        "lowCoverageThresholdX": _as_number(doc.get("low_coverage_threshold_x")),
-        "lowCoverageBases": _as_number(doc.get("low_coverage_bases")),
-        "lowCoverageIntervals": _as_number(doc.get("low_coverage_intervals")),
-        "uncoveredBasesPct": _as_number(doc.get("uncovered_bases_pct")),
-        "uncoveredBases": _as_number(doc.get("uncovered_bases")),
-        "uncoveredIntervals": _as_number(doc.get("uncovered_intervals")),
+        # Base level. Derived only as documented in _zero_coverage().
+        **_zero_coverage(doc, breadth),
+        # Interval level. New key wins; the old key is the same measurement
+        # under its old name, so falling back to it is a rename, not a
+        # reinterpretation.
+        "lowMeanDepthThresholdX": _first_number(
+            doc, "low_mean_depth_threshold_x", "low_coverage_threshold_x"
+        ),
+        "lowMeanDepthIntervals": _first_number(
+            doc, "low_mean_depth_intervals", "low_coverage_intervals"
+        ),
+        "basesInLowMeanDepthIntervals": _first_number(
+            doc, "bases_in_low_mean_depth_intervals", "low_coverage_bases"
+        ),
+        "basesInLowMeanDepthIntervalsPct": _first_number(
+            doc, "bases_in_low_mean_depth_intervals_pct", "low_coverage_bases_pct"
+        ),
+        "fullyUncoveredIntervals": _first_number(
+            doc, "fully_uncovered_intervals", "uncovered_intervals"
+        ),
+        "basesInFullyUncoveredIntervals": _first_number(
+            doc, "bases_in_fully_uncovered_intervals", "uncovered_bases"
+        ),
+        "basesInFullyUncoveredIntervalsPct": _first_number(
+            doc, "bases_in_fully_uncovered_intervals_pct", "uncovered_bases_pct"
+        ),
         # main.sh writes null with a stated reason: mosdepth ran with
         # --no-per-base, so per-base depths were never materialised. Passed
         # through as null; a median is never synthesised here.
         "medianTargetDepth": _as_number(doc.get("median_target_depth")),
         "medianNote": _as_str(doc.get("median_note")),
     }
+
+
+def _first_number(doc: dict, *keys: str) -> float | int | None:
+    """The first key present with a numeric value, in the order given.
+
+    Used for metrics that were renamed. The keys must name the SAME
+    measurement -- this is a rename bridge, never a substitution of one
+    quantity for a different one.
+    """
+    for key in keys:
+        number = _as_number(doc.get(key))
+        if number is not None:
+            return number
+    return None
+
+
+def _zero_coverage(doc: dict, breadth: dict[str, float]) -> dict:
+    """Target bases that never reached 1x. Base level.
+
+    Three cases, in order:
+
+    1. The run recorded the keys directly (main.sh computes them from the 1X
+       column of thresholds.bed.gz). Use them.
+
+    2. An older run did not, but reported target_bases_ge_1X_pct, which is the
+       same base-level measurement expressed the other way round. The
+       percentage is derived as 100 - that value. The COUNT is not derivable
+       from a rounded percentage, so it stays null rather than being invented.
+
+    3. Neither is present. Both stay null.
+
+    ``uncovered_bases_pct`` is deliberately NOT consulted. That key is
+    interval level -- the share of target length inside intervals whose MEAN
+    depth is 0 -- and mapping it here would silently understate zero-coverage
+    bases, which is the confusion this whole change exists to remove.
+    """
+    recorded_pct = _as_number(doc.get("zero_coverage_bases_pct"))
+    recorded_count = _as_number(doc.get("zero_coverage_bases"))
+    if recorded_pct is not None or recorded_count is not None:
+        return {
+            "zeroCoverageBases": recorded_count,
+            "zeroCoverageBasesPct": recorded_pct,
+        }
+
+    ge_1x = breadth.get("1X")
+    if ge_1x is not None:
+        return {
+            "zeroCoverageBases": None,
+            "zeroCoverageBasesPct": round(100.0 - ge_1x, 4),
+        }
+
+    return {"zeroCoverageBases": None, "zeroCoverageBasesPct": None}
 
 
 def _variant_calling(run_dir: Path) -> dict | None:

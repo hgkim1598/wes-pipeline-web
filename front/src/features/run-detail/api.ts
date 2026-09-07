@@ -254,19 +254,42 @@ export const ResultsSchema = z.object({
       coverageBedSha256: z.string().nullable(),
     })
     .nullable(),
+  /*
+    커버리지는 **두 가지 다른 측정**을 담고 있다. 섞어 읽으면 안 된다.
+
+      염기 단위   thresholds.bed.gz — 각 depth 이상인 실제 염기 수.
+                  breadth와 zeroCoverage*가 여기 속한다.
+                  "target이 실제로 얼마나 덮였나"의 정직한 답이다.
+
+      구간 단위   regions.bed.gz — interval마다 평균 depth 하나.
+                  lowMeanDepth*와 fullyUncovered*가 여기 속한다.
+
+    평균 depth가 0보다 큰 interval도 그 안에 0X 염기를 가질 수 있으므로
+    basesInFullyUncoveredIntervalsPct는 항상 zeroCoverageBasesPct 이하이고,
+    둘은 서로를 대신할 수 없다. 화면에서도 두 그룹을 분리해 보여준다.
+  */
   coverage: z
     .object({
       meanTargetDepth: z.number().nullable(),
       targetNonoverlapBases: z.number().nullable(),
       /** 깊이 라벨 -> target 염기 비율. 키는 mosdepth --thresholds가 정한다. */
       breadth: z.record(z.string(), z.number()),
-      lowCoverageBasesPct: z.number().nullable(),
-      lowCoverageThresholdX: z.number().nullable(),
-      lowCoverageBases: z.number().nullable(),
-      lowCoverageIntervals: z.number().nullable(),
-      uncoveredBasesPct: z.number().nullable(),
-      uncoveredBases: z.number().nullable(),
-      uncoveredIntervals: z.number().nullable(),
+
+      // 염기 단위
+      /** 1X에 한 번도 도달하지 못한 target 염기 수. 옛 run은 null일 수 있다. */
+      zeroCoverageBases: z.number().nullable(),
+      zeroCoverageBasesPct: z.number().nullable(),
+
+      // 구간 단위
+      lowMeanDepthThresholdX: z.number().nullable(),
+      lowMeanDepthIntervals: z.number().nullable(),
+      basesInLowMeanDepthIntervals: z.number().nullable(),
+      basesInLowMeanDepthIntervalsPct: z.number().nullable(),
+      /** interval 전체의 평균 depth가 0인 구간. 0X 염기 비율과 다른 값이다. */
+      fullyUncoveredIntervals: z.number().nullable(),
+      basesInFullyUncoveredIntervals: z.number().nullable(),
+      basesInFullyUncoveredIntervalsPct: z.number().nullable(),
+
       /** 항상 null. mosdepth가 --no-per-base로 실행되어 산출되지 않는다. */
       medianTargetDepth: z.null(),
       medianNote: z.string().nullable(),

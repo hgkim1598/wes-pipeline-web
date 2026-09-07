@@ -259,7 +259,7 @@ raw VCF                  ← 핵심 완료 지점
 | **02 preprocessing** | `manifest.tsv` | trimming 여부 결정, 정렬용 FASTQ 목록 확정 | 다음 단계가 어떤 FASTQ를 쓸지 명시적으로 고정 | `fastq_manifest.tsv` | run 실패 | `preprocessing_decision.json` |
 | **03 Alignment** | FASTQ, reference | read를 유전체 제자리에 붙이고 좌표순 정렬·merge | 서열만으로는 위치를 모르므로 | sample BAM | run 실패 | `sample_bam/*.flagstat.txt` |
 | **04 Processing** | sample BAM | 중복 표시 → BAM 검증 → (필요시) NM/MD 보정 → BQSR | 변이 호출이 신뢰할 수 있는 BAM을 만들려고 | analysis-ready BAM | run 실패 | `qc/*.validation.txt`, `*.markdup.metrics.txt` |
-| **05 Coverage QC** | analysis-ready BAM, target BED | 목표 영역이 얼마나 읽혔는지 측정 | "변이 없음"과 "확인 불가"를 구분하려고 | `coverage_metrics.json` | run 실패 (낮은 depth는 warning) | `coverage_metrics.json`, `low_coverage_intervals.bed` |
+| **05 Coverage QC** | analysis-ready BAM, target BED | 목표 영역이 얼마나 읽혔는지 측정 | "변이 없음"과 "확인 불가"를 구분하려고 | `coverage_metrics.json` | run 실패 (낮은 depth는 warning) | `coverage_metrics.json`, `low_mean_depth_intervals.bed` |
 | **06 Variant Calling** | analysis-ready BAM | HaplotypeCaller → gVCF → GenotypeGVCFs → raw VCF | 이 파이프라인의 목적 그 자체 | **raw VCF** | run 실패 | `*.raw.vcf.gz`, `*.raw.bcftools.stats.txt` |
 | **08 filtering** (선택) | raw VCF | genotype 품질 기준으로 걸러내기 | 후속 해석 편의 | filtered VCF | **run 실패 아님** | `optional/filtering/` |
 | **10 annotation** (선택) | raw/filtered VCF | 정규화 + 로컬 ClinVar 주석 | 변이에 알려진 의미를 붙이려고 | 주석 VCF, 변이 TSV | **run 실패 아님** | `optional/annotation/` |
@@ -2091,9 +2091,31 @@ depth 4에서 한쪽에만 변이가 있으면 그 변이를 지지하는 read�
 | **median depth (중앙값 depth)** | 깊이를 줄 세웠을 때 가운데 값. **이 파이프라인은 보고하지 않습니다** (아래 참고) |
 | **breadth (폭)** | target 중 일정 depth 이상 읽힌 **비율** |
 | **10× / 20× / 30×** | "depth가 10 이상인 target 염기의 비율" 같은 breadth 지표 |
-| **low coverage** | `low_coverage_depth`(기본 20) 미만인 구간 |
-| **uncovered target** | depth가 **정확히 0**인 구간 — 아예 읽히지 않은 곳 |
+| **low mean-depth 구간** | 구간의 **평균** depth가 `low_coverage_depth`(기본 20) 미만인 구간 |
+| **fully uncovered 구간** | 구간의 **평균** depth가 정확히 0인 구간 — 구간 전체가 안 읽힘 |
+| **zero-coverage 염기** | 1× 에도 도달하지 못한 **개별 염기**. 구간 단위 값과 다릅니다 |
 | **MAPQ** | mapping quality. "이 read가 여기에 붙은 게 맞을 확률" |
+
+> [!IMPORTANT]
+> **"구간 단위"와 "염기 단위"를 섞어 읽으면 안 됩니다.**
+>
+> mosdepth 출력 두 개가 서로 다른 질문에 답합니다.
+>
+> | 출력 | 담는 값 | 유도되는 지표 |
+> |---|---|---|
+> | `regions.bed.gz` | 구간마다 **평균 depth 하나** | `low_mean_depth_*`, `fully_uncovered_*` (구간 단위) |
+> | `thresholds.bed.gz` | 구간마다 **각 depth 이상인 실제 염기 수** | `target_bases_ge_*X_pct`, `zero_coverage_*` (염기 단위) |
+>
+> **절반만 덮인 구간**은 평균이 0보다 크므로 `fully_uncovered` 에 포함되지
+> 않지만, 그 안의 안 덮인 염기는 `zero_coverage_bases` 에 포함됩니다.
+> 따라서 항상
+>
+> ```
+> bases_in_fully_uncovered_intervals_pct  ≤  zero_coverage_bases_pct
+> ```
+>
+> 이고, 둘은 서로를 대신할 수 없습니다.
+> "target의 몇 %가 안 읽혔나"의 정직한 답은 **염기 단위 쪽**입니다.
 
 > [!IMPORTANT]
 > **coverage QC는 변이 호출을 막지 않습니다.**
@@ -2161,20 +2183,50 @@ mosdepth --threads "$THREADS" --no-per-base --mapq "$MOSDEPTH_MAPQ" \
 | `05_coverage_qc/<sample>.mosdepth.thresholds.bed.gz` | 영역별 threshold 도달 염기 수 |
 | `05_coverage_qc/<sample>.mosdepth.mosdepth.summary.txt` | mosdepth 요약표 (mosdepth가 접두사 뒤에 `.mosdepth.summary.txt`를 붙이므로 이름에 `mosdepth`가 두 번 들어갑니다) |
 | `05_coverage_qc/coverage_metrics.json` | 파싱된 핵심 지표 |
-| `05_coverage_qc/low_coverage_intervals.bed` | 기준 미만 구간 목록 (4번째 컬럼이 그 구간의 평균 depth) |
+| `05_coverage_qc/low_mean_depth_intervals.bed` | **평균** depth가 기준 미만인 구간 목록 (4번째 컬럼이 그 구간의 평균 depth). **0× 위치 목록이 아닙니다** |
 
 **계산되는 지표**
 
-| 지표 | 의미 |
-|---|---|
-| `target_nonoverlap_bases` | 겹침 제거 후 target 총 염기 수 |
-| `mean_target_depth` | 길이 가중 평균 depth |
-| `target_bases_ge_1X_pct` … `ge_100X_pct` | 각 depth 이상인 target 염기 비율(%) |
-| `low_coverage_intervals` / `low_coverage_bases` / `low_coverage_bases_pct` | `low_coverage_depth` 미만 |
-| `uncovered_intervals` / `uncovered_bases` / `uncovered_bases_pct` | depth 0 |
-| `low_coverage_threshold_x` | 사용한 기준값 |
-| `median_target_depth` | **항상 `null`** |
-| `median_note` | median을 계산하지 않은 이유 설명 |
+| 지표 | 단위 | 의미 |
+|---|---|---|
+| `target_nonoverlap_bases` | — | 겹침 제거 후 target 총 염기 수 |
+| `mean_target_depth` | — | 길이 가중 평균 depth |
+| `target_bases_ge_1X_pct` … `ge_100X_pct` | **염기** | 각 depth 이상인 target 염기 비율(%) |
+| `zero_coverage_bases` | **염기** | 1×에 도달하지 못한 염기 수 |
+| `zero_coverage_bases_pct` | **염기** | 같은 값의 비율. `100 - target_bases_ge_1X_pct` 와 일치 |
+| `low_mean_depth_intervals` | **구간** | 평균 depth가 `low_coverage_depth` 미만인 구간 수 |
+| `bases_in_low_mean_depth_intervals` / `_pct` | **구간** | 그 구간들이 차지하는 target 길이 |
+| `fully_uncovered_intervals` | **구간** | 평균 depth가 정확히 0인 구간 수 |
+| `bases_in_fully_uncovered_intervals` / `_pct` | **구간** | 그 구간들이 차지하는 target 길이 |
+| `low_mean_depth_threshold_x` | — | 사용한 기준값 |
+| `median_target_depth` | — | **항상 `null`** |
+| `median_note` | — | median을 계산하지 않은 이유 설명 |
+
+`zero_coverage_*` 는 `thresholds.bed.gz` 의 1X 집계와 **같은 분모**로 계산합니다.
+반올림된 비율을 다시 빼서 개수를 만들지 않습니다. mosdepth `--thresholds` 에
+`1` 이 없으면 두 필드는 아예 기록하지 않습니다 — 없는 값을 추정하지 않습니다.
+
+> [!NOTE]
+> **legacy 필드 — 2026-09-07 이전 run의 `coverage_metrics.json`**
+>
+> 과거 run에는 아래 이름이 들어 있습니다. **값이 잘못된 것이 아니라 이름이
+> 실제 측정 대상을 잘못 시사했습니다.** 모두 구간 단위였습니다.
+>
+> | 옛 이름 | 지금 이름 | 실제로 측정한 것 |
+> |---|---|---|
+> | `low_coverage_intervals` | `low_mean_depth_intervals` | 평균 depth 기준 미만 구간 수 |
+> | `low_coverage_bases` | `bases_in_low_mean_depth_intervals` | 그 구간들의 총 길이 |
+> | `low_coverage_bases_pct` | `bases_in_low_mean_depth_intervals_pct` | 그 비율 |
+> | `uncovered_intervals` | `fully_uncovered_intervals` | 평균 depth 0인 구간 수 |
+> | `uncovered_bases` | `bases_in_fully_uncovered_intervals` | 그 구간들의 총 길이 |
+> | `uncovered_bases_pct` | `bases_in_fully_uncovered_intervals_pct` | 그 비율 |
+> | `low_coverage_threshold_x` | `low_mean_depth_threshold_x` | 사용한 기준값 |
+>
+> **`uncovered_bases_pct` 를 "0× 염기의 비율"로 다시 해석하면 안 됩니다.**
+> 그 값은 구간 단위이므로 실제 0× 염기 비율보다 작습니다. 옛 run에서 염기 단위
+> 값이 필요하면 `target_bases_ge_1X_pct` 로부터 `100 - x` 로 **비율만** 복원할 수
+> 있고, 개수는 복원할 수 없습니다(backend `result_reader._coverage` 가 그렇게
+> 처리합니다).
 
 > [!NOTE]
 > **median을 보고하지 않는 이유.**
@@ -2195,7 +2247,19 @@ mosdepth가 정상 종료하고 `regions.bed.gz`와 `thresholds.bed.gz`가 존�
 | mosdepth 비정상 종료 / 출력 누락 | **step 실패** | 지표를 만들지 못함 |
 | 지표 산출 실패 | **step 실패** | 동일 |
 | 평균 depth가 `coverage_min_mean_depth` 미만 | **warning** (`LOW_MEAN_COVERAGE`) | QC 관찰이지 오류가 아님 |
-| uncovered 비율 > 0 | **warning** (`UNCOVERED_TARGETS`) | 동일 |
+| `zero_coverage_bases_pct` > 0 | **warning** (`ZERO_COVERAGE_TARGET_BASES`) | 동일 |
+
+> [!NOTE]
+> **`UNCOVERED_TARGETS` → `ZERO_COVERAGE_TARGET_BASES` (2026-09-07)**
+>
+> 옛 warning은 **구간 단위** 값(`uncovered_bases_pct`)으로 판단하면서 메시지는
+> `"X% of non-overlapping target bases have zero coverage"` 라고 **염기**를
+> 말했습니다. 두 값이 다르므로 메시지가 실제보다 작은 수를 보고했습니다.
+>
+> 새 code는 염기 단위 `zero_coverage_bases_pct` 로 판단하고
+> `"X% of non-overlapping target bases are at 0X coverage"` 라고 말합니다.
+> 옛 run에 저장된 `UNCOVERED_TARGETS` 는 그대로 남으며 frontend registry가
+> 계속 해석합니다 — 단, **그 run이 실제로 측정한 구간 단위 의미로** 설명합니다.
 
 **왜 낮은 coverage로 실패시키지 않나**
 "depth 30 미만이면 실패"는 **분석적 판단이 아니라 정책적 판단**입니다.
@@ -3142,7 +3206,7 @@ find "${BASE_DIR}/samples" -maxdepth 4 -name "*.annotated.vcf" | head -1
 | `02_preprocessing` | `trim_mode`, `lanes`, (force일 때) lane별 `reads_before_*` / `reads_after_*` |
 | `03_alignment` | `lane_count`, `sample`, `total_alignment_records`, `mapped_pct`, `properly_paired_pct` |
 | `04_processing` | `read_name_mode`, `percent_duplication`, `markdup_validation`, `markdup_validation_after_calmd`, `nm_md_repaired`, `analysis_ready_records` |
-| `05_coverage_qc` | `mean_target_depth`, `target_bases_ge_*X_pct`, `low_coverage_*`, `uncovered_*`, `target_intervals`, `target_nonoverlap_bases` |
+| `05_coverage_qc` | `mean_target_depth`, `target_bases_ge_*X_pct`, `zero_coverage_*`(염기), `low_mean_depth_*`·`fully_uncovered_*`(구간), `target_nonoverlap_bases` |
 | `06_variant_calling` | `raw_variant_records`, `raw_records`, `raw_snps`, `raw_indels`, `raw_multiallelic_sites`, `raw_ts_tv` |
 | `08_filtering` | `filter_preset`, `filter_expression`, `records_before_filter`, `records_after_filter` |
 | `10_annotation` | `annotation_input`, `clinvar_matched_records` |
@@ -4089,11 +4153,11 @@ resource 존재 확인, resource 체크섬 기록. 이들은 설치가 아니라
 
 | 파일 | 의미 | 볼 것 |
 |---|---|---|
-| `05_coverage_qc/coverage_metrics.json` | 핵심 지표 | `mean_target_depth`, `target_bases_ge_20X_pct`, `uncovered_bases_pct` |
+| `05_coverage_qc/coverage_metrics.json` | 핵심 지표 | `mean_target_depth`, `target_bases_ge_20X_pct`, `zero_coverage_bases_pct`(염기 단위) |
 | `05_coverage_qc/<sample>.mosdepth.mosdepth.summary.txt` | mosdepth 요약표 | contig별 요약 |
 | `05_coverage_qc/<sample>.mosdepth.regions.bed.gz` | **영역별 평균 depth** | 관심 유전자 영역을 직접 조회 |
 | `05_coverage_qc/<sample>.mosdepth.thresholds.bed.gz` | 영역별 threshold 도달 염기 수 | breadth 상세 |
-| `05_coverage_qc/low_coverage_intervals.bed` | 기준 미만 구간 | **관심 유전자가 여기 있는지** |
+| `05_coverage_qc/low_mean_depth_intervals.bed` | 평균 depth 기준 미만 구간 | **관심 유전자가 여기 있는지** |
 | `05_coverage_qc/target.nonoverlap.bed` | 겹침 제거 target | 집계 기준 확인 |
 
 > **가장 중요한 해석**: 관심 유전자가 low-coverage 목록에 있다면,

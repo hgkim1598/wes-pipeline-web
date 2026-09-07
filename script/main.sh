@@ -3596,8 +3596,25 @@ PYMERGE
     step_check_pass "mosdepth_outputs" "regions and thresholds output present"
 
     local coverage_json="$stage_dir/coverage_metrics.json"
-    local low_cov_bed="$stage_dir/low_coverage_intervals.bed"
+    local low_cov_bed="$stage_dir/low_mean_depth_intervals.bed"
 
+    # [METRIC SEMANTICS] Two different things are measured here and they used to
+    # carry names that suggested they were the same thing.
+    #
+    #   regions.bed.gz     one MEAN DEPTH per interval.
+    #                      -> interval-level metrics. An interval whose mean is
+    #                         0 is fully uncovered; an interval whose mean is
+    #                         above 0 can still contain 0x bases.
+    #
+    #   thresholds.bed.gz  per interval, the COUNT OF BASES at or above each
+    #                      requested depth.
+    #                      -> base-level metrics. "bases below 1x" is the only
+    #                         honest measure of zero-coverage bases.
+    #
+    # The old names low_coverage_bases* / uncovered_bases* were derived from
+    # regions.bed.gz, i.e. they were interval-level, but read as if they were
+    # base-level. They are renamed to say what they measure. Old runs keep the
+    # old keys on disk; the backend reader maps them (result_reader._coverage).
     set +e
     "$(resolve_python)" - "$regions_gz" "$thresh_gz" "$coverage_json" "$low_cov_bed" "$LOW_COVERAGE_DEPTH" <<'PYCOV'
 import gzip, json, os, re, sys
@@ -3605,9 +3622,11 @@ regions, thresholds, out_json, low_bed, low_depth = sys.argv[1:6]
 low_depth = float(low_depth)
 metrics = {}
 
+# ---- interval level: one mean depth per interval (regions.bed.gz) ----------
 bases = 0
 depth_bases = 0.0
-low_intervals = low_bases = uncovered_intervals = uncovered_bases = 0
+low_mean_intervals = low_mean_bases = 0
+fully_uncovered_intervals = fully_uncovered_bases = 0
 
 with gzip.open(regions, "rt") as fh, open(low_bed, "w", encoding="utf-8") as lw:
     for line in fh:
@@ -3619,22 +3638,23 @@ with gzip.open(regions, "rt") as fh, open(low_bed, "w", encoding="utf-8") as lw:
         bases += length
         depth_bases += length * depth
         if depth == 0.0:
-            uncovered_intervals += 1; uncovered_bases += length
+            fully_uncovered_intervals += 1; fully_uncovered_bases += length
         if depth < low_depth:
-            low_intervals += 1; low_bases += length
+            low_mean_intervals += 1; low_mean_bases += length
             lw.write(f"{f[0]}\t{f[1]}\t{f[2]}\t{depth}\n")
 
 if bases:
     metrics["target_nonoverlap_bases"] = bases
     metrics["mean_target_depth"] = round(depth_bases / bases, 4)
-    metrics["low_coverage_bases_pct"] = round(100.0 * low_bases / bases, 4)
-    metrics["uncovered_bases_pct"] = round(100.0 * uncovered_bases / bases, 4)
-metrics["low_coverage_threshold_x"] = low_depth
-metrics["low_coverage_intervals"] = low_intervals
-metrics["low_coverage_bases"] = low_bases
-metrics["uncovered_intervals"] = uncovered_intervals
-metrics["uncovered_bases"] = uncovered_bases
+    metrics["bases_in_low_mean_depth_intervals_pct"] = round(100.0 * low_mean_bases / bases, 4)
+    metrics["bases_in_fully_uncovered_intervals_pct"] = round(100.0 * fully_uncovered_bases / bases, 4)
+metrics["low_mean_depth_threshold_x"] = low_depth
+metrics["low_mean_depth_intervals"] = low_mean_intervals
+metrics["bases_in_low_mean_depth_intervals"] = low_mean_bases
+metrics["fully_uncovered_intervals"] = fully_uncovered_intervals
+metrics["bases_in_fully_uncovered_intervals"] = fully_uncovered_bases
 
+# ---- base level: bases at or above each threshold (thresholds.bed.gz) ------
 names, idx, sums, total = [], [], [], 0
 with gzip.open(thresholds, "rt") as fh:
     for line in fh:
@@ -3653,6 +3673,14 @@ with gzip.open(thresholds, "rt") as fh:
 if total:
     for name, n in zip(names, sums):
         metrics[f"target_bases_ge_{name}_pct"] = round(100.0 * n / total, 4)
+    # Zero-coverage bases are computed from the 1X count and the same
+    # denominator that produced it -- never by subtracting a rounded
+    # percentage, and never from the interval-level numbers above.
+    # Emitted only when 1X was actually requested from mosdepth.
+    if "1X" in names:
+        ge1 = sums[names.index("1X")]
+        metrics["zero_coverage_bases"] = total - ge1
+        metrics["zero_coverage_bases_pct"] = round(100.0 * (total - ge1) / total, 4)
 
 # A per-base median is intentionally absent: mosdepth ran with --no-per-base,
 # so per-base depths were never materialised. Reporting one would be invented.
@@ -3683,12 +3711,14 @@ for k, v in doc.items():
 PYEMIT
 )
 
-    local mean_depth ge20 ge30 uncovered_pct
+    local mean_depth ge20 ge30 zero_pct
     mean_depth=$(json_get "$coverage_json" mean_target_depth 0)
     ge20=$(json_get "$coverage_json" target_bases_ge_20X_pct 0)
     ge30=$(json_get "$coverage_json" target_bases_ge_30X_pct 0)
-    uncovered_pct=$(json_get "$coverage_json" uncovered_bases_pct 0)
-    log "  mean target depth ${mean_depth}x | >=20x ${ge20}% | >=30x ${ge30}% | uncovered ${uncovered_pct}%"
+    # Base level, from thresholds.bed.gz. NOT the interval-level
+    # bases_in_fully_uncovered_intervals_pct, which is a different measure.
+    zero_pct=$(json_get "$coverage_json" zero_coverage_bases_pct 0)
+    log "  mean target depth ${mean_depth}x | >=20x ${ge20}% | >=30x ${ge30}% | 0x bases ${zero_pct}%"
 
     if [[ "$COVERAGE_MIN_MEAN_DEPTH" != "0" ]]; then
         if awk -v a="$mean_depth" -v b="$COVERAGE_MIN_MEAN_DEPTH" 'BEGIN {exit !(a < b)}'; then
@@ -3703,9 +3733,20 @@ PYEMIT
         step_check_pass "mean_coverage" "mean target depth ${mean_depth}x (no configured pass/fail threshold)"
     fi
 
-    if awk -v v="$uncovered_pct" 'BEGIN {exit !(v > 0)}'; then
-        step_warning "UNCOVERED_TARGETS" "${uncovered_pct}% of non-overlapping target bases have zero coverage" \
-            "Variants cannot be called in uncovered intervals; see 05_coverage_qc/low_coverage_intervals.bed" "true"
+    # [POLICY] This warning is base level. It used to be raised from the
+    # interval-level uncovered_bases_pct while its message claimed to describe
+    # target BASES, which are different quantities: an interval with a non-zero
+    # mean can still contain 0x bases, so the interval measure understates the
+    # base measure. The code is renamed with the semantics.
+    #
+    # low_mean_depth_intervals.bed is NOT a list of 0x positions -- it lists
+    # intervals whose MEAN is below the configured depth. The impact text does
+    # not point at it as if it were.
+    if awk -v v="$zero_pct" 'BEGIN {exit !(v > 0)}'; then
+        step_warning "ZERO_COVERAGE_TARGET_BASES" \
+            "${zero_pct}% of non-overlapping target bases are at 0X coverage" \
+            "No variant can be called at those bases; per-interval depth is in the mosdepth regions and thresholds outputs" \
+            "true"
     fi
 
     step_output coverage_metrics "$coverage_json"
@@ -3714,8 +3755,8 @@ PYEMIT
         "Mean target depth and breadth at 1/10/20/30/50/100x"
     add_artifact coverage_regions "mosdepth regions" "$regions_gz" 1 0 "Per-target mean depth"
     add_artifact coverage_thresholds "mosdepth thresholds" "$thresh_gz" 1 0 "Bases at or above each depth threshold"
-    add_artifact low_coverage_bed "Low-coverage intervals" "$low_cov_bed" 1 0 \
-        "Target intervals whose mean depth is below the configured low-coverage depth"
+    add_artifact low_mean_depth_bed "Low mean-depth intervals" "$low_cov_bed" 1 0 \
+        "Target intervals whose mean depth is below the configured low-coverage depth. Not a list of 0x positions"
     [[ -s "$summary_txt" ]] && add_artifact coverage_summary "mosdepth summary" "$summary_txt" 1 0 "mosdepth summary table"
 
     complete_step

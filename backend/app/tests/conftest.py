@@ -316,6 +316,59 @@ class RunBuilder:
         write_json(self.run_dir / "core_summary.json", doc)
 
     def coverage_metrics(self, **overrides: object) -> None:
+        """A current-shape coverage document.
+
+        The numbers are chosen so the two measurements are deliberately
+        DIFFERENT and their relationship is checkable:
+
+          base level      1X breadth 99.1%  ->  0.9% of bases never reached 1x
+                          311111 / 34567890 = 0.9000%
+          interval level  0.42% of target length sits in intervals whose MEAN
+                          depth is 0
+
+        0.42 < 0.9 is not a rounding artefact. It is the whole point: bases
+        that are 0x inside a partially covered interval are counted by the
+        base measure and invisible to the interval measure.
+        """
+        doc: dict = {
+            "target_nonoverlap_bases": 34567890,
+            "mean_target_depth": 85.2,
+            # --- base level (thresholds.bed.gz) ---
+            "zero_coverage_bases": 311111,
+            "zero_coverage_bases_pct": 0.9,
+            "target_bases_ge_1X_pct": 99.1,
+            "target_bases_ge_10X_pct": 97.4,
+            "target_bases_ge_20X_pct": 94.2,
+            "target_bases_ge_30X_pct": 89.0,
+            "target_bases_ge_50X_pct": 71.3,
+            "target_bases_ge_100X_pct": 40.2,
+            # --- interval level (regions.bed.gz) ---
+            "low_mean_depth_threshold_x": 20.0,
+            "low_mean_depth_intervals": 812,
+            "bases_in_low_mean_depth_intervals": 200000,
+            "bases_in_low_mean_depth_intervals_pct": 5.8,
+            "fully_uncovered_intervals": 91,
+            "bases_in_fully_uncovered_intervals": 14500,
+            "bases_in_fully_uncovered_intervals_pct": 0.42,
+            # main.sh always writes null here, with a stated reason.
+            "median_target_depth": None,
+            "median_note": (
+                "not computed: mosdepth runs with --no-per-base, "
+                "so per-base depths are unavailable"
+            ),
+        }
+        doc.update(overrides)
+        write_json(self.run_dir / "05_coverage_qc" / "coverage_metrics.json", doc)
+
+    def legacy_coverage_metrics(self, **overrides: object) -> None:
+        """A coverage document as runs before 2026-09-07 wrote it.
+
+        Reproduced verbatim rather than idealised: there are no zero_coverage_*
+        keys at all, and the interval-level numbers carry their old names. This
+        is what is actually on disk for `wes-20260904-201711-97ea7b` and
+        `wes-20260907-014650-fcb1c2`, so the reader is exercised against the
+        real shape.
+        """
         doc: dict = {
             "target_nonoverlap_bases": 34567890,
             "mean_target_depth": 85.2,
@@ -332,7 +385,6 @@ class RunBuilder:
             "target_bases_ge_30X_pct": 89.0,
             "target_bases_ge_50X_pct": 71.3,
             "target_bases_ge_100X_pct": 40.2,
-            # main.sh always writes null here, with a stated reason.
             "median_target_depth": None,
             "median_note": (
                 "not computed: mosdepth runs with --no-per-base, "

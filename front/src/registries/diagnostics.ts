@@ -103,12 +103,31 @@ const DIAGNOSTICS: Record<string, DiagnosticDefinition> = {
   },
 
   // --- 05_coverage_qc --------------------------------------------------
+  ZERO_COVERAGE_TARGET_BASES: {
+    severity: 'attention',
+    resolution: null,
+    title: 'read가 한 번도 덮지 않은 target 염기가 있습니다',
+    meaning:
+      'target 영역 안에 read가 한 번도 덮지 않은(0×) 염기가 있습니다. 그 위치에서는 변이가 있어도 검출할 근거가 부족합니다. 결과에 변이가 없다는 것이 그 자리가 정상이라는 뜻은 아닙니다. 깊이 분포는 mosdepth의 regions·thresholds 산출물에서 확인할 수 있습니다.',
+  },
+  /*
+    legacy. 2026-09-07 이전 run이 남긴 code다.
+
+    당시 이 warning은 **구간 단위** 값(평균 depth가 0인 interval이 차지하는
+    비율)으로 판단하면서 메시지는 "target 염기의 X%가 zero coverage"라고 말했다.
+    두 값은 다르고 구간 값이 항상 더 작다. 그래서 새 run은
+    ZERO_COVERAGE_TARGET_BASES를 쓴다.
+
+    이 entry를 지우지 않는 이유는 옛 run을 계속 읽어야 하기 때문이다. 설명은
+    그 run이 실제로 측정한 것(구간)에 맞춰 적는다 — 옛 값을 염기 비율로
+    다시 해석하지 않는다.
+  */
   UNCOVERED_TARGETS: {
     severity: 'attention',
     resolution: null,
-    title: 'read가 전혀 관찰되지 않은 target 구간이 있습니다',
+    title: '평균 depth가 0인 target 구간이 있습니다',
     meaning:
-      '해당 구간에서는 변이를 검출할 수 없습니다. 결과에 변이가 없다는 것이 그 구간이 정상이라는 뜻은 아닙니다. 어느 구간인지는 low_coverage_intervals.bed에서 확인할 수 있습니다.',
+      '이 실행은 target을 나눈 구간마다 평균 depth를 보고, 그 값이 0인 구간의 비율을 기록했습니다. 해당 구간에서는 변이를 검출할 수 없습니다. 이 수치는 구간 단위이므로, 부분적으로만 덮인 구간에 남아 있는 0× 염기는 포함되지 않습니다 — 실제 0× 염기 비율은 이보다 큽니다.',
   },
   LOW_MEAN_COVERAGE: {
     severity: 'attention',

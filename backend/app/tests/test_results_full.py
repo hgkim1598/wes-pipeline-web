@@ -11,6 +11,8 @@ them. Nothing here recomputes a depth, a breadth or a median.
 
 from __future__ import annotations
 
+import pytest
+
 
 def test_full_envelope(client, make_job, run):
     run().as_completed_full()
@@ -36,10 +38,142 @@ def test_coverage_is_passed_through_verbatim(client, make_job, run):
 
     assert coverage["meanTargetDepth"] == 85.2
     assert coverage["targetNonoverlapBases"] == 34567890
-    assert coverage["uncoveredBasesPct"] == 0.42
-    assert coverage["lowCoverageBasesPct"] == 5.8
-    assert coverage["lowCoverageThresholdX"] == 20.0
-    assert coverage["uncoveredIntervals"] == 91
+    # base level
+    assert coverage["zeroCoverageBases"] == 311111
+    assert coverage["zeroCoverageBasesPct"] == 0.9
+    # interval level
+    assert coverage["basesInLowMeanDepthIntervalsPct"] == 5.8
+    assert coverage["lowMeanDepthThresholdX"] == 20.0
+    assert coverage["lowMeanDepthIntervals"] == 812
+    assert coverage["basesInLowMeanDepthIntervals"] == 200000
+    assert coverage["fullyUncoveredIntervals"] == 91
+    assert coverage["basesInFullyUncoveredIntervals"] == 14500
+    assert coverage["basesInFullyUncoveredIntervalsPct"] == 0.42
+
+
+def test_zero_coverage_pct_is_the_complement_of_1x_breadth(client, make_job, run):
+    """The base-level identity that gives zeroCoverageBasesPct its meaning.
+
+    zero_coverage_bases_pct = 100 - target_bases_ge_1X_pct
+
+    Both come from the same thresholds.bed.gz counts, so they must agree. If
+    this drifts, one of the two is being computed from the wrong denominator.
+    """
+    run().as_completed_full()
+    job_id = make_job(run_mode="full")
+
+    coverage = client.get(f"/api/jobs/{job_id}/results").json()["coverage"]
+
+    assert coverage["zeroCoverageBasesPct"] == pytest.approx(
+        100.0 - coverage["breadth"]["1X"], abs=1e-4
+    )
+
+
+def test_zero_coverage_count_matches_its_own_percentage(client, make_job, run):
+    """The count and the percentage describe the same bases.
+
+    Guards against the count being derived from a rounded percentage, or the
+    two being taken from different denominators.
+    """
+    run().as_completed_full()
+    job_id = make_job(run_mode="full")
+
+    coverage = client.get(f"/api/jobs/{job_id}/results").json()["coverage"]
+
+    derived = 100.0 * coverage["zeroCoverageBases"] / coverage["targetNonoverlapBases"]
+    assert derived == pytest.approx(coverage["zeroCoverageBasesPct"], abs=1e-3)
+
+
+def test_interval_and_base_measures_are_not_the_same_number(client, make_job, run):
+    """The distinction this whole metric rename exists for.
+
+    A partially covered interval has a mean above 0, so it is NOT a fully
+    uncovered interval -- yet the 0x bases inside it still count towards the
+    base-level measure. The interval measure therefore understates zero
+    coverage and the two must never be substituted for one another.
+    """
+    run().as_completed_full()
+    job_id = make_job(run_mode="full")
+
+    coverage = client.get(f"/api/jobs/{job_id}/results").json()["coverage"]
+
+    assert coverage["basesInFullyUncoveredIntervalsPct"] == 0.42
+    assert coverage["zeroCoverageBasesPct"] == 0.9
+    assert (
+        coverage["basesInFullyUncoveredIntervalsPct"]
+        < coverage["zeroCoverageBasesPct"]
+    )
+
+
+# --- legacy runs ------------------------------------------------------------
+#
+# Runs written before the rename only have the old interval-level keys. They
+# must keep reading, and the old keys must not be re-interpreted as base-level
+# numbers.
+
+
+def test_legacy_run_maps_old_interval_keys_to_the_new_names(client, make_job, run):
+    builder = run().as_completed_full()
+    builder.legacy_coverage_metrics()
+    job_id = make_job(run_mode="full")
+
+    coverage = client.get(f"/api/jobs/{job_id}/results").json()["coverage"]
+
+    # Same measurement, new name. This is a rename bridge.
+    assert coverage["lowMeanDepthThresholdX"] == 20.0
+    assert coverage["lowMeanDepthIntervals"] == 812
+    assert coverage["basesInLowMeanDepthIntervals"] == 200000
+    assert coverage["basesInLowMeanDepthIntervalsPct"] == 5.8
+    assert coverage["fullyUncoveredIntervals"] == 91
+    assert coverage["basesInFullyUncoveredIntervals"] == 14500
+    assert coverage["basesInFullyUncoveredIntervalsPct"] == 0.42
+
+
+def test_legacy_run_derives_zero_coverage_pct_from_1x_breadth(client, make_job, run):
+    """The percentage is recoverable from 1X breadth; the count is not."""
+    builder = run().as_completed_full()
+    builder.legacy_coverage_metrics()
+    job_id = make_job(run_mode="full")
+
+    coverage = client.get(f"/api/jobs/{job_id}/results").json()["coverage"]
+
+    assert coverage["zeroCoverageBasesPct"] == pytest.approx(0.9, abs=1e-4)
+    # Never invented from a rounded percentage.
+    assert coverage["zeroCoverageBases"] is None
+
+
+def test_legacy_uncovered_bases_pct_is_never_read_as_zero_coverage(
+    client, make_job, run
+):
+    """The one mapping that must not happen.
+
+    `uncovered_bases_pct` is interval level. Mapping it onto
+    zeroCoverageBasesPct would silently understate zero coverage -- exactly the
+    confusion this change removes. Here the legacy document has 0.42 for the
+    interval measure and 99.1 for 1X breadth, so the two candidate answers are
+    distinguishable: 0.9 is correct, 0.42 is the bug.
+    """
+    builder = run().as_completed_full()
+    builder.legacy_coverage_metrics()
+    job_id = make_job(run_mode="full")
+
+    coverage = client.get(f"/api/jobs/{job_id}/results").json()["coverage"]
+
+    assert coverage["zeroCoverageBasesPct"] != 0.42
+
+
+def test_legacy_run_without_1x_breadth_leaves_zero_coverage_null(
+    client, make_job, run
+):
+    """No 1X column, no honest way to derive it. Null, not a guess."""
+    builder = run().as_completed_full()
+    builder.legacy_coverage_metrics(**{"target_bases_ge_1X_pct": None})
+    job_id = make_job(run_mode="full")
+
+    coverage = client.get(f"/api/jobs/{job_id}/results").json()["coverage"]
+
+    assert coverage["zeroCoverageBasesPct"] is None
+    assert coverage["zeroCoverageBases"] is None
 
 
 def test_breadth_keys_come_from_the_document(client, make_job, run):

@@ -205,6 +205,13 @@ export function ResultsView({
             만드는 것이 CLAUDE.md 23장과 시안이 함께 피하는 패턴이다.
             위계는 배경이 아니라 크기(metric-md 20px mono)가 만든다.
           */}
+          {/*
+            핵심 수치는 **염기 단위**다. 이전에는 여기에 interval 단위 값
+            (uncoveredBasesPct)이 "read가 없는 target"이라는 이름으로 올라와
+            있었는데, 그 값은 "평균 depth가 0인 구간이 차지하는 비율"이지
+            "0X인 염기의 비율"이 아니다. 둘은 다른 수이고, 구간 값이 항상 더
+            작다. 지금은 zeroCoverageBasesPct(thresholds 1X 기준)를 쓴다.
+          */}
           <div className="flex flex-wrap gap-x-12 gap-y-4">
             <Metric
               label="평균 타깃 깊이"
@@ -212,12 +219,12 @@ export function ResultsView({
               unit="×"
             />
             <Metric
-              label="read가 없는 target"
-              value={percentOrDash(data.coverage.uncoveredBasesPct, false)}
+              label="한 번도 덮이지 않은 target 염기"
+              value={percentOrDash(data.coverage.zeroCoverageBasesPct, false)}
               unit="%"
               note={
-                data.coverage.uncoveredBases !== null
-                  ? `${data.coverage.uncoveredBases.toLocaleString()} bp`
+                data.coverage.zeroCoverageBases !== null
+                  ? `${data.coverage.zeroCoverageBases.toLocaleString()} bp`
                   : undefined
               }
             />
@@ -259,25 +266,64 @@ export function ResultsView({
 
           <dl className="flex flex-col">
             <Row
-              label={
-                data.coverage.lowCoverageThresholdX !== null
-                  ? `${data.coverage.lowCoverageThresholdX}× 미만 비율`
-                  : '저커버리지 비율'
-              }
-              value={percentOrDash(data.coverage.lowCoverageBasesPct)}
-              mono
-            />
-            <Row
-              label="저커버리지 구간 수"
-              value={numberOrDash(data.coverage.lowCoverageIntervals)}
-              mono
-            />
-            <Row
               label="target 염기 수"
               value={numberOrDash(data.coverage.targetNonoverlapBases)}
               mono
             />
           </dl>
+
+          {/*
+            구간 단위 지표는 위의 염기 단위 요약과 **분리해서** 둔다.
+            같은 목록에 섞으면 "20× 미만 비율 89.9%"가 염기 비율로 읽힌다.
+            실제로는 "평균 depth가 20× 미만인 구간들이 target 길이에서
+            차지하는 비율"이다. 라벨에 '구간'을 명시한다.
+          */}
+          <div className="flex flex-col gap-3 border-t border-border pt-4">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-h3 font-semibold text-text-strong">
+                구간 단위 보조 지표
+              </h3>
+              <p className="max-w-prose text-small text-text-muted">
+                target을 나눈 구간마다 평균 depth를 하나씩 계산한 값입니다. 위의
+                염기 단위 수치와 다른 측정이며, 부분적으로만 덮인 구간은 평균이
+                0보다 크므로 &ldquo;완전히 0×인 구간&rdquo;에 포함되지 않습니다.
+              </p>
+            </div>
+            <dl className="flex flex-col">
+              <Row
+                label={
+                  data.coverage.lowMeanDepthThresholdX !== null
+                    ? `평균 depth가 ${data.coverage.lowMeanDepthThresholdX}× 미만인 구간 수`
+                    : '평균 depth가 기준 미만인 구간 수'
+                }
+                value={numberOrDash(data.coverage.lowMeanDepthIntervals)}
+                mono
+              />
+              <Row
+                label={
+                  data.coverage.lowMeanDepthThresholdX !== null
+                    ? `평균 depth가 ${data.coverage.lowMeanDepthThresholdX}× 미만인 구간이 차지하는 비율`
+                    : '평균 depth가 기준 미만인 구간이 차지하는 비율'
+                }
+                value={percentOrDash(
+                  data.coverage.basesInLowMeanDepthIntervalsPct,
+                )}
+                mono
+              />
+              <Row
+                label="완전히 0×인 구간 수"
+                value={numberOrDash(data.coverage.fullyUncoveredIntervals)}
+                mono
+              />
+              <Row
+                label="완전히 0×인 구간이 차지하는 비율"
+                value={percentOrDash(
+                  data.coverage.basesInFullyUncoveredIntervalsPct,
+                )}
+                mono
+              />
+            </dl>
+          </div>
 
           {data.coverage.medianNote ? (
             <p className="text-caption text-text-muted">

@@ -204,21 +204,50 @@ class InputSummary(BaseModel):
 
 
 class CoverageSummary(BaseModel):
-    """mosdepth-derived numbers, passed through exactly as main.sh wrote them."""
+    """mosdepth-derived numbers, passed through exactly as main.sh wrote them.
+
+    Two different measurements live here and must not be read as one:
+
+      BASE level        from thresholds.bed.gz, which counts bases at or above
+                        each requested depth. `breadth` and the zeroCoverage*
+                        fields are base level. This is the honest answer to
+                        "how much of the target was actually covered".
+
+      INTERVAL level    from regions.bed.gz, which carries one MEAN depth per
+                        target interval. The lowMeanDepth* and fullyUncovered*
+                        fields are interval level.
+
+    An interval whose mean depth is above 0 can still contain 0x bases, so
+    basesInFullyUncoveredIntervalsPct is always <= zeroCoverageBasesPct and the
+    two are not interchangeable. Older runs only recorded the interval-level
+    numbers under names that suggested otherwise; see result_reader._coverage.
+    """
 
     meanTargetDepth: float | None = None
     targetNonoverlapBases: int | None = None
     # Depth label -> percent of target bases at or above it, e.g. {"20X": 94.2}.
     # Keys follow the mosdepth --thresholds list, so they are read from the
-    # document rather than assumed.
+    # document rather than assumed. Base level.
     breadth: dict[str, float] = Field(default_factory=dict)
-    lowCoverageBasesPct: float | None = None
-    lowCoverageThresholdX: float | None = None
-    lowCoverageBases: int | None = None
-    lowCoverageIntervals: int | None = None
-    uncoveredBasesPct: float | None = None
-    uncoveredBases: int | None = None
-    uncoveredIntervals: int | None = None
+
+    # --- base level -------------------------------------------------------
+    # Target bases that never reached 1x. Null on runs predating these keys
+    # when the count cannot be derived; the percentage can still be derived
+    # from target_bases_ge_1X_pct, the count cannot.
+    zeroCoverageBases: int | None = None
+    zeroCoverageBasesPct: float | None = None
+
+    # --- interval level ---------------------------------------------------
+    lowMeanDepthThresholdX: float | None = None
+    lowMeanDepthIntervals: int | None = None
+    basesInLowMeanDepthIntervals: int | None = None
+    basesInLowMeanDepthIntervalsPct: float | None = None
+    # Intervals whose mean depth is exactly 0, i.e. the whole interval is
+    # uncovered. NOT the same as the share of 0x bases across the target.
+    fullyUncoveredIntervals: int | None = None
+    basesInFullyUncoveredIntervals: int | None = None
+    basesInFullyUncoveredIntervalsPct: float | None = None
+
     # Always null: mosdepth runs with --no-per-base, so a per-base median was
     # never materialised. medianNote carries the pipeline's own explanation.
     # Never synthesise a value here.
