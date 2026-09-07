@@ -86,17 +86,27 @@ const STEP_DEFINITIONS: Record<string, StepDefinition> = {
     purpose:
       '정렬된 read를 참조 서열과 비교해 이 샘플에서 다른 지점을 찾아냅니다. 이 단계의 산출물(VCF)이 분석의 핵심 결과입니다.',
   },
+  /*
+    08·10의 tool은 원래 각각 'GATK'와 'ANNOVAR'였다. 둘 다 사실이 아니었다 —
+    현재 파이프라인은 두 단계 모두 bcftools만 실행한다(script/main.sh의
+    run_filtering / run_annotation). 두 단계가 계속 not_run이라 화면에
+    드러난 적이 없었을 뿐이다.
+
+    purpose도 함께 좁혔다. 이전 문구는 08을 site 수준 hard filtering으로,
+    10을 VEP/ANNOVAR 같은 기능 예측 주석으로 읽히게 했는데 둘 다 현재
+    구현 범위를 넘는다.
+  */
   '08_filtering': {
     label: '변이 필터링',
-    tool: 'GATK',
+    tool: 'bcftools',
     purpose:
-      '검출된 변이 중 품질 지표가 낮아 위양성일 가능성이 높은 것을 걸러냅니다.',
+      '검출된 변이 중 이 샘플에서 유전형 근거가 약한 기록을 걸러냅니다. 유전형의 깊이(DP)·품질(GQ)·대립유전자 지지 read 수(AD)를 기준으로 하며, 사이트 자체를 다시 평가하지는 않습니다.',
   },
   '10_annotation': {
     label: '변이 주석',
-    tool: 'ANNOVAR',
+    tool: 'bcftools',
     purpose:
-      '각 변이가 어떤 유전자의 어느 위치에 있는지, 알려진 데이터베이스에 기록이 있는지를 덧붙입니다. 변이 목록을 해석 가능한 정보로 바꾸는 단계입니다.',
+      '변이 표기를 정규화한 뒤, ClinVar가 구성되어 있으면 이미 알려진 변이 기록을 덧붙입니다. 유전자 기능이나 전사체에 미치는 영향을 예측하는 단계는 아닙니다.',
   },
   '11_intervar': {
     label: 'ACMG 자동 분류',
