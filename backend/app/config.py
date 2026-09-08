@@ -58,12 +58,21 @@ CAPTURE_KIT_REGISTRY = ROOT / "config" / "capture_kits.grch38.json"
 # neither backend-owned nor frontend-owned, it is tracked by git so `git archive`
 # ships it, and ROOT resolves correctly inside a release directory.
 #
-# The frontend imports the same two files through the `@shared` alias. Never
-# copy them under backend/ or front/ -- two copies drift, which is exactly the
-# defect this source was introduced to remove.
+# The frontend imports the same files through the `@shared` alias. Never copy
+# them under backend/ or front/ -- two copies drift, which is exactly the defect
+# this source was introduced to remove.
 KNOWLEDGE_DIR = ROOT / "config" / "knowledge"
 DIAGNOSTIC_KNOWLEDGE = KNOWLEDGE_DIR / "wes_diagnostics.json"
 STEP_KNOWLEDGE = KNOWLEDGE_DIR / "wes_steps.json"
+# Provenance registry. Every enrichment claim in the files above and below cites
+# ids from here, and the loader refuses a claim whose source does not resolve.
+SOURCE_KNOWLEDGE = KNOWLEDGE_DIR / "wes_sources.json"
+# Curated failure knowledge. Deliberately NOT exhaustive -- main.sh composes some
+# failure codes from run values, so this set is open and says so in the document.
+FAILURE_KNOWLEDGE = KNOWLEDGE_DIR / "wes_failures.json"
+# Interpretation concepts: the distinctions a reader needs so the numbers are not
+# misread. Not a glossary -- on-screen term help stays in the frontend.
+CONCEPT_KNOWLEDGE = KNOWLEDGE_DIR / "wes_concepts.json"
 
 # `bash` must be on PATH. On Windows this is Git Bash; on Linux the system bash.
 BASH_BIN = _env("WES_BASH", "bash")

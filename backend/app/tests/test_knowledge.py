@@ -236,6 +236,20 @@ def test_the_frontend_reads_the_same_paths():
 
 
 def test_documents_are_utf8_json_with_a_schema_version():
-    for path in (config.DIAGNOSTIC_KNOWLEDGE, config.STEP_KNOWLEDGE):
+    """Versions are asserted per file, not as one shared number.
+
+    wes_diagnostics.json is at 1.1: `evidence` was added to a few entries. The
+    change is additive and optional, so a reader written against 1.0 still
+    works -- but the version says the contract grew, which is the point of
+    having one. The other documents are unchanged at 1.0.
+    """
+    expected = {
+        config.DIAGNOSTIC_KNOWLEDGE: "1.1",
+        config.STEP_KNOWLEDGE: "1.0",
+        config.SOURCE_KNOWLEDGE: "1.0",
+        config.FAILURE_KNOWLEDGE: "1.0",
+        config.CONCEPT_KNOWLEDGE: "1.0",
+    }
+    for path, version in expected.items():
         doc = json.loads(path.read_text(encoding="utf-8"))
-        assert doc["schemaVersion"] == "1.0", path.name
+        assert doc["schemaVersion"] == version, path.name

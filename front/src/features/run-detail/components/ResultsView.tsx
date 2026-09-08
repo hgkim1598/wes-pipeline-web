@@ -116,21 +116,16 @@ export function ResultsView({
   return (
     <div className="flex flex-col gap-8">
       {/*
-        check_only 오해 방지. analysisOutputProduced가 false면 BAM/VCF가 없다는
-        사실을 결과 화면 맨 위에서 말한다. "완료"만 보고 전체 분석이 끝났다고
-        읽히는 것을 막는 지점이다.
-      */}
-      {!data.analysisOutputProduced ? (
-        <MessageBlock
-          tone="warning"
-          title="사전 점검만 수행되었습니다"
-        >
-          입력·환경·참조 데이터 검사만 실행되었고, 실제 분석 산출물(BAM·VCF)은
-          생성되지 않았습니다. 전체 분석은 서버 실행 모드가 <code>full</code>일 때
-          수행됩니다.
-        </MessageBlock>
-      ) : null}
+        analysisOutputProduced === false를 여기서 다시 말하지 않는다.
 
+        같은 사실을 RunLimitations가 탭 바깥에서 이미 말하고 있고, 그쪽이
+        canonical이다 — 산출물이 없다는 것은 결과 탭에 국한된 사실이 아니라
+        실행 전체의 성질이어서, 파이프라인 탭만 본 사용자도 봐야 한다.
+
+        두 곳에 두면 문구가 갈라진다. 실제로 갈라져 있었다: 여기서는
+        "사전 점검만 수행되었습니다"라고 단정했지만, full 실행이
+        core_complete=false로 끝난 경우에도 이 값은 false다.
+      */}
       {/*
         확인할 사항.
 

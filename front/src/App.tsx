@@ -8,6 +8,7 @@ import { SectionHeader } from '@/components/ui/SectionHeader'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { TabsList, TabsPanel, TabsRoot, TabsTab } from '@/components/ui/Tabs'
 import { HealthCheckPage } from '@/features/health/HealthCheckPage'
+import { SetupGuidePage } from '@/features/help/SetupGuidePage'
 import { NewAnalysisPage } from '@/features/new-analysis/NewAnalysisPage'
 import { RunDetailPage } from '@/features/run-detail/RunDetailPage'
 import { RunListPage } from '@/features/runs/RunListPage'
@@ -165,6 +166,13 @@ function App() {
       */}
       <Route path="/runs/:jobId" element={<RunDetailPage />} />
       <Route path="/runs/:jobId/:tab" element={<RunDetailPage />} />
+
+      {/*
+        앱 안의 준비 안내. 파이프라인 실패 메시지가 저장소 문서 경로를
+        가리키는 대신 여기로 보낸다 — 웹으로 분석을 제출한 사용자는
+        저장소를 열 수 없다.
+      */}
+      <Route path="/help/setup" element={<SetupGuidePage />} />
     </Routes>
   )
 }

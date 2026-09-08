@@ -479,12 +479,13 @@ def test_explanation_carries_no_logs_or_server_paths(client, make_job, run):
     assert "run_dir" not in payload
 
 
-def test_shared_knowledge_source_was_not_modified():
-    """This step reads knowledge; enriching it is a separate piece of work.
+def test_knowledge_gained_evidence_deliberately():
+    """Enrichment happened, as its own step, and this test was updated with it.
 
-    If the deterministic layer needed a cause or an action field, the honest
-    move is to add it deliberately -- not to discover later that it appeared
-    while something else was being built.
+    It used to assert the seven original fields, so that a cause or action field
+    could not appear while something else was being built. It did its job: the
+    field below was added by a piece of work that named it. The assertion is
+    kept exact for the same reason -- the next field must also be deliberate.
     """
     entry = deterministic.knowledge.diagnostic("NM_MD_REPAIRED")
     assert entry is not None
@@ -496,7 +497,21 @@ def test_shared_knowledge_source_was_not_modified():
         "status",
         "title",
         "meaning",
+        "grounding",
     }
+
+
+def test_the_deterministic_layer_does_not_emit_evidence_yet():
+    """Knowledge grew; the HTTP contract did not.
+
+    The enrichment exists for a synthesis layer that reads knowledge directly.
+    Passing it through this response would enlarge every payload for a UI that
+    displays none of it, and would make the frontend's Zod schema owe a
+    definition for a structure it does not use. Wiring it through is a decision
+    for the step that needs it.
+    """
+    assert "grounding" not in deterministic.DiagnosticExplanation.model_fields
+    assert "possibleCauses" not in deterministic.RunExplanation.model_fields
 
 
 @pytest.mark.parametrize(

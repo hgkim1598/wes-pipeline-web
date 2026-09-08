@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "diagnostics": [
     {
       "code": "NM_MD_REPAIRED",
@@ -10,7 +10,93 @@
       ],
       "status": "active",
       "title": "NM/MD 태그를 자동 보정한 뒤 재검증을 통과했습니다",
-      "meaning": "NM·MD는 read가 참조 서열과 몇 군데 다른지를 적어 두는 보조 태그입니다. 정렬 과정에서 이 값이 어긋나 samtools calmd로 다시 계산했고, 재검증에서 오류가 남지 않았습니다. read 서열·좌표·중복 표시는 바뀌지 않습니다."
+      "meaning": "NM·MD는 read가 참조 서열과 몇 군데 다른지를 적어 두는 보조 태그입니다. 정렬 과정에서 이 값이 어긋나 samtools calmd로 다시 계산했고, 재검증에서 오류가 남지 않았습니다. read 서열·좌표·중복 표시는 바뀌지 않습니다.",
+      "grounding": {
+        "possibleCauses": [
+          {
+            "statement": "NM은 read와 참조 서열 사이의 차이 개수(mismatch와 삽입·결실 염기 수)를 적는 SAM 보조 태그이고, MD는 어긋나거나 결실된 참조 염기를 문자열로 적는 태그입니다.",
+            "sourceIds": [
+              "sam-tags-spec"
+            ]
+          },
+          {
+            "statement": "SAM 명세는 NM을 셀 때 A·C·G·T만 일치 후보로 보고, read와 참조가 둘 다 N인 자리처럼 서로 맞는 ambiguity code도 mismatch로 센다고 규정합니다.",
+            "sourceIds": [
+              "sam-tags-spec"
+            ]
+          },
+          {
+            "statement": "samtools calmd는 MD 태그를 생성하며 NM 태그를 함께 보정합니다. 이 파이프라인은 정렬에 사용한 것과 같은 참조 서열로 calmd를 실행합니다.",
+            "sourceIds": [
+              "samtools-calmd",
+              "main-sh-calmd"
+            ]
+          },
+          {
+            "statement": "이 파이프라인은 Picard ValidateSamFile 결과가 INVALID_TAG_NM 하나뿐(ONLY_NM)일 때만 calmd를 실행합니다. 다른 오류 유형이 함께 있으면 보정하지 않고 실행을 중단합니다.",
+            "sourceIds": [
+              "main-sh-calmd"
+            ]
+          }
+        ],
+        "scope": [
+          {
+            "statement": "SAM 명세는 NM의 정의가 역사적으로 불명확했고 이 정의와 다르게 동작하는 데이터와 도구가 존재한다고 적고 있습니다. 따라서 기록된 NM이 나중의 재계산과 다르다는 사실만으로 특정 정렬 도구의 결함이라고 말할 수 없습니다.",
+            "sourceIds": [
+              "sam-tags-spec"
+            ]
+          },
+          {
+            "statement": "이 진단은 보정 후 재검증이 통과했을 때만 기록됩니다. 재검증이 통과하지 못하면 파이프라인은 경고가 아니라 실패로 끝냅니다.",
+            "sourceIds": [
+              "main-sh-calmd"
+            ]
+          }
+        ],
+        "checks": [
+          {
+            "statement": "보정 전 ValidateSamFile 분류 결과입니다. 이 진단이 기록된 실행에서는 ONLY_NM입니다.",
+            "locator": {
+              "kind": "metric",
+              "id": "markdup_validation"
+            },
+            "sourceIds": [
+              "main-sh-calmd"
+            ]
+          },
+          {
+            "statement": "보정 후 재검증 분류 결과입니다. CLEAN이어야 실행이 계속됩니다.",
+            "locator": {
+              "kind": "metric",
+              "id": "markdup_validation_after_calmd"
+            },
+            "sourceIds": [
+              "main-sh-calmd"
+            ]
+          },
+          {
+            "statement": "Picard ValidateSamFile SUMMARY 원문입니다. 보정 전과 보정 후 두 건이 각각 등록됩니다.",
+            "locator": {
+              "kind": "artifact",
+              "id": "validation_report"
+            },
+            "sourceIds": [
+              "main-sh-calmd"
+            ]
+          },
+          {
+            "statement": "검증표의 BAM 검증 행입니다. 보정이 일어난 실행에서는 calmd로 해결됐다는 사실이 적힙니다.",
+            "locator": {
+              "kind": "check",
+              "id": "bam_validation"
+            },
+            "sourceIds": [
+              "main-sh-calmd"
+            ]
+          }
+        ],
+        "actions": []
+      }
     },
     {
       "code": "BQSR_DIAG_FAILED",
@@ -54,7 +140,58 @@
       ],
       "status": "active",
       "title": "read가 한 번도 덮지 않은 target 염기가 있습니다",
-      "meaning": "target 영역 안에 read가 한 번도 덮지 않은(0×) 염기가 있습니다. 그 위치에서는 변이가 있어도 검출할 근거가 부족합니다. 결과에 변이가 없다는 것이 그 자리가 정상이라는 뜻은 아닙니다. 깊이 분포는 mosdepth의 regions·thresholds 산출물에서 확인할 수 있습니다."
+      "meaning": "target 영역 안에 read가 한 번도 덮지 않은(0×) 염기가 있습니다. 그 위치에서는 변이가 있어도 검출할 근거가 부족합니다. 결과에 변이가 없다는 것이 그 자리가 정상이라는 뜻은 아닙니다. 깊이 분포는 mosdepth의 regions·thresholds 산출물에서 확인할 수 있습니다.",
+      "grounding": {
+        "possibleCauses": [],
+        "scope": [
+          {
+            "statement": "이 프로젝트에는 0× 염기 비율의 합격·불합격 기준이 설정돼 있지 않습니다. 파이프라인이 가진 유일한 커버리지 기준값은 평균 깊이에 대한 참고값(COVERAGE_MIN_MEAN_DEPTH)이고, 그 값이 0이면 검증표에 '설정된 합격 기준 없음'이라고 기록합니다. 따라서 특정 비율이 높은지 낮은지는 이 지식으로 판단할 수 없습니다.",
+            "sourceIds": [
+              "main-sh-coverage"
+            ]
+          },
+          {
+            "statement": "이 값은 base 수준입니다. 구간 수준 지표와 같은 값이 아니며, 구간 평균이 0보다 커도 그 구간 안에 0× 염기가 있을 수 있습니다.",
+            "sourceIds": [
+              "mosdepth-readme",
+              "main-sh-coverage"
+            ]
+          }
+        ],
+        "checks": [
+          {
+            "statement": "mosdepth thresholds 출력입니다. --by로 준 각 구간에서 각 임계값 이상으로 덮인 염기 수를 적습니다. 어느 구간이 얼마나 덮였는지는 여기서 확인합니다.",
+            "locator": {
+              "kind": "artifact",
+              "id": "coverage_thresholds"
+            },
+            "sourceIds": [
+              "mosdepth-readme"
+            ]
+          },
+          {
+            "statement": "mosdepth regions 출력입니다. 각 구간의 평균 깊이입니다.",
+            "locator": {
+              "kind": "artifact",
+              "id": "coverage_regions"
+            },
+            "sourceIds": [
+              "mosdepth-readme"
+            ]
+          },
+          {
+            "statement": "이 파일은 0× 위치 목록이 아닙니다. 평균 깊이가 설정된 저커버리지 기준 미만인 구간의 목록이며, 0× 염기를 찾는 용도로 읽으면 안 됩니다.",
+            "locator": {
+              "kind": "artifact",
+              "id": "low_mean_depth_bed"
+            },
+            "sourceIds": [
+              "main-sh-coverage"
+            ]
+          }
+        ],
+        "actions": []
+      }
     },
     {
       "code": "UNCOVERED_TARGETS",
@@ -87,7 +224,60 @@
       ],
       "status": "active",
       "title": "dbSNP가 설정되지 않아 rsID가 부여되지 않았습니다",
-      "meaning": "rsID는 이미 알려진 변이에 붙는 공개 식별자입니다. 참조용 정보이며, 변이를 찾아내는 과정 자체에는 관여하지 않습니다."
+      "meaning": "rsID는 이미 알려진 변이에 붙는 공개 식별자입니다. 참조용 정보이며, 변이를 찾아내는 과정 자체에는 관여하지 않습니다.",
+      "grounding": {
+        "possibleCauses": [
+          {
+            "statement": "이 서버의 resource bundle이 dbsnp_vcf를 선언하지 않았습니다. 파이프라인은 known_sites 등에서 dbSNP 파일을 추측하지 않고, 선언돼 있을 때만 GenotypeGVCFs에 --dbsnp로 넘깁니다.",
+            "sourceIds": [
+              "main-sh-dbsnp"
+            ]
+          },
+          {
+            "statement": "GATK는 --dbsnp로 준 파일의 rsID가 출력의 ID column을 채우고 해당하는 경우 DB INFO flag를 세운다고 설명하며, dbSNP가 genotyping 계산 자체에는 전혀 사용되지 않는다고 명시합니다.",
+            "sourceIds": [
+              "gatk-genotypegvcfs-dbsnp"
+            ]
+          }
+        ],
+        "scope": [
+          {
+            "statement": "rsID가 비어 있다는 것은 변이가 검출되지 않았다는 뜻이 아닙니다. 같은 변이가 ID column만 비어 있는 상태로 기록됩니다.",
+            "sourceIds": [
+              "gatk-genotypegvcfs-dbsnp",
+              "main-sh-dbsnp"
+            ]
+          },
+          {
+            "statement": "이 진단은 선언 자체가 없는 상태입니다. dbsnp_vcf가 선언됐는데 읽히지 않는 경우는 별개의 code(DBSNP_MISSING)로 기록되며, 그쪽은 구성 오류입니다.",
+            "sourceIds": [
+              "main-sh-dbsnp"
+            ]
+          }
+        ],
+        "checks": [
+          {
+            "statement": "resource bundle 검증 보고서에 dbsnp_vcf가 선언되지 않았다는 항목이 [NOTE]로 기록됩니다.",
+            "locator": {
+              "kind": "stepFile",
+              "id": "00_input_validation/resource_validation.txt"
+            },
+            "sourceIds": [
+              "main-sh-resource-bundle"
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "statement": "서버 관리자가 resource bundle에 dbsnp_vcf를 선언하면 다음 실행부터 --dbsnp가 적용됩니다.",
+            "effect": "변이 기록의 ID column에 rsID가 채워집니다. 검출되는 변이 자체와 genotype 계산은 달라지지 않습니다.",
+            "sourceIds": [
+              "gatk-genotypegvcfs-dbsnp",
+              "main-sh-dbsnp"
+            ]
+          }
+        ]
+      }
     },
     {
       "code": "DBSNP_MISSING",
@@ -132,7 +322,61 @@
       ],
       "status": "active",
       "title": "MultiQC가 설치되어 있지 않습니다",
-      "meaning": "MultiQC는 여러 QC 결과를 하나로 모아 보여주는 도구입니다. 개별 FastQC 리포트는 정상적으로 생성되었습니다."
+      "meaning": "MultiQC는 여러 QC 결과를 하나로 모아 보여주는 도구입니다. 개별 FastQC 리포트는 정상적으로 생성되었습니다.",
+      "grounding": {
+        "possibleCauses": [
+          {
+            "statement": "MultiQC는 이 파이프라인의 필수 도구 목록에 없습니다. 필수 목록은 bwa·samtools·gatk·bcftools·tabix·bgzip·mosdepth·fastqc와 기본 UNIX 도구이며, MultiQC가 없는 것은 실패가 아니라 서버의 설치 상태입니다.",
+            "sourceIds": [
+              "main-sh-required-tools",
+              "main-sh-multiqc"
+            ]
+          },
+          {
+            "statement": "MultiQC는 스스로 QC를 계산하지 않고, 다른 도구가 이미 만든 출력과 로그를 모아 하나의 리포트로 만드는 도구입니다.",
+            "sourceIds": [
+              "multiqc-docs"
+            ]
+          }
+        ],
+        "scope": [
+          {
+            "statement": "이 진단은 개별 FastQC 결과가 없다는 뜻이 아닙니다. 통합 리포트만 만들어지지 않으며, 변이 검출을 포함한 분석 결과에는 영향이 없습니다.",
+            "sourceIds": [
+              "multiqc-docs",
+              "main-sh-multiqc"
+            ]
+          },
+          {
+            "statement": "이 code는 두 단계에서 발생할 수 있고 발생 지점에 따라 파이프라인이 적는 영향 문구가 다릅니다. 이번 실행에서 어디서 발생했는지는 지식이 아니라 실행 기록(warnings[].stepId)이 말합니다.",
+            "sourceIds": [
+              "main-sh-multiqc"
+            ]
+          }
+        ],
+        "checks": [
+          {
+            "statement": "도구 확인 단계의 MultiQC 존재 검사 행입니다. 설치돼 있으면 PASS로 기록됩니다.",
+            "locator": {
+              "kind": "check",
+              "id": "multiqc_present"
+            },
+            "sourceIds": [
+              "main-sh-multiqc"
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "statement": "서버에 MultiQC를 설치하면 다음 실행부터 통합 리포트가 생성됩니다.",
+            "effect": "통합 QC 리포트가 산출물에 추가됩니다. 개별 FastQC 결과와 변이 결과는 달라지지 않습니다.",
+            "sourceIds": [
+              "multiqc-docs",
+              "main-sh-multiqc"
+            ]
+          }
+        ]
+      }
     },
     {
       "code": "MULTIQC_FAILED",

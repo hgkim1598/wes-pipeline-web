@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# 로컬 개발 전용 vite override (backend 포트가 8000이 아닐 때).
+# vite.config.ts를 import해서 proxy target만 바꾸므로 저장소에 들어가면 안 된다.
+vite.config.local.ts
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -11,6 +11,7 @@ import { ArtifactsView } from '@/features/run-detail/components/ArtifactsView'
 import { DeveloperDetails } from '@/features/run-detail/components/DeveloperDetails'
 import { LogPanel } from '@/features/run-detail/components/LogPanel'
 import { ResultsView } from '@/features/run-detail/components/ResultsView'
+import { RunFailureCard } from '@/features/run-detail/components/RunFailureCard'
 import { RunHeader } from '@/features/run-detail/components/RunHeader'
 import { RunLimitations } from '@/features/run-detail/components/RunLimitations'
 import { StepDetailRail } from '@/features/run-detail/components/StepDetailRail'
@@ -151,25 +152,36 @@ export function RunDetailPage() {
       {/*
         실행 전체의 실패는 탭과 무관하게 항상 보여야 한다. 어느 탭에 있든
         "무엇이 잘못됐는지"가 화면에서 사라지면 안 된다.
+
+        취소는 실패가 아니므로 계속 MessageBlock이다 — 준비할 항목도,
+        해결 방법도 없다.
       */}
-      {job.error ? (
-        <MessageBlock
-          tone={job.status === 'cancelled' ? 'info' : 'danger'}
-          title={
-            job.status === 'cancelled'
-              ? '이 실행은 취소되었습니다'
-              : `${failedStepLabel(job) ?? '실행'}에서 중단되었습니다`
-          }
-        >
-          <div className="flex flex-col gap-2">
-            <p className="whitespace-pre-wrap">{job.error}</p>
-            {job.pipelineStatus ? (
-              <code className="text-text-muted">
-                pipeline status: {job.pipelineStatus}
-              </code>
-            ) : null}
-          </div>
+      {job.status === 'cancelled' && job.error ? (
+        <MessageBlock tone="info" title="이 실행은 취소되었습니다">
+          <p className="whitespace-pre-wrap">{job.error}</p>
         </MessageBlock>
+      ) : null}
+
+      {/*
+        실패는 하나의 표면으로 모은다. 이전에는 여기 있던 error 문자열과
+        단계 표의 진단, RunLimitations의 "산출물 없음"이 따로 놀아서 사용자가
+        전체 상황을 조립해야 했다.
+
+        구조화된 failures가 있으면 그것이 본문이고, backend가 이어 붙인
+        error 문자열은 카드 안 "기술 정보"로 내려간다.
+
+        explanation 응답에 의존하지 않는다. 그 요청이 실패해도 job.error는
+        이미 있고, 실패 설명이 통째로 사라지는 것이 최악이다. 그때는 원문만
+        남은 카드가 되며 이전 화면보다 나빠지지 않는다.
+
+        보여줄 것이 없으면(성공한 실행) 카드가 스스로 null을 반환한다.
+      */}
+      {job.status !== 'cancelled' ? (
+        <RunFailureCard
+          failures={explanation.data?.failures ?? []}
+          rawError={job.error}
+          isPrecheck={explanation.data?.contextKind === 'precheck'}
+        />
       ) : null}
 
       {job.unsupportedOptions.length > 0 ? (
@@ -425,13 +437,11 @@ function InfoRow({
   )
 }
 
-/** 실패한 단계의 사람이 읽는 이름. 없으면 null. */
-function failedStepLabel(job: {
-  steps: { stepId: string; status: string }[]
-}): string | null {
-  const failed = job.steps.find((step) => step.status === 'failed')
-  return failed ? describeStep(failed.stepId).label : null
-}
+/*
+  failedStepLabel()은 여기 있었다. RunFailureCard가 각 failure의
+  actualStepLabel을 backend에서 받아 쓰므로, steps[]에서 실패 단계를 다시
+  찾아낼 이유가 없어졌다.
+*/
 
 function isoOrDash(value: string | null): string {
   const formatted = formatTimestamp(value)

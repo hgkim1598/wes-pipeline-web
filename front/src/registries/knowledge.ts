@@ -31,6 +31,7 @@
 import { z } from 'zod'
 
 import diagnosticsDoc from '@shared/knowledge/wes_diagnostics.json'
+import failuresDoc from '@shared/knowledge/wes_failures.json'
 import stepsDoc from '@shared/knowledge/wes_steps.json'
 
 /** 확인이 필요한 사건인가. 사건의 무게. */
@@ -83,6 +84,46 @@ export const StepKnowledgeSchema = z.object({
 
 export type StepKnowledge = z.infer<typeof StepKnowledgeSchema>
 
+/*
+  실패 code의 curated 지식.
+
+  ── grounding을 여기서 모델링하지 않는다 `[설계판단]` ───────────────────
+
+  shared 파일에는 `grounding`(possibleCauses·scope·checks·actions)이 함께 들어
+  있지만 이 schema는 그것을 선언하지 않는다. Zod object는 모르는 key를 무시하므로
+  검증은 통과하고, 화면은 title·meaning만 쓴다.
+
+  이유는 소비자가 다르기 때문이다. grounding은 backend의 설명 계층이 읽는
+  근거 자료이고, 그쪽 loader가 Pydantic으로 전수 검증하면서 **모든 claim의
+  sourceIds가 실제로 존재하는지까지** 확인한다. 화면이 쓰지도 않는 구조를
+  TypeScript로 한 번 더 옮겨 적으면, 두 schema가 갈라질 때 무엇이 옳은지
+  판단할 근거가 없어진다.
+
+  화면이 근거를 실제로 표시하게 되면 그때 여기에 추가한다.
+
+  ── closedSet ──────────────────────────────────────────────────────────
+
+  이 목록은 전수가 아니다. main.sh가 일부 failure code를 실행 값으로 조립한다.
+  등록되지 않은 code는 결함이 아니라 정상이며, 호출부가 실행 원문을 그대로
+  보여준다.
+*/
+export const FailureKnowledgeSchema = z.object({
+  code: z.string().min(1),
+  title: z.string().min(1),
+  meaning: z.string().min(1),
+})
+
+export type FailureKnowledge = z.infer<typeof FailureKnowledgeSchema>
+
+const FailuresDocSchema = z.object({
+  schemaVersion: z.string(),
+  // literal(false)로 고정한다. 이 값이 true로 바뀌면 "등록되지 않은 code는
+  // 결함"이라는 규칙이 성립하는데, 실행 값으로 조립되는 code가 있는 한
+  // 그것은 참일 수 없다. 조용히 넘어가지 않고 로드에서 실패한다.
+  closedSet: z.literal(false),
+  failures: z.array(FailureKnowledgeSchema),
+})
+
 const DiagnosticsDocSchema = z.object({
   schemaVersion: z.string(),
   diagnostics: z.array(DiagnosticKnowledgeSchema),
@@ -126,6 +167,11 @@ const steps = parseOrThrow(
   stepsDoc,
   'config/knowledge/wes_steps.json',
 )
+const failures = parseOrThrow(
+  FailuresDocSchema,
+  failuresDoc,
+  'config/knowledge/wes_failures.json',
+)
 
 const DIAGNOSTIC_BY_CODE = indexBy(
   diagnostics.diagnostics,
@@ -133,6 +179,11 @@ const DIAGNOSTIC_BY_CODE = indexBy(
   'wes_diagnostics.json',
 )
 const STEP_BY_ID = indexBy(steps.steps, (row) => row.stepId, 'wes_steps.json')
+const FAILURE_BY_CODE = indexBy(
+  failures.failures,
+  (row) => row.code,
+  'wes_failures.json',
+)
 
 /** 등록된 진단 지식. 없으면 undefined — 호출부가 fallback을 정한다. */
 export function diagnosticKnowledge(code: string): DiagnosticKnowledge | undefined {
@@ -151,4 +202,19 @@ export function allDiagnosticKnowledge(): DiagnosticKnowledge[] {
 
 export function allStepKnowledge(): StepKnowledge[] {
   return steps.steps
+}
+
+/**
+ * 등록된 실패 지식. 없으면 undefined.
+ *
+ * **undefined가 흔한 경우다.** 실패 code는 닫힌 집합이 아니므로, 호출부는
+ * 이것을 "아직 안 채운 빈칸"이 아니라 "지식이 없는 code"로 다뤄야 하고
+ * 실행이 기록한 원문을 대신 보여줘야 한다.
+ */
+export function failureKnowledge(code: string): FailureKnowledge | undefined {
+  return FAILURE_BY_CODE.get(code)
+}
+
+export function allFailureKnowledge(): FailureKnowledge[] {
+  return failures.failures
 }

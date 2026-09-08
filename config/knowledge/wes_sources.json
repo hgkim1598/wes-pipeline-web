@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "1.0",
+  "_comment": [
+    "근거 출처 registry. 다른 knowledge 파일의 모든 claim은 여기 있는 id를",
+    "sourceIds로 참조한다. 참조가 없는 claim은 loader가 거부한다 — 근거 없는",
+    "문장이 지식으로 들어오는 경로를 schema 차원에서 막는 것이 목적이다.",
+    "",
+    "type",
+    "  spec         형식 명세. 도구가 아니라 데이터 형식이 규정하는 것",
+    "  tool-doc     해당 도구의 공식 문서 또는 공식 소스",
+    "  pipeline     이 저장소의 script/main.sh. 파이프라인 내부 동작의 source of truth",
+    "  project-doc  이 저장소의 공식 문서",
+    "",
+    "locator",
+    "  외부 출처는 URL. 저장소 내부 출처는 `경로#앵커` 형태이며, 앵커는 파일에서",
+    "  실제로 grep되는 문자열이다(코드·검사 이름). 줄 번호는 쓰지 않는다 — 코드가",
+    "  움직이면 조용히 틀린 근거가 되기 때문이다."
+  ],
+  "sources": [
+    {
+      "id": "sam-tags-spec",
+      "type": "spec",
+      "title": "SAM Optional Fields Specification — NM·MD 태그 정의",
+      "locator": "https://samtools.github.io/hts-specs/SAMtags.pdf"
+    },
+    {
+      "id": "samtools-calmd",
+      "type": "tool-doc",
+      "title": "samtools calmd manual",
+      "locator": "https://www.htslib.org/doc/samtools-calmd.html"
+    },
+    {
+      "id": "gatk-genotypegvcfs-dbsnp",
+      "type": "tool-doc",
+      "title": "GATK GenotypeGVCFs — dbsnp argument 공식 설명",
+      "locator": "https://github.com/broadinstitute/gatk/blob/master/src/main/java/org/broadinstitute/hellbender/tools/walkers/GenotypeGVCFs.java"
+    },
+    {
+      "id": "multiqc-docs",
+      "type": "tool-doc",
+      "title": "MultiQC documentation — 개요",
+      "locator": "https://docs.seqera.io/multiqc"
+    },
+    {
+      "id": "mosdepth-readme",
+      "type": "tool-doc",
+      "title": "mosdepth README — regions·thresholds 출력 정의",
+      "locator": "https://github.com/brentp/mosdepth"
+    },
+    {
+      "id": "main-sh-calmd",
+      "type": "pipeline",
+      "title": "main.sh — ValidateSamFile 분류와 조건부 NM/MD 보정",
+      "locator": "script/main.sh#NM_MD_REPAIRED"
+    },
+    {
+      "id": "main-sh-dbsnp",
+      "type": "pipeline",
+      "title": "main.sh — GenotypeGVCFs에 --dbsnp를 넘기는 조건",
+      "locator": "script/main.sh#DBSNP_NOT_CONFIGURED"
+    },
+    {
+      "id": "main-sh-coverage",
+      "type": "pipeline",
+      "title": "main.sh — base 수준 0× 판정과 coverage 산출물",
+      "locator": "script/main.sh#ZERO_COVERAGE_TARGET_BASES"
+    },
+    {
+      "id": "main-sh-multiqc",
+      "type": "pipeline",
+      "title": "main.sh — MultiQC를 선택 도구로 처리하는 두 지점",
+      "locator": "script/main.sh#MULTIQC_MISSING"
+    },
+    {
+      "id": "main-sh-required-tools",
+      "type": "pipeline",
+      "title": "main.sh — validate_tools()의 필수 도구 검사",
+      "locator": "script/main.sh#required_tools"
+    },
+    {
+      "id": "main-sh-resource-bundle",
+      "type": "pipeline",
+      "title": "main.sh — resource bundle 구조 호환성 검증",
+      "locator": "script/main.sh#resource_bundle"
+    },
+    {
+      "id": "main-sh-variant-calling-output",
+      "type": "pipeline",
+      "title": "main.sh — variant_calling_output.json의 filtering_applied",
+      "locator": "script/main.sh#filtering_applied"
+    },
+    {
+      "id": "main-sh-core-summary",
+      "type": "pipeline",
+      "title": "main.sh — core_summary.json의 core_endpoint와 intended_use",
+      "locator": "script/main.sh#core_endpoint"
+    },
+    {
+      "id": "wes-setup-guide",
+      "type": "project-doc",
+      "title": "MAIN_SH_COMPLETE_GUIDE — 실행 방법과 실행 전 준비물",
+      "locator": "docs/MAIN_SH_COMPLETE_GUIDE.md#6. 실행 방법과 CLI option"
+    }
+  ]
+}
