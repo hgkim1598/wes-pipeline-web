@@ -51,6 +51,20 @@ def _env(name: str, default: str = "") -> str:
 PIPELINE_SH = ROOT / "script" / "main.sh"
 CAPTURE_KIT_REGISTRY = ROOT / "config" / "capture_kits.grch38.json"
 
+# --- shared domain knowledge ----------------------------------------------
+#
+# Canonical source for diagnostic and step knowledge, shared with the frontend.
+# It lives under config/ for the same reason CAPTURE_KIT_REGISTRY does: it is
+# neither backend-owned nor frontend-owned, it is tracked by git so `git archive`
+# ships it, and ROOT resolves correctly inside a release directory.
+#
+# The frontend imports the same two files through the `@shared` alias. Never
+# copy them under backend/ or front/ -- two copies drift, which is exactly the
+# defect this source was introduced to remove.
+KNOWLEDGE_DIR = ROOT / "config" / "knowledge"
+DIAGNOSTIC_KNOWLEDGE = KNOWLEDGE_DIR / "wes_diagnostics.json"
+STEP_KNOWLEDGE = KNOWLEDGE_DIR / "wes_steps.json"
+
 # `bash` must be on PATH. On Windows this is Git Bash; on Linux the system bash.
 BASH_BIN = _env("WES_BASH", "bash")
 

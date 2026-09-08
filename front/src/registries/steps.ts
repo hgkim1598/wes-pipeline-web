@@ -1,136 +1,88 @@
 /*
-  Pipeline step registry.
+  Pipeline step — 화면 어휘.
 
-  step ID는 backend/pipeline의 어휘다. 화면에 그 문자열을 그대로 노출하면
-  사용자는 무엇이 실행되는지 알 수 없고, 반대로 화면 코드에서
-  `if (stepId === '03_alignment')` 같은 분기를 하기 시작하면 step이 하나 늘 때
-  고쳐야 할 곳이 흩어진다(CLAUDE.md 18장). 그래서 이 파일 하나가 어휘를 갖는다.
+  ── 이 파일이 소유하는 것 ───────────────────────────────────────────────
 
-  ID 근거 — backend/app/services/config_builder.py
-    CORE_STEPS  00_input_validation · 01_raw_qc · 02_preprocessing ·
-                03_alignment · 04_processing · 05_coverage_qc · 06_variant_calling
-    FINAL_STEP  99_finalization
-    optional    11_intervar (planned_steps가 붙인다)
+  **표시(presentation)뿐이다.**
 
-  main.sh의 build_step_plan()은 optional_steps 설정에 따라 08_filtering ·
-  10_annotation도 계획에 넣는다(script/main.sh:4665). 현재 backend는
-  build_run_config()에서 두 값을 false로 고정해 그 경로가 열리지 않지만,
-  열렸을 때 화면이 원문 ID를 노출하지 않도록 라벨만 미리 둔다.
+    STEP_SUBTITLE   단계 이름 옆에 보이는 부제
+    stepOrdinal     `03_alignment` -> `03`
 
-  라벨 근거 — docs/design/prototype.html · pipeline-tab.html의 한국어 표기.
-  단 시안의 ID(01_input_validation, 03_preprocess, 07_finalize 등)는 실제
-  backend ID와 다르므로, 라벨만 가져오고 키는 실제 ID로 맞췄다.
+  단계의 **의미**(label · purpose · tools)는 이 파일에 없다. 저장소 최상위의
 
-  tool은 그 단계가 실제로 쓰는 도구다. 시안이 부제로 쓰던 값이며, 사용자가
-  로그에서 보게 될 이름과 화면을 연결해 준다.
+    config/knowledge/wes_steps.json
+
+  이 canonical source이고, backend도 같은 파일을 읽는다.
+  로딩·검증은 registries/knowledge.ts가 맡는다.
+
+  ── 왜 부제(subtitle)와 tools를 나눴는가 ────────────────────────────────
+
+  이전에는 `tool: string` 하나에 세 가지가 섞여 있었다.
+
+    실제 도구명        FastQC · fastp · BWA-MEM · mosdepth · …
+    도구 아닌 절차명    "MarkDuplicates · BQSR"
+    도구 아닌 한국어 부제 "FASTQ·reference·환경 사전 점검"
+
+  이 혼재 때문에 `08_filtering`이 `GATK`, `10_annotation`이 `ANNOVAR`로
+  적혀 있어도 **아무도 눈치채지 못했다.** 둘 다 파이프라인이 실행하지 않는
+  도구였다(실제로는 bcftools).
+
+  그래서 갈랐다.
+
+    tools          shared source. main.sh와 기계적으로 대조할 수 있는 사실
+    STEP_SUBTITLE  여기. 화면에 무엇을 쓸지의 문제
+
+  부제는 도구 목록과 다를 수 있다 — 04는 "MarkDuplicates · BQSR"이 사용자에게
+  더 유용하고(gatk·samtools보다), 00·99는 도구를 실행하지 않는다.
+  **그것은 표시 판단이지 사실이 아니므로 여기 있는 것이 맞다.**
+
+  ── step ID를 화면 코드에서 분기하지 않는다 ─────────────────────────────
+
+  `if (stepId === '03_alignment')` 같은 분기를 만들지 않는다(CLAUDE.md 18장).
+  registry에 없는 step이 와도 ID를 그대로 이름으로 쓴다.
 */
+
+import { stepKnowledge } from '@/registries/knowledge'
 
 export interface StepDefinition {
   /** 사용자에게 보이는 이름. */
   label: string
   /** 도구·부제. 없으면 빈 문자열. */
   tool: string
-  /**
-   * 이 단계가 무엇을 하고 왜 필요한지 (Layer 1).
-   *
-   * 유전체 분석을 처음 보는 사용자가 단계 이름만으로는 알 수 없는 것을
-   * 한두 문장으로 적는다. 이번 Run의 결과가 아니라 **단계의 성질**이므로
-   * 실행마다 달라지지 않는다 — 실제 측정값과 섞이지 않도록 표시도 분리한다
-   * (CLAUDE.md 21장: 설명과 실제 데이터를 혼동시키지 않는다).
-   *
-   * 없으면 빈 문자열이고, 화면은 설명 줄을 그리지 않는다.
-   */
+  /** 이 단계가 무엇을 하고 왜 필요한지 (Layer 1). */
   purpose: string
 }
 
-const STEP_DEFINITIONS: Record<string, StepDefinition> = {
-  '00_input_validation': {
-    label: '입력 검증',
-    tool: 'FASTQ·reference·환경 사전 점검',
-    purpose:
-      '분석을 시작하기 전에 입력 FASTQ와 참조 유전체, 필요한 도구가 모두 갖춰져 있는지 확인합니다. 여기서 걸러내지 못한 문제는 몇 시간 뒤 중간 단계에서 실패로 나타납니다.',
-  },
-  '01_raw_qc': {
-    label: '원본 품질 검사',
-    tool: 'FastQC',
-    purpose:
-      '장비에서 나온 원본 read의 품질을 그대로 측정합니다. 염기 품질 점수, 어댑터 잔존량, GC 분포처럼 이후 결과를 좌우하는 특성을 미리 파악하는 단계입니다.',
-  },
-  '02_preprocessing': {
-    label: '전처리',
-    tool: 'fastp',
-    purpose:
-      '품질이 낮은 구간과 시퀀싱 어댑터를 잘라냅니다. 남겨 두면 참조 유전체에 잘못 정렬되어 없는 변이를 만들어낼 수 있습니다.',
-  },
-  '03_alignment': {
-    label: '참조 유전체 정렬',
-    tool: 'BWA-MEM',
-    purpose:
-      '수천만 개의 짧은 read가 각각 유전체의 어느 위치에서 온 것인지 찾아 붙입니다. 이후 모든 분석이 이 위치 정보 위에서 이루어집니다.',
-  },
-  '04_processing': {
-    label: 'BAM 정리·보정',
-    tool: 'MarkDuplicates · BQSR',
-    purpose:
-      'PCR 증폭 과정에서 생긴 중복 read를 표시하고, 장비가 매긴 염기 품질 점수를 실제 오류율에 맞게 보정합니다. 같은 변이가 여러 번 세어지거나 품질이 과대평가되는 것을 막습니다.',
-  },
-  '05_coverage_qc': {
-    label: '커버리지 검사',
-    tool: 'mosdepth',
-    purpose:
-      '분석 대상 영역이 read로 얼마나 덮였는지 측정합니다. 깊이가 얕은 구간에서는 변이가 있어도 검출되지 않으므로, 결과를 어디까지 신뢰할 수 있는지 판단하는 근거가 됩니다.',
-  },
-  '06_variant_calling': {
-    label: '변이 검출',
-    tool: 'HaplotypeCaller',
-    purpose:
-      '정렬된 read를 참조 서열과 비교해 이 샘플에서 다른 지점을 찾아냅니다. 이 단계의 산출물(VCF)이 분석의 핵심 결과입니다.',
-  },
-  /*
-    08·10의 tool은 원래 각각 'GATK'와 'ANNOVAR'였다. 둘 다 사실이 아니었다 —
-    현재 파이프라인은 두 단계 모두 bcftools만 실행한다(script/main.sh의
-    run_filtering / run_annotation). 두 단계가 계속 not_run이라 화면에
-    드러난 적이 없었을 뿐이다.
+/*
+  화면 부제.
 
-    purpose도 함께 좁혔다. 이전 문구는 08을 site 수준 hard filtering으로,
-    10을 VEP/ANNOVAR 같은 기능 예측 주석으로 읽히게 했는데 둘 다 현재
-    구현 범위를 넘는다.
-  */
-  '08_filtering': {
-    label: '변이 필터링',
-    tool: 'bcftools',
-    purpose:
-      '검출된 변이 중 이 샘플에서 유전형 근거가 약한 기록을 걸러냅니다. 유전형의 깊이(DP)·품질(GQ)·대립유전자 지지 read 수(AD)를 기준으로 하며, 사이트 자체를 다시 평가하지는 않습니다.',
-  },
-  '10_annotation': {
-    label: '변이 주석',
-    tool: 'bcftools',
-    purpose:
-      '변이 표기를 정규화한 뒤, ClinVar가 구성되어 있으면 이미 알려진 변이 기록을 덧붙입니다. 유전자 기능이나 전사체에 미치는 영향을 예측하는 단계는 아닙니다.',
-  },
-  '11_intervar': {
-    label: 'ACMG 자동 분류',
-    tool: 'InterVar',
-    purpose:
-      'ACMG 지침의 근거 코드를 규칙에 따라 자동으로 적용합니다. 자동 적용 결과이며 최종 판정이 아닙니다.',
-  },
-  '99_finalization': {
-    label: '결과 정리',
-    tool: '산출물·매니페스트 정리',
-    purpose:
-      '생성된 파일 목록과 사용한 도구 버전·설정을 기록으로 남깁니다. 나중에 같은 분석을 재현하거나 결과의 출처를 확인할 때 쓰입니다.',
-  },
+  shared source의 `tools`와 다른 값일 수 있다 — 위 주석 참조.
+  여기 없는 step은 `tools`를 " · "로 이어 붙여 쓴다.
+*/
+const STEP_SUBTITLE: Record<string, string> = {
+  '00_input_validation': 'FASTQ·reference·환경 사전 점검',
+  '01_raw_qc': 'FastQC',
+  '03_alignment': 'BWA-MEM',
+  '04_processing': 'MarkDuplicates · BQSR',
+  '06_variant_calling': 'HaplotypeCaller',
+  '99_finalization': '산출물·매니페스트 정리',
 }
 
 /**
  * 모르는 step이 와도 화면을 세우지 않는다.
  *
- * pipeline에 단계가 추가됐는데 이 registry가 아직 모르는 경우, 의미를 지어내는
- * 대신 ID를 그대로 이름으로 쓴다. 사용자는 최소한 무엇이 실행됐는지 대조할 수
- * 있고, 개발자는 registry에 한 줄을 추가하면 된다.
+ * pipeline에 단계가 추가됐는데 shared source가 아직 모르는 경우, 의미를
+ * 지어내는 대신 ID를 그대로 이름으로 쓴다. 사용자는 최소한 무엇이 실행됐는지
+ * 대조할 수 있고, 개발자는 JSON에 한 항목을 추가하면 된다.
  */
 export function describeStep(stepId: string): StepDefinition {
-  return STEP_DEFINITIONS[stepId] ?? { label: stepId, tool: '', purpose: '' }
+  const knowledge = stepKnowledge(stepId)
+  if (!knowledge) return { label: stepId, tool: '', purpose: '' }
+  return {
+    label: knowledge.label,
+    tool: STEP_SUBTITLE[stepId] ?? knowledge.tools.join(' · '),
+    purpose: knowledge.purpose,
+  }
 }
 
 /**
