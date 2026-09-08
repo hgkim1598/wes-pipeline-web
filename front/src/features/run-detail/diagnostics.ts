@@ -36,6 +36,7 @@
 */
 
 import type {
+  ExplanationDiagnostic,
   NotReady,
   PipelineFailure,
   PipelineWarning,
@@ -116,6 +117,62 @@ export function collectDiagnostics(
       ? { ...diagnostic, stepId: soleStep }
       : diagnostic,
   )
+
+  const byStep = new Map<string, RunDiagnostic[]>()
+  const unattributed: RunDiagnostic[] = []
+  const counts: Record<DiagnosticKind, number> = {
+    repaired: 0,
+    attention: 0,
+    note: 0,
+    failure: 0,
+  }
+
+  for (const diagnostic of all) {
+    counts[diagnostic.view.kind] += 1
+    if (diagnostic.stepId === null) {
+      unattributed.push(diagnostic)
+      continue
+    }
+    const bucket = byStep.get(diagnostic.stepId)
+    if (bucket) bucket.push(diagnostic)
+    else byStep.set(diagnostic.stepId, [diagnostic])
+  }
+
+  return { byStep, unattributed, all, counts }
+}
+
+/**
+ * `GET /explanation`의 진단을 같은 표시 구조로 바꾼다.
+ *
+ * ── 왜 이 두 번째 경로가 필요한가 ──────────────────────────────────────
+ *
+ * 위 collectDiagnostics는 /results를 읽는데, **실패한 실행은 /results가
+ * 409다.** 그런 실행에서 단계 표는 지금까지 backend가 준 문자열 한 줄만
+ * 보여줬다. explanation endpoint는 실패한 실행에서도 200이고 step 문서에서
+ * 모은 구조화된 진단을 주므로, 그때 이 함수가 대신 채운다.
+ *
+ * ── severity를 backend 값으로 바꾸지 않는다 ───────────────────────────
+ *
+ * 응답에 severity·resolution이 들어 있지만 여기서는 쓰지 않고
+ * describeDiagnostic(code)를 그대로 호출한다. 두 곳이 같은
+ * config/knowledge/wes_diagnostics.json을 읽으므로 값은 같고, 표시 규칙
+ * (kind·라벨·아이콘)은 계속 frontend 한 곳에만 있다. backend 응답에서
+ * 표시를 유도하기 시작하면 규칙이 두 벌이 된다.
+ *
+ * `actualStepId`는 backend가 실제 발생 위치로 채운 값이다 — knowledge의
+ * relatedSteps가 아니다.
+ */
+export function collectFromExplanation(
+  diagnostics: ExplanationDiagnostic[],
+): DiagnosticCollection {
+  const all: RunDiagnostic[] = diagnostics.map((item, index) => ({
+    key: `${item.actualStepId ?? 'run'}-${item.code || 'no-code'}-${index}`,
+    stepId: item.actualStepId,
+    code: item.code,
+    message: item.message,
+    impact: item.impact,
+    view: describeDiagnostic(item.code),
+  }))
 
   const byStep = new Map<string, RunDiagnostic[]>()
   const unattributed: RunDiagnostic[] = []

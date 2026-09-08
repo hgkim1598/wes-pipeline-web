@@ -18,7 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import config, db
-from .api import jobs, results, steps, uploads
+from .api import explanations, jobs, results, steps, uploads
 from .services import worker
 
 
@@ -56,6 +56,10 @@ app.include_router(results.router)
 # Same again for the per-step detail view; see api/steps.py for why it is not
 # folded into the polled job endpoint.
 app.include_router(steps.router)
+# And again for the deterministic explanation. It is the only endpoint that
+# answers for a run /results cannot describe -- one that failed before
+# finalization -- so it is not folded into results.py.
+app.include_router(explanations.router)
 
 
 @app.get("/api/health", tags=["health"])

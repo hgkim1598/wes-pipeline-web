@@ -369,3 +369,129 @@ export async function fetchArtifacts(
 export function artifactDownloadUrl(jobId: string, fileId: string): string {
   return `${jobPath(jobId)}/artifacts/${encodeURIComponent(fileId)}/download`
 }
+
+// --- GET /api/jobs/{id}/explanation -----------------------------------------
+//
+// backend가 Run facts와 공용 knowledge를 결합한 결과다. **AI가 만든 것이
+// 아니다** — 같은 Run이면 항상 같은 값이 온다.
+//
+// /results와 달리 **실패한 실행에서도 200이다.** /results는 core_summary.json이
+// 없으면 409인데(backend/app/api/results.py), 03_alignment에서 실패한 실행이
+// 바로 그 경우다. 그래서 이 응답은 그 실행을 설명할 수 있는 유일한 출처다.
+
+/** 실행 종류. 어떤 절이 왜 비어 있는지를 이 값이 설명한다. */
+export const ContextKindSchema = z.enum([
+  'full',
+  'precheck',
+  'failed',
+  'in_progress',
+])
+
+export type ContextKind = z.infer<typeof ContextKindSchema>
+
+/**
+ * 진단 한 건 — 이번 실행이 관찰한 것과 그 code의 일반적 의미가 함께 온다.
+ *
+ * ⚠️ `knowledgeAvailable`이 false면 severity·resolution·title·meaning이 전부
+ * null이고 **아무 정보도 담지 않는다.** 특히 `resolution === null`을
+ * "복구되지 않음"으로 읽으면 안 된다 — 미등록 code도 null이다.
+ */
+export const ExplanationDiagnosticSchema = z.object({
+  code: z.string(),
+  /** 이번 실행에서 실제로 발생한 위치. knowledge의 relatedSteps가 아니다. */
+  actualStepId: z.string().nullable(),
+  actualStepLabel: z.string().nullable(),
+  message: z.string(),
+  impact: z.string(),
+  canContinue: z.boolean(),
+  knowledgeAvailable: z.boolean(),
+  severity: z.string().nullable(),
+  resolution: z.string().nullable(),
+  title: z.string().nullable(),
+  meaning: z.string().nullable(),
+  knowledgeStatus: z.string().nullable(),
+  evidence: z.object({
+    section: z.string(),
+    source: z.string().nullable(),
+    stepId: z.string().nullable(),
+    code: z.string().nullable(),
+  }),
+})
+
+export type ExplanationDiagnostic = z.infer<typeof ExplanationDiagnosticSchema>
+
+export const ExplanationFailureSchema = z.object({
+  code: z.string(),
+  message: z.string(),
+  actualStepId: z.string().nullable(),
+  actualStepLabel: z.string().nullable(),
+  evidence: z.object({
+    section: z.string(),
+    source: z.string().nullable(),
+    stepId: z.string().nullable(),
+    code: z.string().nullable(),
+  }),
+})
+
+export type ExplanationFailure = z.infer<typeof ExplanationFailureSchema>
+
+/**
+ * 결과를 볼 때의 범위 제한.
+ *
+ * backend가 structured field 하나를 보고 고른 고정 문장이며, `basis`가 어느
+ * field가 그것을 골랐는지 알려준다. **frontend에서 다시 해석하지 않는다.**
+ */
+export const LimitationSchema = z.object({
+  code: z.string(),
+  statement: z.string(),
+  basis: z.string(),
+})
+
+export type Limitation = z.infer<typeof LimitationSchema>
+
+export const ExplanationSchema = z.object({
+  contextKind: ContextKindSchema,
+  status: z.string(),
+  resultsAvailable: z.boolean(),
+  resultsUnavailableReason: z.string().nullable(),
+  identity: z.object({
+    jobId: z.string(),
+    runId: z.string(),
+    sampleId: z.string().nullable(),
+    profileId: z.string(),
+    captureKitId: z.string().nullable(),
+    runMode: z.string(),
+  }),
+  checkSummary: z.object({
+    total: z.number(),
+    counts: z.record(z.string(), z.number()),
+    notable: z.array(CheckResultSchema),
+  }),
+  diagnostics: z.array(ExplanationDiagnosticSchema),
+  failures: z.array(ExplanationFailureSchema),
+  /*
+    coverage·variantCalling은 /results와 같은 모양이며 그대로 통과된 값이다.
+    이 화면은 아직 쓰지 않으므로 통과만 검증한다 — 형태가 달라지면 여기서
+    드러나야 한다.
+  */
+  coverage: z.unknown().nullable(),
+  variantCalling: z.unknown().nullable(),
+  limitations: z.array(LimitationSchema),
+  intendedUse: z.string().nullable(),
+  /** section -> 어느 backend reader가 만들었나. 화면에는 노출하지 않는다. */
+  sources: z.record(z.string(), z.string()),
+})
+
+export type Explanation = z.infer<typeof ExplanationSchema>
+
+export async function fetchExplanation(
+  jobId: string,
+  signal?: AbortSignal,
+): Promise<Explanation> {
+  const payload = await getJson(`${jobPath(jobId)}/explanation`, { signal })
+  return parse(
+    ExplanationSchema,
+    payload,
+    '실행 설명 응답이 예상한 형식과 다릅니다.',
+  )
+}

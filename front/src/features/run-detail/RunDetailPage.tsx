@@ -12,15 +12,20 @@ import { DeveloperDetails } from '@/features/run-detail/components/DeveloperDeta
 import { LogPanel } from '@/features/run-detail/components/LogPanel'
 import { ResultsView } from '@/features/run-detail/components/ResultsView'
 import { RunHeader } from '@/features/run-detail/components/RunHeader'
+import { RunLimitations } from '@/features/run-detail/components/RunLimitations'
 import { StepDetailRail } from '@/features/run-detail/components/StepDetailRail'
 import {
   STEP_DETAIL_PANEL_ID,
   StepTable,
 } from '@/features/run-detail/components/StepTable'
-import { collectDiagnostics } from '@/features/run-detail/diagnostics'
+import {
+  collectDiagnostics,
+  collectFromExplanation,
+} from '@/features/run-detail/diagnostics'
 import {
   findStepStatus,
   useArtifactsQuery,
+  useExplanationQuery,
   useJobDetailQuery,
   useResultsQuery,
   useStepDetailQuery,
@@ -83,6 +88,7 @@ export function RunDetailPage() {
   const step = useStepDetailQuery(jobId, selectedStepId, stepStatus)
   const results = useResultsQuery(jobId, job?.status)
   const artifacts = useArtifactsQuery(jobId, job?.status)
+  const explanation = useExplanationQuery(jobId, job?.status)
   const cancel = useCancelJobMutation(jobId)
 
   if (detail.isPending) {
@@ -112,10 +118,20 @@ export function RunDetailPage() {
     있다. 계획된 단계 목록을 함께 넘기는 것은 --check-only 실행의 귀속
     때문이다.
   */
-  const diagnostics = collectDiagnostics(
+  const fromResults = collectDiagnostics(
     results.data,
     job.steps.map((s) => s.stepId),
   )
+
+  /*
+    /results가 없는 실행(실패·진행 중)에서는 explanation이 유일한 구조화
+    출처다. 그때만 대체한다 — /results가 있으면 그쪽이 core_summary의 step
+    귀속까지 갖고 있어 더 정확하다.
+  */
+  const diagnostics =
+    fromResults.all.length > 0 || !explanation.data
+      ? fromResults
+      : collectFromExplanation(explanation.data.diagnostics)
 
   return (
     <Shell wide>
@@ -163,6 +179,17 @@ export function RunDetailPage() {
         >
           <code>{job.unsupportedOptions.join(', ')}</code>
         </MessageBlock>
+      ) : null}
+
+      {/*
+        결과 해석의 범위 제한. 위의 job.error·unsupportedOptions와 같은 자리에
+        둔다 — 셋 다 어느 탭에 있든 유효한 실행 단위 사실이고, 탭 안에 넣으면
+        결과 탭을 열지 않은 사용자는 "필터가 적용되지 않았다"를 보지 못한다.
+
+        backend deterministic explanation이 만든 문장이며 AI 생성물이 아니다.
+      */}
+      {explanation.data ? (
+        <RunLimitations limitations={explanation.data.limitations} />
       ) : null}
 
       <TabsRoot
@@ -340,6 +367,11 @@ export function RunDetailPage() {
             },
             { label: 'GET /api/jobs/{id}/results', value: results.data },
             { label: 'GET /api/jobs/{id}/artifacts', value: artifacts.data },
+            /*
+              전문가용. contextKind·sources·evidence까지 여기서 볼 수 있다 —
+              화면에는 노출하지 않지만 근거를 확인할 수 있어야 한다.
+            */
+            { label: 'GET /api/jobs/{id}/explanation', value: explanation.data },
           ]}
         />
       </div>

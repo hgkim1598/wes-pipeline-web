@@ -19,6 +19,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { JobState } from '@/features/run-detail/api'
 import {
   fetchArtifacts,
+  fetchExplanation,
   fetchJobState,
   fetchResults,
   fetchStepDetail,
@@ -127,6 +128,32 @@ export function useArtifactsQuery(jobId: string, jobStatus: string | undefined) 
     queryFn: ({ signal }) => fetchArtifacts(jobId, signal),
     retry: false,
     refetchInterval: terminal ? false : ARTIFACTS_INTERVAL_MS,
+  })
+}
+
+/**
+ * 결정적 실행 설명.
+ *
+ * /results와 달리 **실패한 실행에서도 200**이므로 enabled 조건을 두지 않는다.
+ * 오히려 실패한 실행이 이 응답이 가장 필요한 경우다 — /results가 409라
+ * 다른 출처가 없다.
+ *
+ * 실행 중에는 진단이 늘어날 수 있으므로 job 상세와 같은 주기로 따라가고,
+ * terminal에 도달하면 멈춘다. 서버 계산은 파일 읽기뿐이라 LLM 호출 같은
+ * 비용이 없다.
+ */
+export const explanationKey = (jobId: string) =>
+  ['runs', jobId, 'explanation'] as const
+
+export function useExplanationQuery(jobId: string, jobStatus: string | undefined) {
+  return useQuery({
+    queryKey: explanationKey(jobId),
+    queryFn: ({ signal }) => fetchExplanation(jobId, signal),
+    retry: 1,
+    refetchInterval: () => {
+      if (jobStatus === undefined) return DETAIL_INTERVAL_MS
+      return isTerminalStatus(jobStatus) ? false : DETAIL_INTERVAL_MS
+    },
   })
 }
 
