@@ -14,6 +14,7 @@ import { ResultsView } from '@/features/run-detail/components/ResultsView'
 import { RunFailureCard } from '@/features/run-detail/components/RunFailureCard'
 import { RunHeader } from '@/features/run-detail/components/RunHeader'
 import { RunLimitations } from '@/features/run-detail/components/RunLimitations'
+import { RunSynthesisPanel } from '@/features/run-detail/components/RunSynthesisPanel'
 import { StepDetailRail } from '@/features/run-detail/components/StepDetailRail'
 import {
   STEP_DETAIL_PANEL_ID,
@@ -203,6 +204,15 @@ export function RunDetailPage() {
       {explanation.data ? (
         <RunLimitations limitations={explanation.data.limitations} />
       ) : null}
+
+      {/*
+        AI 종합 설명. 탭 바깥, 결정론적 설명 바로 아래에 둔다 — 위의 사실들을
+        묶은 것이므로 그 사실들 다음에 읽히는 것이 맞다.
+
+        ⚠️ 이 컴포넌트만 사용자의 Claude 사용량을 소모한다. 버튼을 눌러야만
+        호출되며, 3초 polling과 무관하다(mutation이지 query가 아니다).
+      */}
+      <RunSynthesisPanel jobId={jobId} />
 
       <TabsRoot
         value={activeTab}

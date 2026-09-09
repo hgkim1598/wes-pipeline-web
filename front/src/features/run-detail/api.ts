@@ -495,3 +495,68 @@ export async function fetchExplanation(
     '실행 설명 응답이 예상한 형식과 다릅니다.',
   )
 }
+
+/*
+  AI 종합 설명 — POST /api/jobs/{id}/synthesis
+
+  ⚠️ 이 요청만 사용자의 Claude 구독 사용량을 소모한다.
+  버튼을 눌렀을 때만 호출한다. query로 만들지 않는다 — useQuery는 mount·
+  refetch·window focus로 스스로 실행되고, 그것이 곧 사용량 소모다.
+
+  실패는 대부분 200이다. backend가 `available: false`와 errorCategory를
+  돌려주고, 화면은 기존 deterministic 설명을 그대로 둔 채 메시지만 덧붙인다.
+  선택 기능 하나 때문에 실행 상세 전체가 오류 화면이 되면 안 된다.
+*/
+
+const SynthesisStatementSchema = z.object({
+  statement: z.string(),
+  /** 입력으로 준 evidenceId만 들어온다. backend가 이미 검증했다. */
+  evidenceRefs: z.array(z.string()),
+})
+
+export type SynthesisStatement = z.infer<typeof SynthesisStatementSchema>
+
+const RunSynthesisSchema = z.object({
+  summary: z.string(),
+  importantFindings: z.array(SynthesisStatementSchema),
+  limitations: z.array(SynthesisStatementSchema),
+  nextChecks: z.array(SynthesisStatementSchema),
+  uncertainties: z.array(SynthesisStatementSchema),
+})
+
+export type RunSynthesis = z.infer<typeof RunSynthesisSchema>
+
+const SynthesisProvenanceSchema = z.object({
+  provider: z.string(),
+  /** CLI가 보고한 model id. 여러 개일 수 있다. */
+  models: z.array(z.string()),
+  generatedAt: z.string(),
+  contextKind: z.string(),
+  runStatus: z.string(),
+  durationMs: z.number().nullable(),
+})
+
+export type SynthesisProvenance = z.infer<typeof SynthesisProvenanceSchema>
+
+export const SynthesisResultSchema = z.object({
+  available: z.boolean(),
+  synthesis: RunSynthesisSchema.nullable(),
+  provenance: SynthesisProvenanceSchema.nullable(),
+  /** 화면 분기는 이 값으로 한다. errorMessage 문자열로 분기하지 않는다. */
+  errorCategory: z.string().nullable(),
+  errorMessage: z.string().nullable(),
+})
+
+export type SynthesisResult = z.infer<typeof SynthesisResultSchema>
+
+export async function createSynthesis(
+  jobId: string,
+  signal?: AbortSignal,
+): Promise<SynthesisResult> {
+  const payload = await postJson(`${jobPath(jobId)}/synthesis`, null, { signal })
+  return parse(
+    SynthesisResultSchema,
+    payload,
+    'AI 설명 응답이 예상한 형식과 다릅니다.',
+  )
+}

@@ -74,6 +74,17 @@ FAILURE_KNOWLEDGE = KNOWLEDGE_DIR / "wes_failures.json"
 # misread. Not a glossary -- on-screen term help stays in the frontend.
 CONCEPT_KNOWLEDGE = KNOWLEDGE_DIR / "wes_concepts.json"
 
+# Model for AI synthesis, as a config value rather than a constant in the domain
+# layer -- swapping it must not touch a schema.
+#
+# Default `sonnet`, not the CLI default. The CLI default resolved to Opus on the
+# development machine, and this feature runs on a Claude subscription whose limit
+# is the real budget: a run summary is a summarisation task, and spending the
+# largest model on it drains the allowance that much faster. Set
+# WES_SYNTHESIS_MODEL to override (an alias like "opus" or a full model id), or
+# to empty to accept whatever the CLI is configured to use.
+SYNTHESIS_MODEL = _env("WES_SYNTHESIS_MODEL", "sonnet") or None
+
 # `bash` must be on PATH. On Windows this is Git Bash; on Linux the system bash.
 BASH_BIN = _env("WES_BASH", "bash")
 
