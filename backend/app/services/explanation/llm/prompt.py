@@ -77,6 +77,28 @@ YOU MAY ONLY USE THE SUPPLIED DATA.
 - If the data does not answer something a reader would ask, say so in
   `uncertainties` instead of filling the gap.
 
+DO NOT CLAIM A FIELD WAS SUPPLIED WHEN IT WAS NOT.
+Grounding entries carry only the buckets that exist for that code:
+`possibleCauses`, `scope`, `checks`, `actions`. A bucket that is absent was not
+provided. Do not write "possibleCauses에 따르면" or refer to possible causes,
+checks, actions or scope for a code whose grounding does not contain them.
+If a code has no grounding at all, say only what its title, meaning and the
+run's own message support.
+
+STATE MEASUREMENTS IN THE UNIT THE FIELD ACTUALLY USES.
+Coverage is measured at two different levels and they are not interchangeable.
+Read `concepts` when it is present and follow it. In particular a percentage of
+BASES is not a percentage of INTERVALS: a field naming bases counts bases, even
+when those bases are grouped by interval. If you are not certain which level a
+number is, describe it with the field's own wording rather than converting it
+into a different unit.
+
+A DIAGNOSTIC MARKED `knowledgeStatus: legacy` IS A RETIRED CODE.
+The pipeline no longer emits it, so the run was produced by an older version.
+Its recorded message may use wording a later version corrected. Report what the
+run recorded, and prefer the structured measurements in `coverage` and
+`concepts` over the wording of a legacy message where they disagree.
+
 YOU MUST NOT:
 - Judge whether coverage, depth or quality is good, sufficient, adequate,
   acceptable, poor or concerning. This project has established no pass/fail

@@ -19,7 +19,8 @@ import re
 
 import pytest
 
-from ..services.explanation import deterministic, run_context
+from ..services.explanation import deterministic, knowledge as knowledge_module
+from ..services.explanation import run_context
 from ..services.explanation.llm import contract, prompt, provider
 from ..services.explanation.llm import synthesis as llm_synthesis
 
@@ -762,3 +763,168 @@ def test_no_model_dump_spread_remains_in_the_payload_builder():
     assert "**explanation.coverage.model_dump()" not in source
     assert "**explanation.variantCalling.model_dump()" not in source
     assert re.search(r"\*\*_pick\(", source)
+
+
+# --- fixes from the first real full-run validation ---------------------------
+#
+# Each of these exists because the run wes-20260907-014650-fcb1c2 exposed it.
+# They are regressions, not hypotheticals.
+
+
+def test_the_timeout_is_configurable_and_above_a_real_full_run():
+    """120s killed a working call; the observed generation took 160.7s.
+
+    The bound is there to stop a wedged CLI, so it must sit well above a normal
+    generation rather than near it.
+    """
+    from .. import config as app_config
+
+    assert app_config.SYNTHESIS_TIMEOUT_SECONDS == 300
+    assert provider.DEFAULT_TIMEOUT_SECONDS == app_config.SYNTHESIS_TIMEOUT_SECONDS
+    # Comfortably above the one real measurement we have.
+    assert app_config.SYNTHESIS_TIMEOUT_SECONDS > 160.7
+
+    with open(provider.__file__, encoding="utf-8") as handle:
+        assert "= 120" not in handle.read()
+
+
+def test_the_timeout_can_be_overridden_by_environment(monkeypatch):
+    """Follows the existing int(_env(...)) convention, invalid values included."""
+    import importlib
+
+    from .. import config as app_config
+
+    monkeypatch.setenv("WES_SYNTHESIS_TIMEOUT_SECONDS", "45")
+    reloaded = importlib.reload(app_config)
+    try:
+        assert reloaded.SYNTHESIS_TIMEOUT_SECONDS == 45
+        # Same failure mode as WES_THREADS: a non-numeric value raises at import
+        # rather than silently falling back to a default nobody chose.
+        monkeypatch.setenv("WES_SYNTHESIS_TIMEOUT_SECONDS", "soon")
+        with pytest.raises(ValueError):
+            importlib.reload(app_config)
+    finally:
+        monkeypatch.undo()
+        importlib.reload(app_config)
+
+
+def test_a_legacy_diagnostic_carries_its_status_into_the_payload():
+    """UNCOVERED_TARGETS is retired and the real run still emits it.
+
+    Without this the model cannot tell a retired code from a current one, and
+    repeats a message that a later pipeline version corrected.
+    """
+    entry = contract._diagnostic_grounding("UNCOVERED_TARGETS")
+    assert entry is not None
+    assert entry["knowledgeStatus"] == "legacy"
+    # And an active one is labelled too, so the field is never ambiguous.
+    assert contract._diagnostic_grounding("NM_MD_REPAIRED")["knowledgeStatus"] == "active"
+
+
+def test_a_diagnostic_without_grounding_exposes_no_empty_buckets():
+    """The absent-bucket rule, enforced by shape rather than by wording.
+
+    The model claimed "possibleCauses에 따르면" for UNCOVERED_TARGETS, which has
+    no grounding at all. An empty list would have invited exactly that; the key
+    is simply not there.
+    """
+    legacy = knowledge_module.diagnostic("UNCOVERED_TARGETS")
+    assert legacy is not None and legacy.grounding is None
+
+    entry = contract._diagnostic_grounding("UNCOVERED_TARGETS")
+    for bucket in ("possibleCauses", "scope", "checks", "actions"):
+        assert bucket not in entry, f"{bucket} present for an ungrounded code"
+    # What it does have is enough to describe the event honestly.
+    assert entry["title"] and entry["meaning"]
+
+
+def test_the_prompt_forbids_claiming_an_absent_bucket():
+    text = prompt.CONSTRAINTS
+    assert "DO NOT CLAIM A FIELD WAS SUPPLIED WHEN IT WAS NOT." in text
+    assert "possibleCauses에 따르면" in text
+
+
+def test_the_prompt_states_the_measurement_unit_rule_and_legacy_rule():
+    text = prompt.CONSTRAINTS
+    assert "a percentage of\nBASES is not a percentage of INTERVALS" in text
+    assert "knowledgeStatus: legacy" in text
+
+
+def test_the_coverage_concept_is_supplied_when_coverage_is(client, make_job, run):
+    """Canonical knowledge reused, not a second explanation written into the prompt.
+
+    The model read basesInFullyUncoveredIntervalsPct = 7.2115 as a share of
+    intervals. The share of intervals was 19.26%. The concept that distinguishes
+    the two levels already existed in wes_concepts.json and simply was not sent.
+    """
+    job = make_job()
+    run(job).as_completed_full()
+    context = run_context.build_run_diagnostic_context(job)
+    explanation = deterministic.build_run_explanation(context)
+    payload, allowed = contract.build_payload(explanation)
+
+    assert "coverage" in payload
+    concepts = payload["concepts"]
+    assert "coverage-measurement-levels" in concepts
+    assert "concept:coverage-measurement-levels" in allowed
+
+    # The distinction itself must be readable in the prompt, not just the id.
+    blob = json.dumps(concepts["coverage-measurement-levels"], ensure_ascii=False)
+    assert "구간" in blob and "염기" in blob
+
+    # The other two concepts ride on their own sections.
+    assert "unfiltered-variant-output" in concepts
+    assert "intended-use-ruo" in concepts
+
+
+def test_concepts_are_omitted_when_their_section_is(client, make_job, run):
+    """A precheck run has no coverage, so a coverage concept explains nothing."""
+    job = make_job()
+    run(job).as_failing_precheck()
+    context = run_context.build_run_diagnostic_context(job)
+    explanation = deterministic.build_run_explanation(context)
+    payload, allowed = contract.build_payload(explanation)
+
+    assert "coverage" not in payload
+    assert "coverage-measurement-levels" not in payload.get("concepts", {})
+    assert "concept:coverage-measurement-levels" not in allowed
+
+
+def test_concept_sources_are_citable_and_resolve(client, make_job, run):
+    """A concept's citations must be usable, or the model cannot ground it."""
+    job = make_job()
+    run(job).as_completed_full()
+    context = run_context.build_run_diagnostic_context(job)
+    explanation = deterministic.build_run_explanation(context)
+    payload, allowed = contract.build_payload(explanation)
+
+    cited: set[str] = set()
+    for entry in payload["concepts"].values():
+        for bucket in ("possibleCauses", "scope", "checks", "actions"):
+            for claim in entry.get(bucket, []):
+                cited.update(claim["sourceIds"])
+    assert cited, "concepts carry no citations"
+
+    listed = {row["id"] for row in payload["sources"]}
+    for source_id in cited:
+        assert source_id in listed, f"{source_id} cited but not listed"
+        assert f"src:{source_id}" in allowed
+    # No duplicate source rows after the concept pass appended to the list.
+    ids = [row["id"] for row in payload["sources"]]
+    assert len(ids) == len(set(ids))
+
+
+def test_adding_concepts_did_not_reopen_the_privacy_hole(client, make_job, run):
+    """The allowlist fix must survive this change."""
+    job = make_job()
+    run(job).as_completed_full()
+    context = run_context.build_run_diagnostic_context(job)
+    explanation = deterministic.build_run_explanation(context)
+    payload, _allowed = contract.build_payload(explanation)
+    blob = json.dumps(payload, ensure_ascii=False)
+
+    assert explanation.variantCalling.sample not in blob
+    for field in ("sample", "rawVcfRelative", "gvcfRelative"):
+        assert field not in payload["variantCalling"]
+    for probe in (r"/home/", r"C:\Users", "logTail", "run_dir", "jobId", "sampleId"):
+        assert probe not in blob

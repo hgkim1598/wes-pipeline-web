@@ -92,7 +92,8 @@ SYNTHESIS_JSON_SCHEMA: dict[str, Any] = {
             "description": (
                 "What a reader most needs to know, most important first. Only "
                 "things present in the supplied diagnostics, failures or "
-                "checkSummary."
+                "checkSummary. State every measurement in the unit its field "
+                "uses; a percentage of bases is not a percentage of intervals."
             ),
             "items": {"$ref": "#/$defs/statement"},
         },
@@ -242,6 +243,12 @@ def _diagnostic_grounding(code: str) -> dict[str, Any] | None:
         "code": entry.code,
         "severity": entry.severity,
         "resolution": entry.resolution,
+        # active | legacy. Sent because a real run surfaced it: the full run
+        # wes-20260907-014650-fcb1c2 was produced by an older pipeline and
+        # carries UNCOVERED_TARGETS, which is retired. Without this the model
+        # treats a retired code exactly like a current one, and repeats its
+        # message -- which in that case is the wording a later fix corrected.
+        "knowledgeStatus": entry.status,
         "title": entry.title,
         "meaning": entry.meaning,
     }
@@ -288,6 +295,67 @@ def _failure_grounding(code: str) -> dict[str, Any] | None:
     grounding = entry.grounding
     if grounding is None:
         return out
+    if grounding.possibleCauses:
+        out["possibleCauses"] = [
+            {"statement": c.statement, "sourceIds": c.sourceIds}
+            for c in grounding.possibleCauses
+        ]
+    if grounding.scope:
+        out["scope"] = [
+            {"statement": c.statement, "sourceIds": c.sourceIds}
+            for c in grounding.scope
+        ]
+    if grounding.checks:
+        out["checks"] = [
+            {
+                "statement": c.statement,
+                "look_at": f"{c.locator.kind}:{c.locator.id}",
+                "sourceIds": c.sourceIds,
+            }
+            for c in grounding.checks
+        ]
+    if grounding.actions:
+        out["actions"] = [
+            {"statement": a.statement, "effect": a.effect, "sourceIds": a.sourceIds}
+            for a in grounding.actions
+        ]
+    return out
+
+
+# Which canonical concept explains which payload section.
+#
+# Reused, not rewritten: these live in config/knowledge/wes_concepts.json and
+# already say what base level and interval level mean. Writing a second
+# explanation into the prompt would be the duplication the shared knowledge
+# source exists to prevent.
+#
+# Sent only when the section they explain is present, for the same reason only
+# raised diagnostics get grounding: a concept about coverage has nothing to
+# explain in a run that produced none.
+#
+# Prompted by a real misreading. Given basesInFullyUncoveredIntervalsPct =
+# 7.2115, the model wrote "7.2115% of target INTERVALS", but the figure is the
+# share of target BASES lying inside fully-uncovered intervals -- the interval
+# share is 54692/283942 = 19.26%. The field name alone did not carry the unit.
+_CONCEPT_FOR_SECTION = {
+    "coverage": "coverage-measurement-levels",
+    "variantCalling": "unfiltered-variant-output",
+    "intendedUse": "intended-use-ruo",
+}
+
+
+def _concept_entry(concept_id: str) -> dict[str, Any] | None:
+    """One canonical concept, flattened. None when it is not registered."""
+    entry = knowledge.concept(concept_id)
+    if entry is None:
+        return None
+    out: dict[str, Any] = {"id": entry.id, "label": entry.label, "summary": entry.summary}
+    grounding = entry.grounding
+    if grounding is None:
+        return out
+    # Only non-empty buckets are added, so an absent bucket is absent from the
+    # prompt rather than present and empty. See the prompt's rule about not
+    # claiming a bucket was supplied.
     if grounding.possibleCauses:
         out["possibleCauses"] = [
             {"statement": c.statement, "sourceIds": c.sourceIds}
@@ -462,6 +530,44 @@ def build_payload(explanation: RunExplanation) -> tuple[dict[str, Any], set[str]
             "evidenceId": ref,
             "statement": explanation.intendedUse,
         }
+
+    # Canonical concepts for whichever sections ended up present. Added last so
+    # the membership test sees the payload as finally assembled -- coverage and
+    # variantCalling are conditional above.
+    concepts: dict[str, Any] = {}
+    for section, concept_id in _CONCEPT_FOR_SECTION.items():
+        if section not in payload:
+            continue
+        entry = _concept_entry(concept_id)
+        if entry is None:
+            continue
+        ref = f"concept:{concept_id}"
+        allowed.add(ref)
+        entry["evidenceId"] = ref
+        concepts[concept_id] = entry
+        for bucket in ("possibleCauses", "scope", "checks", "actions"):
+            for claim in entry.get(bucket, []):
+                for source_id in claim.get("sourceIds", []):
+                    source = knowledge.source(source_id)
+                    if source is None:
+                        continue
+                    source_ref = f"src:{source_id}"
+                    if source_ref in allowed:
+                        continue
+                    allowed.add(source_ref)
+                    sources.append(
+                        {
+                            "evidenceId": source_ref,
+                            "id": source.id,
+                            "type": source.type,
+                            "title": source.title,
+                        }
+                    )
+    if concepts:
+        payload["concepts"] = concepts
+        # `sources` was already placed in the payload by reference, but re-sort
+        # so the added entries are not simply appended out of order.
+        payload["sources"] = sorted(sources, key=lambda row: row["id"])
 
     # Deliberately absent: jobId, runId, sampleId, the biological sample name,
     # artifact paths, absolute paths, log tails and artifact contents. The model

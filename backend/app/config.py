@@ -85,6 +85,20 @@ CONCEPT_KNOWLEDGE = KNOWLEDGE_DIR / "wes_concepts.json"
 # to empty to accept whatever the CLI is configured to use.
 SYNTHESIS_MODEL = _env("WES_SYNTHESIS_MODEL", "sonnet") or None
 
+# How long to wait for the synthesis subprocess, in seconds.
+#
+# NOT a WES quality threshold. This project deliberately establishes no
+# pass/fail thresholds for coverage or depth; this is an operational limit on
+# one child process and has nothing to do with judging a run.
+#
+# 300, not the original 120: a real full run (wes-20260907-014650-fcb1c2, three
+# diagnostics plus coverage and variant sections) took 160.7 seconds and the
+# 120s limit killed a call that was working. The bound exists to stop a wedged
+# CLI holding a worker thread, so it should sit well above a normal generation
+# rather than close to it. There is no retry, by design -- a retry would spend
+# the subscription allowance twice for one request.
+SYNTHESIS_TIMEOUT_SECONDS = int(_env("WES_SYNTHESIS_TIMEOUT_SECONDS", "300"))
+
 # `bash` must be on PATH. On Windows this is Git Bash; on Linux the system bash.
 BASH_BIN = _env("WES_BASH", "bash")
 

@@ -61,11 +61,17 @@ import subprocess
 from dataclasses import dataclass, field
 from typing import Any
 
+from .... import config
+
 log = logging.getLogger(__name__)
 
 # Long enough for a synthesis of a large run, short enough that a wedged CLI
 # does not hold a worker thread forever.
-DEFAULT_TIMEOUT_SECONDS = 120
+#
+# Read from config rather than fixed here: the first real full-run validation
+# took 160.7s and the previous hard-coded 120 killed it. See
+# config.SYNTHESIS_TIMEOUT_SECONDS for why the number is what it is.
+DEFAULT_TIMEOUT_SECONDS = config.SYNTHESIS_TIMEOUT_SECONDS
 
 # Environment names that would route the CLI to a metered API path. Presence is
 # checked; values are never read, logged, or included in an error.
