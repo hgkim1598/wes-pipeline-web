@@ -1,0 +1,101 @@
+{
+  "checkSummary": {
+    "counts": {
+      "FAIL": 2,
+      "PASS": 1,
+      "WARN": 1
+    },
+    "notable": [
+      {
+        "detail": "missing from PATH: bwa samtools gatk bcftools tabix bgzip mosdepth fastqc. 실행 전에 직접 설치하세요. 준비 방법은 docs/MAIN_SH_COMPLETE_GUIDE.md의 \"6. 실행 방법과 CLI option\"(실행 전 준비물)과 \"29. Linux smoke test 절차\" 장에 있습니다. 이 파이프라인은 도구를 스스로 설치하지 않습니다.",
+        "name": "required_tools",
+        "status": "FAIL"
+      },
+      {
+        "detail": "MultiQC is not installed",
+        "name": "MULTIQC_MISSING",
+        "status": "WARN"
+      },
+      {
+        "detail": "validation failed; see 00_input_validation/resource_validation.txt",
+        "name": "resource_bundle",
+        "status": "FAIL"
+      }
+    ],
+    "total": 4
+  },
+  "contextKind": "precheck",
+  "coverage": null,
+  "diagnostics": [
+    {
+      "actualStepId": null,
+      "actualStepLabel": null,
+      "canContinue": true,
+      "code": "MULTIQC_MISSING",
+      "evidence": {
+        "code": "MULTIQC_MISSING",
+        "section": "warnings",
+        "source": "result_reader",
+        "stepId": null
+      },
+      "impact": "Per-lane FastQC still runs; only the aggregated report is unavailable",
+      "knowledgeAvailable": true,
+      "knowledgeStatus": "active",
+      "meaning": "MultiQC는 여러 QC 결과를 하나로 모아 보여주는 도구입니다. 개별 FastQC 리포트는 정상적으로 생성되었습니다.",
+      "message": "MultiQC is not installed",
+      "resolution": null,
+      "severity": "info",
+      "title": "MultiQC가 설치되어 있지 않습니다"
+    }
+  ],
+  "failures": [
+    {
+      "actualStepId": null,
+      "actualStepLabel": null,
+      "code": "required_tools",
+      "evidence": {
+        "code": "required_tools",
+        "section": "failures",
+        "source": null,
+        "stepId": null
+      },
+      "message": "missing from PATH: bwa samtools gatk bcftools tabix bgzip mosdepth fastqc. 실행 전에 직접 설치하세요. 준비 방법은 docs/MAIN_SH_COMPLETE_GUIDE.md의 \"6. 실행 방법과 CLI option\"(실행 전 준비물)과 \"29. Linux smoke test 절차\" 장에 있습니다. 이 파이프라인은 도구를 스스로 설치하지 않습니다."
+    },
+    {
+      "actualStepId": null,
+      "actualStepLabel": null,
+      "code": "resource_bundle",
+      "evidence": {
+        "code": "resource_bundle",
+        "section": "failures",
+        "source": null,
+        "stepId": null
+      },
+      "message": "validation failed; see 00_input_validation/resource_validation.txt"
+    }
+  ],
+  "identity": {
+    "captureKitId": null,
+    "jobId": "eval-job",
+    "profileId": "germline-illumina-wes-breast",
+    "runId": "eval-run",
+    "runMode": "check_only",
+    "sampleId": "EVAL_SAMPLE"
+  },
+  "intendedUse": null,
+  "limitations": [
+    {
+      "basis": "outcome.analysisOutputProduced",
+      "code": "NO_ANALYSIS_OUTPUT",
+      "statement": "이 실행은 분석 산출물(BAM·VCF)을 만들지 않았습니다."
+    }
+  ],
+  "resultsAvailable": true,
+  "resultsUnavailableReason": null,
+  "sources": {
+    "checks": "result_reader",
+    "warnings": "result_reader"
+  },
+  "status": "failed",
+  "variantCalling": null
+}

@@ -1,0 +1,243 @@
+{
+  "case": "precheck_failed",
+  "recordedAt": "2026-09-10T09:41:51+00:00",
+  "provider": "claude-code-cli",
+  "models": [
+    "claude-haiku-4-5-20251001",
+    "claude-sonnet-5"
+  ],
+  "durationMs": 19229,
+  "configuredModel": "sonnet",
+  "promptHash": "2b1c127248959ed7",
+  "knowledgeHash": "07765c4e1462b229",
+  "schemaHash": "07ba45eb8da7f48f",
+  "allowedRefCount": 11,
+  "evaluation": {
+    "case": "precheck_failed",
+    "deterministicPassed": true,
+    "results": [
+      {
+        "name": "payload-privacy",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "검체 식별자가 payload에 없음"
+      },
+      {
+        "name": "runtime-guardrails",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "발동 없음"
+      },
+      {
+        "name": "numbers-preserved",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "6개 사실 숫자와 대조"
+      },
+      {
+        "name": "cites-required-tools-failure",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "fail:required_tools 인용됨"
+      },
+      {
+        "name": "cites-resource-bundle-failure",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "fail:resource_bundle 인용됨"
+      },
+      {
+        "name": "cites-no-analysis-output",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "lim:NO_ANALYSIS_OUTPUT 인용됨"
+      },
+      {
+        "name": "no-user-blame",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "필수 도구를 찾지 못한 것을 사용자의 경로 실수로 단정하지 않았는가? (설치 안 됨 / PATH 미등록 중 어느 쪽인지 이 데이터로 구분 불가)"
+      },
+      {
+        "name": "multiqc-not-escalated",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "MULTIQC_MISSING(info)을 실패 원인이나 차단 요인으로 격상하지 않았는가?"
+      },
+      {
+        "name": "no-analysis-claimed",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "core 분석이 수행된 것처럼 표현하지 않았는가? 사전 점검에서 멈췄음이 분명한가?"
+      },
+      {
+        "name": "resource-bundle-scope",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "resource_bundle 실패를 구조적 호환성 검사 범위로 설명했는가? 구체적 원인을 단정하지 않았는가?"
+      },
+      {
+        "name": "beginner-readability",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "초보자가 다음에 무엇을 해야 하는지 알 수 있는가?"
+      },
+      {
+        "name": "uncertainty",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "모르는 것을 모른다고 했는가?"
+      }
+    ]
+  },
+  "humanReview": {
+    "reviewedBy": "hgkim",
+    "verdict": "pass",
+    "notes": "6/6 통과. Case A보다 문장이 눈에 띄게 평이하다 — field 이름 노출이 거의 없다.",
+    "items": [
+      {
+        "name": "no-user-blame",
+        "question": "필수 도구를 찾지 못한 것을 사용자의 경로 실수로 단정하지 않았는가? (설치 안 됨 / PATH 미등록 중 어느 쪽인지 이 데이터로 구분 불가)",
+        "verdict": "pass",
+        "comment": "'설치 안 됨 / PATH 미등록 중 어느 쪽인지 구분할 수 없다'고 명시."
+      },
+      {
+        "name": "multiqc-not-escalated",
+        "question": "MULTIQC_MISSING(info)을 실패 원인이나 차단 요인으로 격상하지 않았는가?",
+        "verdict": "pass",
+        "comment": "info 수준으로 한정하고 분석 결과에 영향 없음을 명시."
+      },
+      {
+        "name": "no-analysis-claimed",
+        "question": "core 분석이 수행된 것처럼 표현하지 않았는가? 사전 점검에서 멈췄음이 분명한가?",
+        "verdict": "pass",
+        "comment": "'분석 단계 이전의 점검 단계에서 멈췄다'고 서술."
+      },
+      {
+        "name": "resource-bundle-scope",
+        "question": "resource_bundle 실패를 구조적 호환성 검사 범위로 설명했는가? 구체적 원인을 단정하지 않았는가?",
+        "verdict": "pass",
+        "comment": "구조적 호환성만 확인하며 assembly release 동일성은 증명하지 않는다고 서술."
+      },
+      {
+        "name": "beginner-readability",
+        "question": "초보자가 다음에 무엇을 해야 하는지 알 수 있는가?",
+        "verdict": "pass",
+        "comment": "PATH를 '(실행 경로)'로 풀어 쓰는 등 용어를 설명."
+      },
+      {
+        "name": "uncertainty",
+        "question": "모르는 것을 모른다고 했는가?",
+        "verdict": "pass",
+        "comment": "불일치 항목·설치 여부 두 공백을 명시."
+      }
+    ],
+    "reviewedAt": "2026-09-10T09:44:45+00:00"
+  },
+  "available": true,
+  "errorCategory": null,
+  "output": {
+    "summary": "이 실행은 실제 분석(정렬·변이 검출)을 시작하기 전 단계인 사전 점검(precheck)이었고, 점검 도중 필요한 조건이 갖춰지지 않아 실패로 끝났습니다. 그 결과 이번 실행은 BAM이나 VCF 같은 분석 산출물을 만들지 않았습니다. 실패 원인은 두 가지로, 하나는 분석에 필요한 프로그램들이 서버에서 발견되지 않은 것이고, 다른 하나는 참조 유전체와 함께 쓰는 파일들의 구성이 서로 맞는지 확인하는 검사를 통과하지 못한 것입니다. 이 외에 MultiQC 미설치는 정보성 항목으로, 개별 FastQC 결과나 분석 결과에는 영향이 없습니다.",
+    "importantFindings": [
+      {
+        "statement": "이번 점검에서 검사 4건 중 2건은 실패(FAIL), 1건은 경고(WARN), 1건은 통과(PASS)로 기록되었습니다.",
+        "evidenceRefs": [
+          "run:checkSummary"
+        ]
+      },
+      {
+        "statement": "분석에 필요한 프로그램 중 bwa, samtools, gatk, bcftools, tabix, bgzip, mosdepth, fastqc가 PATH(실행 경로)에서 발견되지 않아 검사가 실패했습니다.",
+        "evidenceRefs": [
+          "fail:required_tools",
+          "run:checkSummary"
+        ]
+      },
+      {
+        "statement": "이 파이프라인은 도구를 스스로 설치하지 않으며, 실행 전에 사용자가 직접 설치해야 합니다.",
+        "evidenceRefs": [
+          "fail:required_tools"
+        ]
+      },
+      {
+        "statement": "참조 유전체와 함께 쓰는 색인, target 영역, known-sites 등의 파일 구성이 서로 맞는지 확인하는 검사도 실패했으며, 자세한 내용은 00_input_validation/resource_validation.txt 보고서에 [ERROR] 줄로 기록됩니다.",
+        "evidenceRefs": [
+          "fail:resource_bundle"
+        ]
+      },
+      {
+        "statement": "MultiQC가 설치되어 있지 않다는 항목은 정보(info) 수준으로, 개별 FastQC 리포트는 정상적으로 생성되며 통합 리포트만 만들어지지 않고 변이 검출을 포함한 분석 결과에는 영향이 없습니다.",
+        "evidenceRefs": [
+          "dx:MULTIQC_MISSING"
+        ]
+      },
+      {
+        "statement": "이번 실행 자체의 상태는 failed이며, 실행 모드는 check_only(점검만 수행)였습니다.",
+        "evidenceRefs": [
+          "run:status"
+        ]
+      },
+      {
+        "statement": "이 실행은 BAM·VCF 같은 분석 산출물을 만들지 않았습니다.",
+        "evidenceRefs": [
+          "lim:NO_ANALYSIS_OUTPUT"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "statement": "이 실행은 분석 단계 이전의 점검 단계에서 멈췄기 때문에, 실제 정렬이나 변이 검출 결과에 대해서는 아무것도 알려주지 않습니다.",
+        "evidenceRefs": [
+          "lim:NO_ANALYSIS_OUTPUT",
+          "run:status"
+        ]
+      },
+      {
+        "statement": "참조 데이터 구성 검사는 구조적 호환성만 확인하며, 모든 파일이 같은 assembly release에서 나왔음을 증명하지는 않습니다.",
+        "evidenceRefs": [
+          "fail:resource_bundle"
+        ]
+      },
+      {
+        "statement": "필수 도구 검사는 프로그램이 PATH에 존재하는지만 확인하며, 버전이 적절한지나 참조 데이터와 맞는지는 확인하지 않습니다.",
+        "evidenceRefs": [
+          "fail:required_tools"
+        ]
+      }
+    ],
+    "nextChecks": [
+      {
+        "statement": "검증표의 필수 도구 검사 행에서 발견되지 않은 도구 이름을 확인할 수 있습니다.",
+        "evidenceRefs": [
+          "fail:required_tools"
+        ]
+      },
+      {
+        "statement": "00_input_validation/resource_validation.txt 보고서의 [ERROR] 줄에서 어떤 파일의 무엇이 맞지 않았는지 확인할 수 있습니다.",
+        "evidenceRefs": [
+          "fail:resource_bundle"
+        ]
+      },
+      {
+        "statement": "도구 확인 단계의 MultiQC 존재 검사 행에서 설치 여부를 확인할 수 있습니다.",
+        "evidenceRefs": [
+          "dx:MULTIQC_MISSING"
+        ]
+      }
+    ],
+    "uncertainties": [
+      {
+        "statement": "이 데이터만으로는 참조 데이터 구성 중 정확히 어떤 파일이나 어떤 항목(contig 이름, 길이, 좌표 범위 중 무엇)이 맞지 않았는지 특정할 수 없습니다.",
+        "evidenceRefs": [
+          "fail:resource_bundle"
+        ]
+      },
+      {
+        "statement": "필수 도구들이 서버에 아예 설치되어 있지 않은 것인지, 설치는 되어 있지만 PATH에 등록되지 않은 것인지는 이 데이터로 구분할 수 없습니다.",
+        "evidenceRefs": [
+          "fail:required_tools"
+        ]
+      }
+    ]
+  },
+  "rescoredAt": "2026-09-10T09:43:45+00:00"
+}

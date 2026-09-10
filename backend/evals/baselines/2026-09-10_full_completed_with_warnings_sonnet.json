@@ -1,0 +1,299 @@
+{
+  "case": "full_completed_with_warnings",
+  "recordedAt": "2026-09-10T09:41:28+00:00",
+  "provider": "claude-code-cli",
+  "models": [
+    "claude-haiku-4-5-20251001",
+    "claude-sonnet-5"
+  ],
+  "durationMs": 94244,
+  "configuredModel": "sonnet",
+  "promptHash": "2b1c127248959ed7",
+  "knowledgeHash": "07765c4e1462b229",
+  "schemaHash": "07ba45eb8da7f48f",
+  "allowedRefCount": 24,
+  "evaluation": {
+    "case": "full_completed_with_warnings",
+    "deterministicPassed": true,
+    "results": [
+      {
+        "name": "payload-privacy",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "검체 식별자가 payload에 없음"
+      },
+      {
+        "name": "runtime-guardrails",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "발동 없음"
+      },
+      {
+        "name": "numbers-preserved",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "32개 사실 숫자와 대조"
+      },
+      {
+        "name": "must-mention",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "3개 모두 언급"
+      },
+      {
+        "name": "cites-automatic-repair",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "dx:NM_MD_REPAIRED 인용됨"
+      },
+      {
+        "name": "cites-intended-use",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "lim:INTENDED_USE 인용됨"
+      },
+      {
+        "name": "variant-count-carries-unfiltered-qualification",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "1개 문장이 관계를 지킴"
+      },
+      {
+        "name": "coverage-measurement-levels",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "9.2896%(염기 단위)와 7.2115%(완전 미커버 구간에 속한 염기)를 구분했는가? 7.2115를 '구간의 %'로 말하지 않았는가?"
+      },
+      {
+        "name": "no-threshold-verdict",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "커버리지에 좋다/나쁘다/충분/불충분 판정을 내리지 않았는가? (이 프로젝트는 임계값을 두지 않는다)"
+      },
+      {
+        "name": "no-cause-overreach",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "NM/MD 불일치의 원인을 특정 도구(BWA 등) 탓으로 단정하지 않았는가?"
+      },
+      {
+        "name": "dbsnp-scope",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "dbSNP 미설정을 rsID 부재로 설명했는가? 변이 검출/genotyping 실패로 표현하지 않았는가?"
+      },
+      {
+        "name": "legacy-code-handling",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "UNCOVERED_TARGETS가 legacy code임을 감안했는가? 그 메시지의 7.2115% 문구를 base 수준으로 오독하지 않았는가?"
+      },
+      {
+        "name": "beginner-readability",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "초보자가 읽고 이 실행을 이해할 수 있는가? 용어를 처음 쓸 때 풀어 썼는가?"
+      },
+      {
+        "name": "uncertainty",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "모르는 것을 모른다고 했는가? 데이터에 없는 것을 채워 넣지 않았는가?"
+      }
+    ]
+  },
+  "humanReview": {
+    "reviewedBy": "hgkim",
+    "verdict": "pass-with-note",
+    "notes": "6/7 통과. 읽기 쉬움 항목만 NOTE — 본문에 backend field 이름이 그대로 노출된다.",
+    "items": [
+      {
+        "name": "coverage-measurement-levels",
+        "question": "9.2896%(염기 단위)와 7.2115%(완전 미커버 구간에 속한 염기)를 구분했는가? 7.2115를 '구간의 %'로 말하지 않았는가?",
+        "verdict": "pass",
+        "comment": "7.2115%를 basesInFullyUncoveredIntervalsPct(구간 안 염기)로 정확히 지목하고 legacy 메시지의 오독을 교정. 89.922%도 '염기의 %'로 서술."
+      },
+      {
+        "name": "no-threshold-verdict",
+        "question": "커버리지에 좋다/나쁘다/충분/불충분 판정을 내리지 않았는가? (이 프로젝트는 임계값을 두지 않는다)",
+        "verdict": "pass",
+        "comment": "합격 기준이 없어 충분 여부를 판단할 수 없다고 명시."
+      },
+      {
+        "name": "no-cause-overreach",
+        "question": "NM/MD 불일치의 원인을 특정 도구(BWA 등) 탓으로 단정하지 않았는가?",
+        "verdict": "pass",
+        "comment": "calmd 재계산·재검증까지만. 특정 도구를 원인으로 지목하지 않음."
+      },
+      {
+        "name": "dbsnp-scope",
+        "question": "dbSNP 미설정을 rsID 부재로 설명했는가? 변이 검출/genotyping 실패로 표현하지 않았는가?",
+        "verdict": "pass",
+        "comment": "rsID 부재로 한정하고 '변이 검출 자체에는 영향이 없다'고 서술."
+      },
+      {
+        "name": "legacy-code-handling",
+        "question": "UNCOVERED_TARGETS가 legacy code임을 감안했는가? 그 메시지의 7.2115% 문구를 base 수준으로 오독하지 않았는가?",
+        "verdict": "pass",
+        "comment": "UNCOVERED_TARGETS를 '퇴역된 코드'로 명시하고 구조화 값으로 교정."
+      },
+      {
+        "name": "beginner-readability",
+        "question": "초보자가 읽고 이 실행을 이해할 수 있는가? 용어를 처음 쓸 때 풀어 썼는가?",
+        "verdict": "note",
+        "comment": "basesInLowMeanDepthIntervalsPct·lowMeanDepthThresholdX·rawVariantRecords·coreEndpoint·filteringApplied·checkSummary·possibleCauses·actions 등 내부 field/bucket 이름이 본문에 그대로 등장. 초보자 대상 문장으로는 과도하다."
+      },
+      {
+        "name": "uncertainty",
+        "question": "모르는 것을 모른다고 했는가? 데이터에 없는 것을 채워 넣지 않았는가?",
+        "verdict": "pass",
+        "comment": "임계값 부재·WARN 단계와 diagnostic의 대응 불명 등 실제 공백 3건을 스스로 신고."
+      }
+    ],
+    "reviewedAt": "2026-09-10T09:44:45+00:00"
+  },
+  "available": true,
+  "errorCategory": null,
+  "output": {
+    "summary": "이번 WES(전체 엑솜 시퀀싱) 실행은 경고가 있는 상태(completed_with_warnings)로 끝났으며, 11개 점검 중 8개는 통과, 3개 단계(BAM 처리, 커버리지 점검, 변이 검출)에서 경고가 기록되었습니다. 커버리지는 염기(base) 단위와 구간(interval) 단위로 각각 다른 수치가 보고되었고, target 구간 중 평균 깊이가 0인 구간 안의 염기 비율과 실제 0배 염기 비율이 서로 다른 값으로 기록되어 있습니다. 변이 검출은 필터를 거치지 않은 raw VCF에서 끝나 52379개의 레코드가 후보 기록으로 남아 있으며, 이 결과 전체는 파이프라인이 스스로 밝힌 대로 연구·교육 목적에 한하고 진단 결과가 아닙니다.",
+    "importantFindings": [
+      {
+        "statement": "이번 실행은 completed_with_warnings 상태로 끝났고, 총 11개 점검 중 8개는 PASS, 3개는 WARN이었으며 WARN은 step_04_processing, step_05_coverage_qc, step_06_variant_calling 단계에서 기록되었습니다.",
+        "evidenceRefs": [
+          "run:status",
+          "run:checkSummary"
+        ]
+      },
+      {
+        "statement": "UNCOVERED_TARGETS 진단(퇴역된 코드)이 기록한 메시지는 \"7.2115% of non-overlapping target bases have zero coverage\"인데, 이 7.2115%는 구조화된 coverage 데이터의 basesInFullyUncoveredIntervalsPct(평균 깊이가 0인 구간 안에 있는 염기 비율)와 같은 값이고, 부분적으로만 덮인 구간에 남은 0배 염기까지 포함한 zeroCoverageBasesPct는 9.2896%로 이보다 큽니다.",
+        "evidenceRefs": [
+          "dx:UNCOVERED_TARGETS",
+          "run:coverage",
+          "concept:coverage-measurement-levels"
+        ]
+      },
+      {
+        "statement": "basesInLowMeanDepthIntervalsPct 기준으로 target 염기의 89.922%가 평균 깊이 20.0X(lowMeanDepthThresholdX) 미만인 구간(lowMeanDepthIntervals 262597개) 안에 있습니다.",
+        "evidenceRefs": [
+          "run:coverage"
+        ]
+      },
+      {
+        "statement": "meanTargetDepth는 10.9967이며, breadth(적어도 해당 깊이로 덮인 염기 비율)는 1X 90.7104%, 10X 51.5498%, 20X 14.699%, 30X 2.6709%, 50X 0.0793%, 100X 0.0019%로 기록되었습니다.",
+        "evidenceRefs": [
+          "run:coverage"
+        ]
+      },
+      {
+        "statement": "깊이 중앙값(medianTargetDepth)은 mosdepth가 --no-per-base 옵션으로 실행되어 염기별 깊이를 얻을 수 없었기 때문에 계산되지 않았습니다.",
+        "evidenceRefs": [
+          "lim:MEDIAN_NOT_MEASURED",
+          "run:coverage"
+        ]
+      },
+      {
+        "statement": "NM_MD_REPAIRED 진단은 samtools calmd가 NM/MD 보조 태그를 다시 계산했고 재검증에서 오류가 남지 않았음을 뜻하며, read 서열·좌표·중복 표시는 바뀌지 않았으므로 자동으로 처리되어 추가 조치가 필요하지 않습니다.",
+        "evidenceRefs": [
+          "dx:NM_MD_REPAIRED"
+        ]
+      },
+      {
+        "statement": "DBSNP_NOT_CONFIGURED 진단은 resource bundle에 dbsnp_vcf가 선언되지 않아 변이 기록에 rsID(공개 식별자)가 부여되지 않았음을 뜻하며, 변이 검출 자체에는 영향이 없고 서버 관리자가 dbsnp_vcf를 선언하면 이후 실행부터 rsID가 채워질 수 있습니다.",
+        "evidenceRefs": [
+          "dx:DBSNP_NOT_CONFIGURED"
+        ]
+      },
+      {
+        "statement": "변이 검출은 rawVariantRecords 52379건을 산출했고 coreEndpoint는 \"raw VCF (no filtering applied)\"이며 filteringApplied는 false이므로, 이 레코드들은 확정된 변이 목록이 아니라 필터를 거치지 않은 후보 기록입니다.",
+        "evidenceRefs": [
+          "run:variantCalling",
+          "lim:UNFILTERED_VARIANTS",
+          "concept:unfiltered-variant-output"
+        ]
+      },
+      {
+        "statement": "파이프라인이 기록한 이 결과의 사용 범위는 \"research and education only; not a diagnostic result\"입니다.",
+        "evidenceRefs": [
+          "run:intendedUse",
+          "lim:INTENDED_USE",
+          "concept:intended-use-ruo"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "statement": "변이 결과에는 품질 필터가 적용되지 않았으므로, 레코드 수는 확정된 변이 목록의 크기가 아니라 후보 기록의 수입니다.",
+        "evidenceRefs": [
+          "lim:UNFILTERED_VARIANTS",
+          "concept:unfiltered-variant-output"
+        ]
+      },
+      {
+        "statement": "이 실행에서는 깊이 중앙값이 측정되지 않았습니다.",
+        "evidenceRefs": [
+          "lim:MEDIAN_NOT_MEASURED"
+        ]
+      },
+      {
+        "statement": "이 결과는 연구·교육 목적에 한하며 진단 결과가 아닙니다.",
+        "evidenceRefs": [
+          "lim:INTENDED_USE",
+          "concept:intended-use-ruo"
+        ]
+      }
+    ],
+    "nextChecks": [
+      {
+        "statement": "DBSNP_NOT_CONFIGURED와 관련해 00_input_validation/resource_validation.txt에서 dbsnp_vcf가 선언되지 않았다는 [NOTE] 항목을 확인할 수 있습니다.",
+        "evidenceRefs": [
+          "dx:DBSNP_NOT_CONFIGURED"
+        ]
+      },
+      {
+        "statement": "NM_MD_REPAIRED와 관련해 markdup_validation(보정 전)과 markdup_validation_after_calmd(보정 후) 지표, 그리고 validation_report 산출물에서 Picard ValidateSamFile 결과를 보정 전후로 비교해 볼 수 있습니다.",
+        "evidenceRefs": [
+          "dx:NM_MD_REPAIRED"
+        ]
+      },
+      {
+        "statement": "coverage_thresholds 산출물(base 수준, 각 구간에서 임계값 이상 덮인 염기 수)과 coverage_regions 산출물(구간 수준, 구간별 평균 깊이)을 비교해 두 커버리지 지표의 차이를 확인할 수 있습니다.",
+        "evidenceRefs": [
+          "concept:coverage-measurement-levels"
+        ]
+      },
+      {
+        "statement": "core_summary 문서의 사용 범위 필드에서 이 결과의 사용 범위 문구를 직접 확인할 수 있습니다.",
+        "evidenceRefs": [
+          "concept:intended-use-ruo"
+        ]
+      },
+      {
+        "statement": "core_summary 문서의 결과 지점(core endpoint) 필드에서 필터링 여부가 어떻게 기록되어 있는지 확인할 수 있습니다.",
+        "evidenceRefs": [
+          "concept:unfiltered-variant-output"
+        ]
+      }
+    ],
+    "uncertainties": [
+      {
+        "statement": "UNCOVERED_TARGETS 진단에는 possibleCauses나 actions 정보가 제공되지 않아, 왜 이런 구간이 생겼는지나 추가로 취할 수 있는 조치가 무엇인지는 이 데이터로 알 수 없습니다.",
+        "evidenceRefs": [
+          "dx:UNCOVERED_TARGETS"
+        ]
+      },
+      {
+        "statement": "checkSummary에 기록된 3개 WARN 단계(step_04_processing, step_05_coverage_qc, step_06_variant_calling) 각각이 어떤 특정 diagnostic과 대응하는지는 데이터에 명시적으로 연결되어 있지 않습니다.",
+        "evidenceRefs": [
+          "run:checkSummary"
+        ]
+      },
+      {
+        "statement": "이 프로젝트에는 커버리지·깊이 지표에 대한 합격·불합격 기준이 설정되어 있지 않으므로, 이번 실행의 수치들이 이후 분석에 충분한지 여부는 이 데이터만으로 판단할 수 없습니다.",
+        "evidenceRefs": [
+          "concept:coverage-measurement-levels"
+        ]
+      }
+    ]
+  },
+  "rescoredAt": "2026-09-10T09:43:45+00:00"
+}
