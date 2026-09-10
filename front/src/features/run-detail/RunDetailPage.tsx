@@ -6,12 +6,11 @@ import { Button } from '@/components/ui/Button'
 import { MessageBlock } from '@/components/ui/MessageBlock'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { TabsList, TabsPanel, TabsRoot, TabsTab } from '@/components/ui/Tabs'
-import { DiagnosticList } from '@/components/ui/DiagnosticNote'
 import { ArtifactsView } from '@/features/run-detail/components/ArtifactsView'
 import { DeveloperDetails } from '@/features/run-detail/components/DeveloperDetails'
 import { LogPanel } from '@/features/run-detail/components/LogPanel'
 import { ResultsView } from '@/features/run-detail/components/ResultsView'
-import { RunFailureCard } from '@/features/run-detail/components/RunFailureCard'
+import { AttentionSection } from '@/features/run-detail/components/AttentionSection'
 import { RunHeader } from '@/features/run-detail/components/RunHeader'
 import { RunLimitations } from '@/features/run-detail/components/RunLimitations'
 import { RunSynthesisPanel } from '@/features/run-detail/components/RunSynthesisPanel'
@@ -33,9 +32,12 @@ import {
   useStepDetailQuery,
 } from '@/features/run-detail/queries'
 import { useCancelJobMutation } from '@/features/run-detail/useCancelJobMutation'
+import {
+  resolveTab,
+  visibleTabs,
+} from '@/features/run-detail/resultsAvailability'
 import { useRunListQuery } from '@/features/runs/useRunListQuery'
 import { isTerminalStatus } from '@/features/runs/status'
-import { formatTimestamp } from '@/features/runs/time'
 import { describeStep } from '@/registries/steps'
 
 /*
@@ -57,25 +59,22 @@ import { describeStep } from '@/registries/steps'
   있는 경우가 많고, 없으면 한 번 받아온다.
 */
 
-const TABS = [
-  { id: 'pipeline', label: '파이프라인' },
-  { id: 'results', label: '결과' },
-  { id: 'files', label: '파일' },
-] as const
+/*
+  탭 목록과 기본 탭은 resultsAvailability.ts가 정한다.
 
-type TabId = (typeof TABS)[number]['id']
+  이전에는 여기 상수 배열과 `DEFAULT_TAB = 'pipeline'`이 있었다. 완료된 실행을
+  열면 "무엇이 나왔나"가 한 번의 클릭 뒤에 있고, 정작 볼 필요가 적은 과정이
+  먼저 나왔다. 그리고 결과가 없는 실행에서도 결과 탭이 있어서, 없는 것을
+  확인하려고 클릭해야 했다.
 
-const DEFAULT_TAB: TabId = 'pipeline'
-
-function parseTab(raw: string | undefined): TabId {
-  return TABS.some((tab) => tab.id === raw) ? (raw as TabId) : DEFAULT_TAB
-}
+  status가 아니라 응답 내용으로 판단한다 — 같은 `failed`라도 정렬까지 간 실행과
+  사전 점검에서 멈춘 실행은 보여줄 것이 다르다.
+*/
 
 export function RunDetailPage() {
   const { jobId = '', tab } = useParams<{ jobId: string; tab?: string }>()
   const navigate = useNavigate()
 
-  const activeTab = parseTab(tab)
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
 
   const detail = useJobDetailQuery(jobId)
@@ -92,6 +91,14 @@ export function RunDetailPage() {
   const artifacts = useArtifactsQuery(jobId, job?.status)
   const explanation = useExplanationQuery(jobId, job?.status)
   const cancel = useCancelJobMutation(jobId)
+
+  /*
+    탭은 응답이 실제로 무엇을 담고 있는지로 정해진다. `/runs/{id}/results`를
+    직접 열었는데 그 실행에 결과가 없으면 파이프라인으로 접는다 — 숨긴 탭의
+    주소가 빈 화면이 되지 않게 한다.
+  */
+  const tabs = visibleTabs(results.data, terminal)
+  const activeTab = resolveTab(tab, results.data, terminal)
 
   if (detail.isPending) {
     return (
@@ -164,9 +171,12 @@ export function RunDetailPage() {
       ) : null}
 
       {/*
-        실패는 하나의 표면으로 모은다. 이전에는 여기 있던 error 문자열과
-        단계 표의 진단, RunLimitations의 "산출물 없음"이 따로 놀아서 사용자가
-        전체 상황을 조립해야 했다.
+        이 실행에서 일어난 일의 유일한 본문이다. 실패·확인 필요·자동 해결을
+        한 표면에서 구분한다.
+
+        이전에는 같은 warning이 결과 탭 "확인할 사항"과 파이프라인 탭에 각각
+        나타나서, 사용자가 그것이 몇 개의 문제인지 스스로 세야 했다. 이제
+        본문은 여기 하나이고 StepTable은 위치만 표시한다.
 
         구조화된 failures가 있으면 그것이 본문이고, backend가 이어 붙인
         error 문자열은 카드 안 "기술 정보"로 내려간다.
@@ -178,9 +188,10 @@ export function RunDetailPage() {
         보여줄 것이 없으면(성공한 실행) 카드가 스스로 null을 반환한다.
       */}
       {job.status !== 'cancelled' ? (
-        <RunFailureCard
+        <AttentionSection
           failures={explanation.data?.failures ?? []}
           rawError={job.error}
+          diagnostics={diagnostics.all}
           isPrecheck={explanation.data?.contextKind === 'precheck'}
         />
       ) : null}
@@ -212,7 +223,7 @@ export function RunDetailPage() {
         ⚠️ 이 컴포넌트만 사용자의 Claude 사용량을 소모한다. 버튼을 눌러야만
         호출되며, 3초 polling과 무관하다(mutation이지 query가 아니다).
       */}
-      <RunSynthesisPanel jobId={jobId} />
+      <RunSynthesisPanel jobId={jobId} terminal={terminal} />
 
       <TabsRoot
         value={activeTab}
@@ -221,7 +232,7 @@ export function RunDetailPage() {
         }}
       >
         <TabsList>
-          {TABS.map((item) => (
+          {tabs.map((item) => (
             <TabsTab key={item.id} value={item.id}>
               {item.label}
             </TabsTab>
@@ -257,75 +268,26 @@ export function RunDetailPage() {
               </section>
 
               {/*
-                어느 단계에도 귀속되지 않은 진단. backend가 stepId를 주지
-                않은 경우이며(diagnostics.ts 참고) 버리지 않고 여기서 보여준다.
+                단계에 귀속되지 않은 진단을 여기서 따로 그리지 않는다.
+                AttentionSection이 귀속 여부와 무관하게 전부 보여주므로,
+                여기 두면 같은 항목이 화면에 두 번 나온다.
               */}
-              {diagnostics.unattributed.length > 0 ? (
-                <section className="flex flex-col gap-4">
-                  <SectionHeader
-                    title="실행 전반의 확인 사항"
-                    meta={`${diagnostics.unattributed.length}건`}
-                  />
-                  <DiagnosticList diagnostics={diagnostics.unattributed} />
-                </section>
-              ) : null}
 
               <LogPanel lines={job.logTail} />
 
               {/*
-                실행 조건 — Layer 3.
+                "실행 조건과 식별자" 12행 표가 여기 있었다.
 
-                이전에는 12행 KV 표가 로그 바로 아래 같은 크기로 펼쳐져 있었다.
-                거기에는 `상태: completed_with_warnings`, `pipeline 상태`,
-                `완료 단계 비율`처럼 backend 내부 어휘가 그대로 들어 있었는데,
-                그 값들은 이미 헤더가 사람이 읽는 말로 전달하고 있다. 같은 것을
-                두 번, 한 번은 내부 표현으로 보여주면 사용자가 데이터 모델을
-                배워야 하는 화면이 된다.
+                job/run ID·샘플·profile·capture kit·실행 모드·상태·pipeline
+                상태·진행률을 담고 있었는데, 상태 계열은 헤더가 사람이 읽는
+                말로 이미 말하고 식별 계열은 결과 탭 "입력 요약"에 있다.
+                같은 값을 한 번은 사람 말로, 한 번은 backend 내부 어휘로
+                보여주면 사용자가 데이터 모델을 배워야 하는 화면이 된다.
 
-                지우지는 않는다 — 전문가에게는 실제로 필요한 값이다. 접어서
-                내린다.
+                전문가용 원본은 페이지 맨 아래 DeveloperDetails가
+                `GET /api/jobs/{id}` 응답 그대로 유지한다 — 접근성을 잃지
+                않으면서 본문에서는 뺀다.
               */}
-              <details className="border-t border-border pt-4">
-                <summary className="inline-flex min-h-6 cursor-pointer items-center text-small font-medium text-text-muted">
-                  실행 조건과 식별자
-                </summary>
-                <dl className="mt-3 flex flex-col">
-                  <InfoRow label="job / run ID" value={job.jobId} mono />
-                  {job.runId !== job.jobId ? (
-                    <InfoRow label="run ID" value={job.runId} mono />
-                  ) : null}
-                  <InfoRow
-                    label="샘플"
-                    value={listItem?.sampleId ?? '정보 없음'}
-                    mono
-                  />
-                  <InfoRow label="분석 profile" value={job.profileId} mono />
-                  <InfoRow
-                    label="capture kit"
-                    value={listItem?.captureKitId ?? '정보 없음'}
-                    mono
-                  />
-                  <InfoRow label="실행 모드" value={job.runMode} mono />
-                  <InfoRow label="상태" value={job.status} mono />
-                  <InfoRow
-                    label="pipeline 상태"
-                    value={job.pipelineStatus ?? '—'}
-                    mono
-                  />
-                  <InfoRow label="현재 단계" value={job.currentStep ?? '—'} mono />
-                  <InfoRow
-                    label="완료 단계 비율"
-                    value={`${job.progress} %`}
-                    mono
-                  />
-                  <InfoRow
-                    label="제출"
-                    value={isoOrDash(listItem?.createdAt ?? null)}
-                  />
-                  <InfoRow label="시작" value={isoOrDash(job.startedAt)} />
-                  <InfoRow label="종료" value={isoOrDash(job.finishedAt)} />
-                </dl>
-              </details>
             </div>
 
             {/*
@@ -422,41 +384,11 @@ function Shell({
   )
 }
 
-function InfoRow({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string
-  value: string
-  mono?: boolean
-}) {
-  return (
-    <div className="flex min-h-9 flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-border-subtle py-2 last:border-b-0">
-      <dt className="flex-none text-small text-text-muted md:w-45">{label}</dt>
-      <dd
-        className={
-          mono
-            ? 'min-w-0 flex-1 basis-full break-all font-mono text-data text-text-strong md:basis-0'
-            : 'min-w-0 flex-1 basis-full text-body text-text-strong md:basis-0'
-        }
-      >
-        {value}
-      </dd>
-    </div>
-  )
-}
-
 /*
   failedStepLabel()은 여기 있었다. RunFailureCard가 각 failure의
   actualStepLabel을 backend에서 받아 쓰므로, steps[]에서 실패 단계를 다시
   찾아낼 이유가 없어졌다.
 */
-
-function isoOrDash(value: string | null): string {
-  const formatted = formatTimestamp(value)
-  return formatted ? formatted.full : '—'
-}
 
 /*
   상세를 읽지 못한 경우.

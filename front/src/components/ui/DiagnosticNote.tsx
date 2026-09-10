@@ -64,6 +64,78 @@ const KIND_TEXT_CLASS: Record<DiagnosticKind, string> = {
   note: 'text-text-muted',
 }
 
+/*
+  진단이 "몇 건 있었는지"만 말하는 표시.
+
+  ── 왜 별도 component인가 `[설계판단]` ─────────────────────────────────
+
+  1차 재설계에서 정보의 본거지를 나눴다.
+
+      AttentionSection   사건의 의미와 설명 — 유일한 본문
+      StepTable          어느 단계에서 일어났는가 — 위치와 상태
+      StepDetailRail     그 단계의 기술 정보
+
+  그런데 StepTable이 `DiagnosticNote`를 그대로 쓰고 있어서 제목·meaning·
+  impact가 통째로 다시 그려졌고, 같은 warning이 Attention과 파이프라인 양쪽에
+  본문으로 존재했다.
+
+  StepTable에서 문자열만 잘라내는 방식으로 고치면 다음에 누가 다시 붙인다.
+  역할이 다른 표시는 component도 다른 것이 맞다 — 이쪽은 **본문을 렌더링할
+  수단 자체가 없다.** props로 count만 받으므로 제목이나 message를 넣고 싶어도
+  넣을 수 없다.
+
+  아이콘·색 map을 이 파일에 함께 두는 이유는 그 두 개가 DiagnosticNote와
+  같아야 하기 때문이다. 복사하면 언젠가 갈라진다.
+*/
+
+export interface DiagnosticCountsProps {
+  diagnostics: RunDiagnostic[]
+  className?: string
+}
+
+export function DiagnosticCounts({
+  diagnostics,
+  className,
+}: DiagnosticCountsProps) {
+  if (diagnostics.length === 0) return null
+
+  // kind별 건수. 표시 순서는 KIND_ICON의 선언 순서(심각한 것부터)를 따른다.
+  const counts = new Map<DiagnosticKind, { label: string; count: number }>()
+  for (const diagnostic of diagnostics) {
+    const kind = diagnostic.view.kind
+    const entry = counts.get(kind)
+    if (entry) entry.count += 1
+    else counts.set(kind, { label: diagnostic.view.label, count: 1 })
+  }
+
+  const ordered = (Object.keys(KIND_ICON) as DiagnosticKind[]).filter((kind) =>
+    counts.has(kind),
+  )
+
+  return (
+    <ul className={cx('flex flex-wrap items-center gap-x-4 gap-y-1', className)}>
+      {ordered.map((kind) => {
+        const entry = counts.get(kind)
+        if (!entry) return null
+        const Icon = KIND_ICON[kind]
+        return (
+          <li key={kind} className="flex items-center gap-1.5">
+            <Icon
+              size={13}
+              strokeWidth={1.5}
+              aria-hidden="true"
+              className={cx('flex-none', KIND_TEXT_CLASS[kind])}
+            />
+            <span className={cx('text-caption', KIND_TEXT_CLASS[kind])}>
+              {entry.label} {entry.count}건
+            </span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 export interface DiagnosticNoteProps {
   diagnostic: RunDiagnostic
   /**

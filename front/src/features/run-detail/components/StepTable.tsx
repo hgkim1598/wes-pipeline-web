@@ -1,6 +1,6 @@
 import { ChevronRight } from 'lucide-react'
 
-import { DiagnosticNote } from '@/components/ui/DiagnosticNote'
+import { DiagnosticCounts } from '@/components/ui/DiagnosticNote'
 import type { StepState } from '@/features/run-detail/api'
 import type { RunDiagnostic } from '@/features/run-detail/diagnostics'
 import { byPriority, needsAttention } from '@/features/run-detail/diagnostics'
@@ -191,14 +191,18 @@ export function StepTable({
                   </p>
                 ) : null}
 
-                {/* Layer 2 — 이번 Run에서 실제로 있었던 일. */}
-                {diagnostics.map((diagnostic) => (
-                  <DiagnosticNote
-                    key={diagnostic.key}
-                    diagnostic={diagnostic}
-                    compact
-                  />
-                ))}
+                {/*
+                  Layer 2 — 이 단계에서 사건이 있었다는 **표시**.
+
+                  이전에는 `DiagnosticNote`를 그대로 그려서 제목·meaning·
+                  impact가 통째로 들어갔다. 그 본문의 본거지는
+                  AttentionSection이고, 여기 있으면 같은 warning 하나를
+                  사용자가 두 번 읽으며 "새 사건인가" 판단해야 한다.
+
+                  이제 건수만 말한다. 무슨 일이었는지는 위 Attention이,
+                  기술 정보는 행을 선택했을 때 열리는 레일이 맡는다.
+                */}
+                <DiagnosticCounts diagnostics={diagnostics} />
 
                 {rawNote ? (
                   <p className="text-caption text-text-muted">{rawNote}</p>

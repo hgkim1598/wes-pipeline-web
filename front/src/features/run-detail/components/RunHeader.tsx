@@ -117,17 +117,35 @@ export function RunHeader({
             ) : null}
           </p>
 
-          <p className="text-small text-text-muted">
-            {[
-              job.runMode === 'full' ? '전체 분석 모드' : null,
-              job.runMode === 'check_only' ? '사전 점검 모드' : null,
-              job.runMode !== 'full' && job.runMode !== 'check_only'
-                ? `실행 모드 ${job.runMode}`
-                : null,
-              listItem?.captureKitId ?? null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
+          {/*
+            분석 모드와 캡처 키트는 **다른 필드**다 `[코드근거]`
+
+            이전에는 둘을 `·`로 이어 붙여 `전체 분석 모드 · twist_exome_2_0`으로
+            보였다. 라벨이 없어 캡처 키트 이름이 "모드"의 일부처럼 읽힌다 —
+            `runMode`는 full|check_only이고 `captureKitId`는 캡처 키트 registry의
+            식별자로, 의미가 겹치지 않는다.
+
+            각자 라벨을 붙여 분리한다.
+          */}
+          <p className="flex flex-wrap gap-x-6 gap-y-1 text-small text-text-muted">
+            <span>
+              분석 모드{' '}
+              <span className="text-text">
+                {job.runMode === 'full'
+                  ? '전체 분석'
+                  : job.runMode === 'check_only'
+                    ? '사전 점검'
+                    : job.runMode}
+              </span>
+            </span>
+            {listItem?.captureKitId ? (
+              <span>
+                캡처 키트{' '}
+                <span className="font-mono text-data text-text">
+                  {listItem.captureKitId}
+                </span>
+              </span>
+            ) : null}
           </p>
 
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
