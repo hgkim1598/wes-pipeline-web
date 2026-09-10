@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Sparkles } from 'lucide-react'
 
@@ -6,6 +7,9 @@ import { MessageBlock } from '@/components/ui/MessageBlock'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { createSynthesis } from '@/features/run-detail/api'
 import type { SynthesisStatement } from '@/features/run-detail/api'
+import { humanizeLocators } from '@/features/run-detail/locators'
+import type { LocatorResolver } from '@/features/run-detail/locators'
+import { describeEvidenceRef } from '@/registries/evidence'
 
 /*
   AI 종합 설명 — 첫 vertical slice.
@@ -45,6 +49,13 @@ import type { SynthesisStatement } from '@/features/run-detail/api'
 export interface RunSynthesisPanelProps {
   jobId: string
   /**
+   * 이 실행의 artifact kind -> 표시 이름.
+   *
+   * AI 문장 안의 `artifact:...` locator를 사람 말로 바꾸는 데만 쓴다.
+   * 비어 있으면 치환이 일어나지 않고 원문이 그대로 남는다 — 정상 동작이다.
+   */
+  locators: LocatorResolver
+  /**
    * 실행이 끝났는가.
    *
    * 끝나지 않은 실행은 종합할 대상이 아직 확정되지 않았다. 진행 중에 만든
@@ -53,14 +64,26 @@ export interface RunSynthesisPanelProps {
   terminal: boolean
 }
 
-export function RunSynthesisPanel({ jobId, terminal }: RunSynthesisPanelProps) {
+export function RunSynthesisPanel({
+  jobId,
+  locators,
+  terminal,
+}: RunSynthesisPanelProps) {
+  /*
+    시작 시각은 **요청을 시작한 이벤트**가 기록한다. effect 안에서 setState로
+    초기화하면 렌더가 한 번 더 돌고(oxlint set-state-in-effect), 이전 실행의
+    경과 시간이 잠깐 남는 문제도 생긴다.
+  */
+  const [startedAt, setStartedAt] = useState<number | null>(null)
   const synthesis = useMutation({
     mutationFn: () => createSynthesis(jobId),
+    onMutate: () => setStartedAt(Date.now()),
     // 재시도 없음. 위 주석 참고.
     retry: false,
   })
 
   const result = synthesis.data
+  const elapsed = useElapsedSeconds(synthesis.isPending, startedAt)
 
   return (
     <section className="flex flex-col gap-4">
@@ -99,12 +122,33 @@ export function RunSynthesisPanel({ jobId, terminal }: RunSynthesisPanelProps) {
         </div>
 
         {/*
-          진행 상태는 aria-live로 알린다. 버튼 라벨 변화만으로는 스크린리더
-          사용자가 요청이 시작된 것을 알 수 없다.
+          기다리는 동안 `[설계판단]`
+
+          실제 Full Run에서 160~213초가 걸렸다. "생성 중…" 하나만 있으면
+          2분이 지난 시점에 사용자는 멈춘 것인지 알 수 없다.
+
+          **가짜 진행률을 만들지 않는다.** backend는 모델이 어디까지 왔는지
+          모르고, 우리도 모른다. 대신 우리가 실제로 아는 두 가지를 말한다 —
+          보통 몇 분 걸린다는 것과, 지금까지 얼마나 지났는지.
+
+          경과 시간은 client timer다. 그것이 무엇을 뜻하는지 과장하지 않는다:
+          "몇 % 완료"가 아니라 "경과 1분 42초"다.
         */}
-        <p aria-live="polite" className="sr-only">
-          {synthesis.isPending ? 'AI 설명을 생성하는 중입니다' : ''}
-        </p>
+        {synthesis.isPending ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex flex-col gap-1 border-t border-border pt-3"
+          >
+            <p className="text-small text-text">
+              AI 종합 설명을 만들고 있습니다. 완료까지 보통 2~4분 걸립니다.
+            </p>
+            <p className="text-caption text-text-muted">
+              경과 {formatElapsed(elapsed)} · 이 화면을 떠나도 실행 중인
+              분석에는 영향이 없습니다.
+            </p>
+          </div>
+        ) : null}
 
         {/* 네트워크 자체가 실패한 경우. backend가 응답한 실패와 구분한다. */}
         {synthesis.isError ? (
@@ -139,6 +183,7 @@ export function RunSynthesisPanel({ jobId, terminal }: RunSynthesisPanelProps) {
             <StatementList
               title="다음으로 확인할 수 있는 것"
               items={result.synthesis.nextChecks}
+              locators={locators}
             />
             <StatementList
               title="알 수 없는 것"
@@ -164,34 +209,115 @@ export function RunSynthesisPanel({ jobId, terminal }: RunSynthesisPanelProps) {
   )
 }
 
+/**
+ * 경과 초. 요청 중일 때만 흐른다.
+ *
+ * client timer일 뿐이며 backend 진행률과는 아무 관계가 없다. 그래서 이름도
+ * elapsed이지 progress가 아니다.
+ */
+function useElapsedSeconds(running: boolean, startedAt: number | null): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!running) return
+    // setState는 interval 콜백 안에서만 일어난다 — effect 본문에서 동기적으로
+    // 부르면 렌더가 한 번 더 돌고 linter가 그것을 잡는다.
+    const id = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [running])
+  if (!running || startedAt === null) return 0
+  return Math.max(0, Math.floor((now - startedAt) / 1000))
+}
+
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return `${seconds}초`
+  const minutes = Math.floor(seconds / 60)
+  const rest = seconds % 60
+  return rest === 0 ? `${minutes}분` : `${minutes}분 ${rest}초`
+}
+
 function StatementList({
   title,
   items,
+  locators,
 }: {
   title: string
   items: SynthesisStatement[]
+  /** 주어지면 문장 안의 내부 locator를 사람 말로 바꾼다. nextChecks만 쓴다. */
+  locators?: LocatorResolver
 }) {
   if (items.length === 0) return null
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex flex-col gap-3">
       <h3 className="text-small font-medium text-text-strong">{title}</h3>
-      <ul className="flex flex-col gap-2">
-        {items.map((item, index) => (
-          <li key={index} className="flex flex-col gap-0.5">
-            <span className="max-w-prose text-small text-text">
-              {item.statement}
-            </span>
-            {/*
-              근거 id를 그대로 노출한다. 사용자에게 예쁜 이름은 아니지만,
-              이 단계에서 중요한 것은 "이 문장이 무엇에 근거했는가"를 사람이
-              대조할 수 있다는 것이다. 표기 개선은 backlog다.
-            */}
-            <span className="font-mono text-caption text-text-muted">
-              {item.evidenceRefs.join(' · ')}
-            </span>
-          </li>
-        ))}
+      <ul className="flex flex-col gap-3">
+        {items.map((item, index) => {
+          const shown = locators
+            ? humanizeLocators(item.statement, locators)
+            : item.statement
+          return (
+            <li key={index} className="flex flex-col gap-1">
+              <span className="max-w-prose text-small text-text">{shown}</span>
+              <EvidenceRefs refs={item.evidenceRefs} raw={item.statement} shown={shown} />
+            </li>
+          )
+        })}
       </ul>
     </section>
+  )
+}
+
+/*
+  근거 표시.
+
+  본문에는 건수만 둔다. raw id 목록(`dx:NM_MD_REPAIRED · src:sam-tags-spec`)이
+  문장마다 붙어 있으면 정작 읽어야 할 문장이 식별자에 파묻힌다.
+
+  펼치면 사람이 읽는 이름이 나온다. 이름은 지어내지 않고
+  registries/evidence.ts가 canonical knowledge에서 가져온다 — 해석되지 않는
+  id는 raw 그대로 남는다.
+
+  raw id와, locator 치환이 일어난 경우 모델의 원문까지 같은 자리에 둔다.
+  provenance를 잃지 않으면서 본문에서 치우는 것이 목적이지 숨기는 것이 아니다.
+*/
+function EvidenceRefs({
+  refs,
+  raw,
+  shown,
+}: {
+  refs: string[]
+  raw: string
+  shown: string
+}) {
+  if (refs.length === 0) return null
+  const views = refs.map(describeEvidenceRef)
+  return (
+    <details className="max-w-prose">
+      <summary className="inline-flex min-h-6 cursor-pointer items-center text-caption text-text-muted">
+        근거 {refs.length}개 보기
+      </summary>
+      <ul className="mt-1.5 flex flex-col gap-1 border-l border-border pl-3">
+        {views.map((view) => (
+          <li key={view.id} className="flex flex-col">
+            <span className="text-caption text-text">
+              {view.label}
+              {view.known ? (
+                <span className="ml-2 text-text-muted">{view.group}</span>
+              ) : null}
+            </span>
+            {view.known ? (
+              <code className="font-mono text-caption text-text-muted">
+                {view.id}
+              </code>
+            ) : null}
+          </li>
+        ))}
+        {shown !== raw ? (
+          <li className="flex flex-col pt-1">
+            <span className="text-caption text-text-muted">모델 원문</span>
+            <span className="text-caption text-text">{raw}</span>
+          </li>
+        ) : null}
+      </ul>
+    </details>
   )
 }

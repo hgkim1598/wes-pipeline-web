@@ -56,18 +56,42 @@ export function HelpTerm({ termId, children, mono, className }: HelpTermProps) {
   return (
     <Popover.Root>
       {/*
-        점선 밑줄이 "설명이 있다"는 유일한 시각 단서다. 색만으로는 링크와
-        구분되지 않고, 아이콘을 붙이면 문장 안에서 밀도가 깨진다.
+        누를 수 있다는 것이 보여야 한다 `[설계판단]`
+
+        이전에는 `border-dotted border-border-strong` 하나뿐이었고, 실제
+        화면에서 본문 텍스트와 거의 구분되지 않았다. 문장 중간의 옅은 점선은
+        밑줄이라기보다 렌더링 잡티처럼 보인다.
+
+        세 가지를 함께 쓴다 — 색 하나에 의존하지 않는다(CLAUDE.md 27장).
+
+          1. 점선 밑줄을 실제로 보이게 (border-b-2, text 색상 계열)
+          2. 아주 작은 도움말 표식 하나
+          3. hover/focus에서 밑줄이 실선 brand로 바뀜
+
+        `?` 아이콘을 용어마다 큼직하게 붙이면 문장이 아이콘 밭이 되므로,
+        표식은 위첨자 크기의 점 하나로 둔다. 화면 밀도를 지키면서 "여기 뭔가
+        더 있다"는 신호는 준다.
+
+        focus-visible ring은 Base UI가 button으로 렌더링하므로 전역 focus
+        스타일이 그대로 적용된다. outline을 지우지 않는다.
       */}
       <Popover.Trigger
         className={cx(
-          'inline cursor-help border-b border-dotted border-border-strong',
-          'hover:border-brand hover:text-brand',
+          'inline cursor-help rounded-[2px]',
+          'border-b-2 border-dotted border-text-muted',
+          'hover:border-solid hover:border-brand hover:text-brand',
+          'data-[popup-open]:border-solid data-[popup-open]:border-brand',
           mono && 'font-mono text-data',
           className,
         )}
       >
         {label}
+        <span
+          aria-hidden="true"
+          className="ml-0.5 align-super text-[0.6em] leading-none text-text-muted"
+        >
+          ⓘ
+        </span>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner sideOffset={6} className="z-50">

@@ -30,8 +30,10 @@
 
 import { z } from 'zod'
 
+import conceptsDoc from '@shared/knowledge/wes_concepts.json'
 import diagnosticsDoc from '@shared/knowledge/wes_diagnostics.json'
 import failuresDoc from '@shared/knowledge/wes_failures.json'
+import sourcesDoc from '@shared/knowledge/wes_sources.json'
 import stepsDoc from '@shared/knowledge/wes_steps.json'
 
 /** 확인이 필요한 사건인가. 사건의 무게. */
@@ -124,6 +126,51 @@ const FailuresDocSchema = z.object({
   failures: z.array(FailureKnowledgeSchema),
 })
 
+/*
+  근거 출처와 해석 개념.
+
+  ── 왜 이제 와서 읽는가 ────────────────────────────────────────────────
+
+  `knowledge.ts`는 지금까지 이 두 파일을 읽지 않았고, 그 이유를 아래
+  `grounding` 주석에 적어 뒀다 — 화면이 근거를 표시하지 않으니 backend만
+  읽으면 된다는 것이었다. 2차 polish에서 AI 설명의 `evidenceRefs`를 사람이
+  읽는 이름으로 바꾸기로 하면서 **화면이 실제 소비자가 됐다.**
+
+  새 이름을 frontend에 하드코딩하지 않는다. `src:sam-tags-spec`의 이름은
+  `wes_sources.json`의 `title`이고, `concept:...`의 이름은 `label`이다.
+  둘 다 canonical source에 이미 있다.
+
+  `grounding`은 여전히 모델링하지 않는다. 화면이 쓰는 것은 title/label뿐이고,
+  claim 본문까지 TypeScript로 옮기면 backend와 갈라질 표면만 늘어난다.
+*/
+export const SourceKnowledgeSchema = z.object({
+  id: z.string().min(1),
+  /** spec · tool-doc · pipeline · project-doc. 화면은 분류로만 쓴다. */
+  type: z.string().min(1),
+  title: z.string().min(1),
+  locator: z.string().min(1),
+})
+
+export type SourceKnowledge = z.infer<typeof SourceKnowledgeSchema>
+
+const SourcesDocSchema = z.object({
+  schemaVersion: z.string(),
+  sources: z.array(SourceKnowledgeSchema),
+})
+
+export const ConceptKnowledgeSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  summary: z.string().min(1),
+})
+
+export type ConceptKnowledge = z.infer<typeof ConceptKnowledgeSchema>
+
+const ConceptsDocSchema = z.object({
+  schemaVersion: z.string(),
+  concepts: z.array(ConceptKnowledgeSchema),
+})
+
 const DiagnosticsDocSchema = z.object({
   schemaVersion: z.string(),
   diagnostics: z.array(DiagnosticKnowledgeSchema),
@@ -185,6 +232,24 @@ const FAILURE_BY_CODE = indexBy(
   'wes_failures.json',
 )
 
+const sources = parseOrThrow(
+  SourcesDocSchema,
+  sourcesDoc,
+  'config/knowledge/wes_sources.json',
+)
+const concepts = parseOrThrow(
+  ConceptsDocSchema,
+  conceptsDoc,
+  'config/knowledge/wes_concepts.json',
+)
+
+const SOURCE_BY_ID = indexBy(sources.sources, (row) => row.id, 'wes_sources.json')
+const CONCEPT_BY_ID = indexBy(
+  concepts.concepts,
+  (row) => row.id,
+  'wes_concepts.json',
+)
+
 /** 등록된 진단 지식. 없으면 undefined — 호출부가 fallback을 정한다. */
 export function diagnosticKnowledge(code: string): DiagnosticKnowledge | undefined {
   return DIAGNOSTIC_BY_CODE.get(code)
@@ -217,4 +282,14 @@ export function failureKnowledge(code: string): FailureKnowledge | undefined {
 
 export function allFailureKnowledge(): FailureKnowledge[] {
   return failures.failures
+}
+
+/** 인용된 출처. 없으면 undefined — 호출부가 raw id를 그대로 보여준다. */
+export function sourceKnowledge(id: string): SourceKnowledge | undefined {
+  return SOURCE_BY_ID.get(id)
+}
+
+/** 해석 개념. 없으면 undefined. */
+export function conceptKnowledge(id: string): ConceptKnowledge | undefined {
+  return CONCEPT_BY_ID.get(id)
 }

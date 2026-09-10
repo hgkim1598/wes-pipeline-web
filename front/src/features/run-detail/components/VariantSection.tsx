@@ -2,6 +2,7 @@ import { Info } from 'lucide-react'
 
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import type { Results } from '@/features/run-detail/api'
+import { formatCount } from '@/lib/number'
 
 /*
   변이 검출 — 숫자와 자격 조건을 떼어 놓지 않는다.
@@ -45,7 +46,7 @@ export interface VariantSectionProps {
 export function VariantSection({ variantCalling }: VariantSectionProps) {
   const { rawVariantRecords, filteringApplied, coreEndpoint } = variantCalling
   const count =
-    rawVariantRecords === null ? '—' : rawVariantRecords.toLocaleString()
+    rawVariantRecords === null ? '—' : formatCount(rawVariantRecords)
 
   return (
     <section className="flex flex-col gap-4">

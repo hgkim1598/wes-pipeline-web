@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
 import { ApiError } from '@/api/client'
+import { isNotReady } from '@/features/run-detail/api'
 import { Button } from '@/components/ui/Button'
 import { MessageBlock } from '@/components/ui/MessageBlock'
 import { SectionHeader } from '@/components/ui/SectionHeader'
@@ -14,6 +15,7 @@ import { AttentionSection } from '@/features/run-detail/components/AttentionSect
 import { RunHeader } from '@/features/run-detail/components/RunHeader'
 import { RunLimitations } from '@/features/run-detail/components/RunLimitations'
 import { RunSynthesisPanel } from '@/features/run-detail/components/RunSynthesisPanel'
+import { artifactLabelMap } from '@/features/run-detail/locators'
 import { StepDetailRail } from '@/features/run-detail/components/StepDetailRail'
 import {
   STEP_DETAIL_PANEL_ID,
@@ -193,6 +195,15 @@ export function RunDetailPage() {
           rawError={job.error}
           diagnostics={diagnostics.all}
           isPrecheck={explanation.data?.contextKind === 'precheck'}
+          /*
+            "어디서 일어났나"로 이동. 단계를 선택하고 파이프라인 탭으로 옮긴다.
+            탭은 이미 URL 세그먼트이므로 뒤로가기가 그대로 동작하고, 선택
+            상태만 local state로 남는다.
+          */
+          onGoToStep={(stepId) => {
+            setSelectedStepId(stepId)
+            navigate(`/runs/${encodeURIComponent(jobId)}/pipeline`)
+          }}
         />
       ) : null}
 
@@ -223,7 +234,22 @@ export function RunDetailPage() {
         ⚠️ 이 컴포넌트만 사용자의 Claude 사용량을 소모한다. 버튼을 눌러야만
         호출되며, 3초 polling과 무관하다(mutation이지 query가 아니다).
       */}
-      <RunSynthesisPanel jobId={jobId} terminal={terminal} />
+      <RunSynthesisPanel
+        jobId={jobId}
+        terminal={terminal}
+        /*
+          AI 문장 안의 `artifact:...`를 이 실행의 실제 산출물 이름으로 바꾸는
+          데만 쓴다. artifacts가 아직 없으면 빈 표이고, 그때는 원문이 그대로
+          남는다.
+        */
+        locators={{
+          artifactLabels: artifactLabelMap(
+            artifacts.data && !isNotReady(artifacts.data)
+              ? artifacts.data
+              : undefined,
+          ),
+        }}
+      />
 
       <TabsRoot
         value={activeTab}

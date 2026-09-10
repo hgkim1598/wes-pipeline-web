@@ -1,10 +1,11 @@
-import { CircleCheck, OctagonX, TriangleAlert } from 'lucide-react'
+import { ArrowRight, CircleCheck, OctagonX, TriangleAlert } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { HelpTerm } from '@/components/ui/HelpTerm'
 import type { ExplanationFailure } from '@/features/run-detail/api'
 import type { RunDiagnostic } from '@/features/run-detail/diagnostics'
 import { describeFailureCode } from '@/registries/failures'
+import { describeStep } from '@/registries/steps'
 
 /*
   이 실행에서 일어난 일의 **유일한 본문**.
@@ -45,6 +46,12 @@ export interface AttentionSectionProps {
   diagnostics: RunDiagnostic[]
   /** 사전 점검 실행인가. 제목 문구를 그 사실에 맞춘다. */
   isPrecheck: boolean
+  /**
+   * "파이프라인에서 보기"를 눌렀을 때. 해당 단계를 선택하고 탭을 옮긴다.
+   *
+   * 주지 않으면 이동 링크를 그리지 않는다 — 갈 곳이 없는 버튼을 만들지 않는다.
+   */
+  onGoToStep?: (stepId: string) => void
 }
 
 export function AttentionSection({
@@ -52,6 +59,7 @@ export function AttentionSection({
   rawError,
   diagnostics,
   isPrecheck,
+  onGoToStep,
 }: AttentionSectionProps) {
   /*
     실패는 이 목록에서 제외한다 `[코드근거]`
@@ -208,7 +216,7 @@ export function AttentionSection({
           }`}
         >
           {needsAttention.map((item) => (
-            <DiagnosticItem key={item.key} item={item} />
+            <DiagnosticItem key={item.key} item={item} onGoToStep={onGoToStep} />
           ))}
         </ul>
       ) : null}
@@ -217,12 +225,27 @@ export function AttentionSection({
       {repaired.length > 0 ? (
         <details className="border-t border-border pt-3">
           <summary className="inline-flex min-h-6 cursor-pointer items-center gap-2 text-small font-medium text-text-muted">
-            <CircleCheck size={14} strokeWidth={1.5} aria-hidden="true" />
-            자동으로 해결된 항목 {repaired.length}건
+            <CircleCheck
+              size={14}
+              strokeWidth={1.5}
+              aria-hidden="true"
+              className="text-status-success-fg"
+            />
+            {/*
+              접힌 상태에서 읽히는 유일한 문장이다. "무엇이 있었는지"보다
+              "지금 할 일이 없다"가 먼저 오게 쓴다 — 이 그룹의 요점은
+              사용자가 여기서 멈추지 않아도 된다는 것이다.
+            */}
+            파이프라인이 처리해 조치가 필요 없는 항목 {repaired.length}건
           </summary>
           <ul className="mt-3 flex flex-col gap-4">
             {repaired.map((item) => (
-              <DiagnosticItem key={item.key} item={item} />
+              <DiagnosticItem
+                key={item.key}
+                item={item}
+                onGoToStep={onGoToStep}
+                muted
+              />
             ))}
           </ul>
         </details>
@@ -272,12 +295,33 @@ export function AttentionSection({
  * 제목 → 의미 → 기술 정보(원문·code·impact) 순으로 깊어진다. 쉬운 화면과
  * 전문가 화면을 따로 만들지 않고 같은 항목 안에서 내려간다.
  */
-function DiagnosticItem({ item }: { item: RunDiagnostic }) {
+function DiagnosticItem({
+  item,
+  onGoToStep,
+  muted = false,
+}: {
+  item: RunDiagnostic
+  onGoToStep?: (stepId: string) => void
+  /**
+   * 자동 해결 그룹에서 쓴다.
+   *
+   * 색을 따로 만들지 않고 **제목의 굵기와 색만 한 단계 낮춘다.** 확인 필요
+   * 항목과 나란히 놓였을 때 시선이 먼저 가지 않게 하는 것이 목적이고,
+   * 새로운 severity 축을 만드는 것이 아니다 — kind는 그대로다.
+   */
+  muted?: boolean
+}) {
   const { view } = item
   return (
     <li className="flex flex-col gap-1">
       <div className="flex flex-wrap items-baseline gap-x-2">
-        <span className="text-body font-medium text-text-strong">
+        <span
+          className={
+            muted
+              ? 'text-body text-text'
+              : 'text-body font-medium text-text-strong'
+          }
+        >
           {/* 등록되지 않은 code면 backend 원문이 제목 자리에 온다. */}
           {view.title || item.message}
         </span>
@@ -293,6 +337,28 @@ function DiagnosticItem({ item }: { item: RunDiagnostic }) {
       </div>
       {view.meaning ? (
         <p className="max-w-prose text-small text-text">{view.meaning}</p>
+      ) : null}
+
+      {/*
+        Attention("무엇이 있었나") -> Pipeline("어디서 일어났나") 이동.
+
+        한 방향만 만든다. 반대 방향(단계 -> 항목)은 StepTable이 이미 건수를
+        보여주고 행을 누르면 레일이 열리므로, 링크를 하나 더 두면 같은 화면에
+        이동 경로가 두 개가 된다.
+
+        `navigate`가 아니라 콜백이다 — 탭 이동과 단계 선택은 페이지가 가진
+        상태이고, 이 component가 router와 selection을 둘 다 알 필요는 없다.
+        state를 URL에 새로 얹지 않으므로 뒤로가기도 그대로 동작한다.
+      */}
+      {item.stepId && onGoToStep ? (
+        <button
+          type="button"
+          onClick={() => onGoToStep(item.stepId as string)}
+          className="inline-flex min-h-6 w-fit items-center gap-1 text-caption text-text-muted underline underline-offset-2 hover:text-brand"
+        >
+          {describeStep(item.stepId).label} 단계에서 발생
+          <ArrowRight size={12} strokeWidth={1.5} aria-hidden="true" />
+        </button>
       ) : null}
       {item.code || item.message ? (
         <details>

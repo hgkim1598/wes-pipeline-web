@@ -1,4 +1,5 @@
 import { SectionHeader } from '@/components/ui/SectionHeader'
+import { formatCount, formatMeasured } from '@/lib/number'
 import type { Results } from '@/features/run-detail/api'
 
 /*
@@ -49,7 +50,7 @@ export function CoverageSection({ coverage }: CoverageSectionProps) {
     말하고 숫자를 지어내지 않는다.
   */
   const perBases = totalBases !== null
-    ? `전체 target 염기 ${totalBases.toLocaleString()}개 기준`
+    ? `전체 target 염기 ${formatCount(totalBases)}개 기준`
     : '전체 target 염기 기준'
 
   return (
@@ -92,7 +93,7 @@ export function CoverageSection({ coverage }: CoverageSectionProps) {
             unit="%"
             note={
               coverage.zeroCoverageBases !== null
-                ? `${coverage.zeroCoverageBases.toLocaleString()} bp`
+                ? `${formatCount(coverage.zeroCoverageBases)} bp`
                 : /*
                     옛 실행은 개수를 남기지 않았다. 비율은 1X breadth에서
                     나오지만 개수는 유도할 수 없으므로 0으로 채우지 않는다.
@@ -298,21 +299,25 @@ function Row({
   )
 }
 
+/*
+  측정값. `toLocaleString()`의 기본 3자리 절삭 때문에 평균 깊이 10.9967이
+  10.997로 나왔다 — lib/number.ts 참고.
+*/
 function numberOrDash(value: number | null): string {
-  return value === null ? '—' : value.toLocaleString()
+  return value === null ? '—' : formatMeasured(value)
 }
 
 /** 개수는 개수로만 적는다. 전체 구간 수가 계약에 없어 %를 만들 수 없다. */
 function countOrDash(value: number | null): string {
-  return value === null ? '—' : `${value.toLocaleString()}개`
+  return value === null ? '—' : `${formatCount(value)}개`
 }
 
 /** 염기 수와 그 비율을 한 값으로 적는다. 비율의 분모는 호출부가 hint로 붙인다. */
 function basesWithPct(bases: number | null, pct: number | null): string {
   if (bases === null && pct === null) return '—'
   if (bases === null) return `${pct}%`
-  if (pct === null) return `${bases.toLocaleString()} bp`
-  return `${bases.toLocaleString()} bp · ${pct}%`
+  if (pct === null) return `${formatCount(bases)} bp`
+  return `${formatCount(bases)} bp · ${pct}%`
 }
 
 function percentOrDash(value: number | null, withUnit = true): string {
