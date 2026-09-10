@@ -101,10 +101,10 @@ def evaluate(name: str) -> dict[str, Any]:
     fixture, expectations = load_case(name)
     explanation = RunExplanation.model_validate(fixture)
 
-    _payload, allowed = contract.build_payload(explanation)
+    payload, allowed = contract.build_payload(explanation)
 
     result = synthesis.build_run_synthesis(explanation).model_dump()
-    report = evaluators.run_expectations(expectations, fixture, result)
+    report = evaluators.run_expectations(expectations, fixture, result, payload)
     report.results.insert(0, privacy_check(fixture))
 
     provenance = result.get("provenance") or {}
@@ -168,7 +168,8 @@ def rescore(names: list[str], *, record: bool) -> int:
             "errorCategory": stored.get("errorCategory"),
             "synthesis": stored.get("output"),
         }
-        report = evaluators.run_expectations(expectations, fixture, result)
+        payload, _ = contract.build_payload(RunExplanation.model_validate(fixture))
+        report = evaluators.run_expectations(expectations, fixture, result, payload)
         report.results.insert(0, privacy_check(fixture))
         stored["evaluation"] = report.to_json()
         stored["rescoredAt"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -231,7 +232,10 @@ def main() -> int:
             BASELINES.mkdir(parents=True, exist_ok=True)
             stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             model = (record.get("configuredModel") or "default").replace("/", "-")
-            target = BASELINES / f"{stamp}_{name}_{model}.json"
+            # promptHash를 파일명에 넣는다. 같은 날 같은 모델로 prompt만 바꿔
+            # 다시 돌리면 **이전 baseline을 덮어쓰게 되는데**, 그 파일이 바로
+            # 비교 기준이다. 무엇이 이 결과를 만들었는지가 이름에 있어야 한다.
+            target = BASELINES / f"{stamp}_{name}_{model}_{record['promptHash']}.json"
             target.write_text(
                 json.dumps(record, ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",

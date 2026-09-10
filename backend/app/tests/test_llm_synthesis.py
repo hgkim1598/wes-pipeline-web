@@ -349,7 +349,9 @@ def test_instruction_like_runtime_text_stays_inside_the_data_block(explanation):
 def test_the_constraints_forbid_the_project_s_established_boundaries():
     """Each prohibition mirrors a decision made elsewhere in the repository."""
     text = prompt.CONSTRAINTS.lower()
-    for phrase in ("threshold", "possiblecauses", "clinical", "confirmed", "invent"):
+    # "possiblecauses"였던 항목을 뺐다 -- 그 이름을 prompt에서 없애는 것이
+    # 이번 변경의 목적이다. 규칙 자체는 "possible cause"로 남아 있다.
+    for phrase in ("threshold", "possible cause", "clinical", "confirmed", "invent"):
         assert phrase in text
 
 
@@ -839,15 +841,39 @@ def test_a_diagnostic_without_grounding_exposes_no_empty_buckets():
 
 
 def test_the_prompt_forbids_claiming_an_absent_bucket():
+    """The rule survives; the copyable example did not.
+
+    It used to quote `"possibleCauses에 따르면"` as the phrase to avoid -- and
+    the first baseline came back with almost exactly that sentence. Handing a
+    model a formatted example of an internal name teaches the name. The rule is
+    now stated without one.
+    """
     text = prompt.CONSTRAINTS
-    assert "DO NOT CLAIM A FIELD WAS SUPPLIED WHEN IT WAS NOT." in text
-    assert "possibleCauses에 따르면" in text
+    assert "DO NOT CLAIM SOMETHING WAS SUPPLIED WHEN IT WAS NOT." in text
+    assert "possible causes, checks, actions or scope" in text
+    assert "possibleCauses에 따르면" not in text
 
 
 def test_the_prompt_states_the_measurement_unit_rule_and_legacy_rule():
     text = prompt.CONSTRAINTS
     assert "a percentage of\nBASES is not a percentage of INTERVALS" in text
-    assert "knowledgeStatus: legacy" in text
+    assert "knowledgeStatus" in text
+    # 단위를 말하는 방법이 바뀌었다. 이전 문구는 "describe it with the field's
+    # own wording"이었고, 그 지시가 첫 baseline의 field 이름 노출을 낳았다.
+    # 규칙(base != interval)은 그대로, 표현 방법만 한국어 층위 이름으로.
+    assert "염기 단위" in text
+    assert "field's own wording" not in text
+
+
+def test_the_prompt_bans_internal_property_names_in_user_prose():
+    """The fix for the first evaluation's only finding.
+
+    A general principle, not a blacklist: the keys are addressing labels, and
+    user-facing prose must say what a value means instead.
+    """
+    text = prompt.CONSTRAINTS
+    assert "THE PROPERTY NAMES IN THE DATA ARE LABELS, NOT VOCABULARY." in text
+    assert "no camelCase, no key names" in text
 
 
 def test_the_coverage_concept_is_supplied_when_coverage_is(client, make_job, run):

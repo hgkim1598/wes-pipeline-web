@@ -271,6 +271,75 @@ def check_mentions(statements: list[str], needles: list[str], *, name: str):
     return CheckResult(name=name, outcome="pass", detail=f"{len(needles)}개 모두 언급")
 
 
+# --- D. internal names in user-facing prose ---------------------------------
+
+# camelCase 식별자만 잡는다: 소문자로 시작하고 중간에 대문자가 있는 토큰.
+#
+# 이 좁힘이 핵심이다 `[설계판단]`. payload의 모든 키를 금지하면
+# `assembly`·`scope`·`actions` 같은 평범한 단어가 걸리는데, 그중 일부는
+# canonical knowledge의 정답 문장에 실제로 들어 있다 -- wes_failures.json의
+# scope claim이 "같은 assembly release에서 나왔음을" 이라고 쓴다.
+#
+# 반면 중간 대문자는 schema 식별자의 기계적 서명이고, 한국어 산문이나 보통의
+# 영어 단어와 충돌하지 않는다. `rawVariantRecords`·`coreEndpoint`·
+# `basesInLowMeanDepthIntervalsPct`·`possibleCauses`가 전부 여기 걸린다.
+#
+# 손으로 유지하는 금칙어 목록이 아니다. 허용 여부는 **payload가 실제로 가진 키**로
+# 판단하므로, 필드가 바뀌면 검사도 따라 바뀐다.
+_CAMEL = re.compile(r"(?<![A-Za-z0-9])[a-z][a-z0-9]*(?:[A-Z][a-zA-Z0-9]*)+(?![A-Za-z0-9])")
+
+
+def collect_property_names(payload: Any) -> set[str]:
+    """Every dict key the model was shown."""
+    names: set[str] = set()
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                names.add(key)
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(payload)
+    return names
+
+
+def check_no_internal_names(
+    statements: list[str], payload: Any, *, name: str = "no-internal-field-names"
+) -> CheckResult:
+    """User-facing prose must not quote the payload's property names.
+
+    The first baseline was accurate and still hard to read: the model wrote
+    `basesInLowMeanDepthIntervalsPct` and `rawVariantRecords` in sentences
+    meant for a beginner. It had been told to -- an earlier prompt rule said to
+    "describe it with the field's own wording".
+
+    Only camelCase is inspected, so a single ordinary word that happens to be a
+    key (`assembly`, `scope`) is not flagged. Those remain a human judgement.
+    """
+    known = {n for n in collect_property_names(payload) if _CAMEL.fullmatch(n)}
+    if not known:
+        return CheckResult(name=name, outcome="pass", detail="camelCase 키 없음")
+
+    found: set[str] = set()
+    for text in statements:
+        for token in _CAMEL.findall(text):
+            if token in known:
+                found.add(token)
+
+    if found:
+        return CheckResult(
+            name=name,
+            outcome="fail",
+            detail=f"사용자 문장에 내부 필드명: {sorted(found)}",
+        )
+    return CheckResult(
+        name=name, outcome="pass", detail=f"{len(known)}개 키 중 노출 0"
+    )
+
+
 # --- C. runtime guardrail outcome --------------------------------------------
 
 
@@ -331,8 +400,13 @@ def run_expectations(
     expectations: dict[str, Any],
     fixture: dict[str, Any],
     result: dict[str, Any],
+    payload: dict[str, Any] | None = None,
 ) -> EvalReport:
-    """Apply one case's expectations to one synthesis result."""
+    """Apply one case's expectations to one synthesis result.
+
+    `payload` is optional only so older callers keep working; when it is given
+    the internal-name check runs against the exact keys the model saw.
+    """
     report = EvalReport(case=expectations.get("case", "unknown"))
 
     guard = check_guardrails(result)
@@ -354,6 +428,9 @@ def run_expectations(
     statements = all_statements(synthesis)
 
     report.results.append(check_numbers(statements, fixture))
+
+    if payload is not None:
+        report.results.append(check_no_internal_names(statements, payload))
 
     mention = expectations.get("mustMention") or []
     if mention:

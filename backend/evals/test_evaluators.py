@@ -179,6 +179,50 @@ def test_required_citation_present_and_absent():
     )
 
 
+# --- D. internal field names -------------------------------------------------
+
+
+def test_internal_field_names_in_prose_fail():
+    """The NOTE the first baseline produced, as a check."""
+    payload = {"variantCalling": {"rawVariantRecords": 52379}}
+    result = evaluators.check_no_internal_names(
+        ["rawVariantRecords는 52,379입니다."], payload
+    )
+    assert result.outcome == "fail"
+    assert "rawVariantRecords" in result.detail
+
+
+def test_natural_language_about_the_same_value_passes():
+    payload = {"variantCalling": {"rawVariantRecords": 52379}}
+    result = evaluators.check_no_internal_names(
+        ["필터를 거치지 않은 변이 후보 기록은 52,379건입니다."], payload
+    )
+    assert result.outcome == "pass"
+
+
+def test_ordinary_words_that_happen_to_be_keys_are_not_flagged():
+    """`assembly` is a key AND a word canonical knowledge legitimately uses.
+
+    wes_failures.json says "같은 assembly release에서 나왔음을 증명하지는
+    않습니다". Banning every key would fail that correct sentence, which is the
+    same trap as the "확정 변이" blacklist.
+    """
+    payload = {"variantCalling": {"assembly": "GRCh38"}, "grounding": {"scope": []}}
+    result = evaluators.check_no_internal_names(
+        ["모든 파일이 같은 assembly release에서 나왔음을 증명하지는 않습니다."],
+        payload,
+    )
+    assert result.outcome == "pass"
+
+
+def test_only_keys_the_model_actually_saw_count():
+    """Not a maintained blacklist -- the payload decides."""
+    result = evaluators.check_no_internal_names(
+        ["someOtherThing은 무관합니다."], {"variantCalling": {"coreEndpoint": "x"}}
+    )
+    assert result.outcome == "pass"
+
+
 # --- C. guardrail outcome ----------------------------------------------------
 
 
