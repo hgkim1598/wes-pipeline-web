@@ -65,6 +65,18 @@ CASES = {
         "file": "precheck_failed.json",
         "api": "http://127.0.0.1:8011",
     },
+    # 아래 둘은 /results가 409다. core_summary.json이 없으므로 step 문서에서
+    # 사실을 모은다 -- run_context가 같은 상황에서 하는 것과 같다.
+    "execfailed": {
+        "jobId": "wes-20260904-172826-68aa20",
+        "file": "execution_failed.json",
+        "api": "http://127.0.0.1:8000",
+    },
+    "inprogress": {
+        "jobId": "wes-20260906-234444-eed8e3",
+        "file": "in_progress.json",
+        "api": "http://127.0.0.1:8000",
+    },
 }
 
 # 스크럽 후 값. build_payload가 읽지 않는 필드만 바꾼다.
@@ -98,6 +110,19 @@ def scrub_variant_calling(payload: dict[str, Any]) -> None:
             head, _, tail = value.rpartition("/")
             suffix = tail.split(".", 1)[1] if "." in tail else ""
             variant[key] = f"{head}/{CANARY_SAMPLE}.{suffix}" if head else tail
+
+
+# 조립된 failure code 안의 검체 이름 조각. `sort_order_DEMO_WES.L001`처럼
+# main.sh가 실행 값으로 만든 code에는 검체 이름이 박혀 있다.
+#
+# 비우지 않고 canary로 바꾼다 -- code가 **조립되었다**는 성질(open set)이
+# 유지돼야 하고, 그 code는 evidence id로도 쓰이므로 fixture 안에서 일관돼야
+# 한다. 그리고 이 문자열이 언젠가 payload에 나타나면 privacy 검사가 잡는다.
+def scrub_composed_code(code: str, sample: str | None) -> str:
+    """조립 code 안의 검체 이름만 canary로 바꾼다. 구조는 그대로 둔다."""
+    if not sample or sample not in code:
+        return code
+    return code.replace(sample, CANARY_SAMPLE)
 
 
 def _get(api: str, path: str) -> dict[str, Any]:
@@ -169,9 +194,100 @@ def build_explanation(job: dict[str, Any], results: dict[str, Any]):
     return deterministic.build_run_explanation(context)
 
 
+def build_explanation_from_steps(
+    job: dict[str, Any], step_docs: dict[str, dict[str, Any]], sample: str | None
+):
+    """`/results`가 없는 실행. step 문서에서 사실을 모은다.
+
+    `run_context`의 같은 분기를 그대로 옮긴 것이 아니라 **의미를 맞춘** 것이다.
+    그쪽은 run 디렉터리의 step 문서를 파일로 읽고, 여기는 같은 문서를
+    `/api/jobs/{id}/steps/{stepId}`로 읽는다. 소스가 HTTP라 helper를 그대로
+    재사용할 수는 없다.
+
+    맞춰야 하는 의미는 셋이다.
+
+      contextKind   terminal이면 failed, 아니면 in_progress
+      resultsAvailable  항상 False
+      coverage · variantCalling · optionalSteps · intendedUse
+                    전부 비운다. 파이프라인이 만든 적이 없고, 빈 껍데기를
+                    넣으면 "측정했는데 없었다"로 읽힌다
+
+    `analysisOutputProduced`는 **건드리지 않는다.** 기본값 None이 맞다 --
+    "산출물이 없다"가 아니라 "여기서는 알 수 없다"이다. False로 바꾸면
+    NO_ANALYSIS_OUTPUT limitation이 잘못 생긴다.
+    """
+    warnings: list[run_context.RunWarning] = []
+    failures: list[run_context.RunFailure] = []
+    for step in job.get("steps", []):
+        doc = step_docs.get(step["stepId"])
+        if not doc:
+            continue
+        for item in doc.get("failures", []):
+            failures.append(
+                run_context.RunFailure(
+                    stepId=step["stepId"],
+                    code=scrub_composed_code(item.get("code", ""), sample),
+                    message=item.get("message", ""),
+                )
+            )
+        for item in doc.get("warnings", []):
+            warnings.append(
+                run_context.RunWarning(
+                    stepId=step["stepId"],
+                    code=item.get("code", ""),
+                    message=item.get("message", ""),
+                    impact=item.get("impact", ""),
+                    canContinue=item.get("canContinue", False),
+                )
+            )
+
+    terminal = job["status"] in ("failed", "cancelled")
+    context = run_context.RunDiagnosticContext(
+        contextKind="failed" if terminal else "in_progress",
+        resultsAvailable=False,
+        resultsUnavailableReason="the run has not produced core_summary.json",
+        identity=run_context.RunIdentity(
+            jobId=SCRUBBED["jobId"],
+            runId=SCRUBBED["runId"],
+            sampleId=SCRUBBED["sampleId"],
+            profileId=job["profileId"],
+            captureKitId=None,
+            runMode=job["runMode"],
+        ),
+        outcome=run_context.RunOutcome(
+            status=job["status"],
+            pipelineStatus=job.get("pipelineStatus"),
+            progress=job.get("progress", 0),
+            currentStep=job.get("currentStep"),
+            startedAt=job.get("startedAt"),
+            finishedAt=job.get("finishedAt"),
+            error=job.get("error"),
+            # analysisOutputProduced는 설정하지 않는다. 위 docstring 참고.
+        ),
+        steps=[
+            run_context.RunStepState(
+                stepId=s["stepId"],
+                status=s["status"],
+                elapsedSeconds=s.get("elapsedSeconds", 0),
+            )
+            for s in job.get("steps", [])
+        ],
+        checks=[],
+        warnings=warnings,
+        failures=failures,
+        coverage=None,
+        variantCalling=None,
+        optionalSteps={},
+        intendedUse=None,
+        sources={"warnings": "step documents", "failures": "step documents"},
+    )
+    return deterministic.build_run_explanation(context)
+
+
 # 저장 전에 반드시 없어야 하는 것. 하나라도 걸리면 파일을 쓰지 않는다.
 FORBIDDEN = (
     "SRR2962669",
+    "DEMO_WES",
     "/home/",
     "C:\\Users",
     "C:/Users",
@@ -200,11 +316,36 @@ def main() -> int:
     job_id = case["jobId"]
 
     job = _get(api, f"/api/jobs/{job_id}")
-    results = _get(api, f"/api/jobs/{job_id}/results")
-    if results.get("resultType") is None:
-        raise SystemExit("결과 문서가 없어 fixture를 만들 수 없습니다.")
 
-    explanation = build_explanation(job, results)
+    try:
+        results = _get(api, f"/api/jobs/{job_id}/results")
+    except SystemExit:
+        results = None
+
+    if results and results.get("resultType"):
+        explanation = build_explanation(job, results)
+        source = "/results"
+    else:
+        # core_summary.json이 없는 실행. 끝난 step의 문서만 읽는다 --
+        # pending·running은 문서 자체가 없다.
+        sample = None
+        step_docs: dict[str, dict[str, Any]] = {}
+        for step in job.get("steps", []):
+            if step["status"] in ("pending", "running"):
+                continue
+            try:
+                step_docs[step["stepId"]] = _get(
+                    api, f"/api/jobs/{job_id}/steps/{step['stepId']}"
+                )
+            except SystemExit:
+                continue
+        # 조립 code에서 지울 검체 이름은 목록 응답이 갖고 있다.
+        for row in _get(api, "/api/jobs").get("jobs", []):
+            if row.get("jobId") == job_id:
+                sample = row.get("sampleId")
+        explanation = build_explanation_from_steps(job, step_docs, sample)
+        source = "step documents"
+
     payload = explanation.model_dump()
     scrub_variant_calling(payload)
 
@@ -216,7 +357,7 @@ def main() -> int:
     target.write_text(blob + "\n", encoding="utf-8")
 
     print(f"wrote {target.relative_to(Path(__file__).resolve().parent.parent)}")
-    print(f"  source      {api} · {job_id}")
+    print(f"  source      {api} · {job_id} · {source}")
     print(f"  contextKind {explanation.contextKind} · status {explanation.status}")
     print(f"  diagnostics {[d.code for d in explanation.diagnostics]}")
     print(f"  failures    {[f.code for f in explanation.failures]}")

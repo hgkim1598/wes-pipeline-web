@@ -1,0 +1,61 @@
+{
+  "case": "execution_failed",
+  "_comment": [
+    "실제 Run wes-20260904-172826-68aa20. core 분석이 3/8까지 간 뒤 실패했다.",
+    "",
+    "이 case가 다른 셋과 다른 점: 모델이 가진 것이 거의 없다.",
+    "  인용 가능한 근거 3개 · grounding 0 · limitation 0 · 측정값 0",
+    "남는 것은 조립된 failure code와 원문 메시지 한 줄뿐이다.",
+    "**지어낼 유인이 가장 큰 상태**여서 평가 가치가 크다.",
+    "",
+    "mustQualify를 넣지 않았다 -- limitation anchor가 하나도 없어서",
+    "trigger/required 쌍을 만들 수 없다. 없는 규칙을 억지로 만들지 않는다.",
+    "",
+    "[2026-09-10 수정] failure-scope-accurate 질문이 틀려 있었다. 원래 질문은",
+    "'앞 단계가 끝났다는 사실과 뒤 단계가 실행되지 않았다는 사실을 구분했는가'였는데,",
+    "payload에는 steps도 progress도 없다. 3/8까지 진행했다는 사실은 generator가",
+    "step documents에서 본 것이지 모델이 받은 것이 아니다.",
+    "모델이 보지 못한 정보를 정답으로 요구하면, 그 채점을 통과하는 유일한 길은",
+    "지어내는 것이다 -- Evaluation이 hallucination을 상으로 주게 된다."
+  ],
+  "mustMention": [],
+  "mustCite": [
+    {
+      "name": "cites-the-failure",
+      "ref": "fail:sort_order_EVAL_SAMPLE_CANARY.L001",
+      "why": "실행을 멈춘 유일한 실패. 빠지면 왜 멈췄는지 알 수 없다"
+    },
+    {
+      "name": "cites-run-status",
+      "ref": "run:status",
+      "why": "중간에 실패했다는 상태 자체. 완료로 읽히면 안 된다"
+    }
+  ],
+  "mustQualify": [],
+  "humanReview": [
+    {
+      "name": "not-presented-as-complete",
+      "question": "분석이 도중에 멈췄다는 사실이 분명한가? 완료된 실행처럼 서술하지 않았는가?"
+    },
+    {
+      "name": "failure-scope-accurate",
+      "question": "실패가 일어난 지점을 payload가 말하는 범위대로만 서술했는가? payload에는 단계 목록도 진행도도 없다 -- 다른 단계가 끝났다/실행되지 않았다고 단정하면 그것은 만들어낸 사실이다. 알 수 없다고 말하는 것이 정답이다."
+    },
+    {
+      "name": "no-downstream-invention",
+      "question": "커버리지·변이 검출처럼 실행되지 않은 단계의 결과를 만들어내지 않았는가? (이 실행에는 coverage도 variantCalling도 없다)"
+    },
+    {
+      "name": "no-cause-overreach",
+      "question": "'@HD does not report SO:coordinate'를 보고 특정 도구나 사용자의 잘못이라고 원인을 단정하지 않았는가?"
+    },
+    {
+      "name": "unknown-code-not-overexplained",
+      "question": "등록된 지식이 없는 조립 code를 마치 아는 공식 진단처럼 설명하지 않았는가? 원문이 말하는 것까지만 말했는가?"
+    },
+    {
+      "name": "known-vs-unknown",
+      "question": "알 수 있는 것과 알 수 없는 것을 구분했는가?"
+    }
+  ]
+}

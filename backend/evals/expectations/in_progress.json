@@ -1,0 +1,51 @@
+{
+  "case": "in_progress",
+  "_comment": [
+    "실제 Run wes-20260906-234444-eed8e3. status=running, 4/8 진행.",
+    "",
+    "이번에는 모델을 호출하지 않는다(run_eval.SKIP_MODEL). 제품 UI가 미완료",
+    "실행의 synthesis를 막고, 이 Run은 stale/orphan이며(running인데 finishedAt이",
+    "있고 04_processing이 3.6일째), 모델에 가는 사실이 3개뿐이다.",
+    "여기서 확인하려는 것은 in_progress **계약**이고 그것은 결정론적이다.",
+    "",
+    "그래서 아래 mustCite/humanReview는 **정의만 해 둔다.** 나중에 healthy한",
+    "running Run으로 baseline을 뜰 때 그대로 쓰인다. 이번 실행에서는 not_run으로",
+    "남고 자동 PASS로 위장되지 않는다.",
+    "",
+    "payload에 없는 것을 정답으로 요구하지 않았다 -- currentStep · progress ·",
+    "steps · finishedAt은 모델에 전달되지 않는다. 모델이 보지 못한 정보를",
+    "Evaluation 정답으로 삼을 수 없다."
+  ],
+
+  "mustMention": [],
+
+  "mustCite": [
+    {
+      "name": "cites-in-progress-limitation",
+      "ref": "lim:RUN_IN_PROGRESS",
+      "why": "아직 끝나지 않아 결과가 확정되지 않았다는 사실"
+    },
+    {
+      "name": "cites-run-status",
+      "ref": "run:status",
+      "why": "running 상태 자체"
+    }
+  ],
+
+  "mustQualify": [],
+
+  "humanReview": [
+    {
+      "name": "not-presented-as-complete",
+      "question": "완료되었거나 결과가 확정된 것처럼 말하지 않았는가?"
+    },
+    {
+      "name": "no-invented-findings",
+      "question": "아직 생기지 않은 warning·coverage·variant 결과를 추측하지 않았는가?"
+    },
+    {
+      "name": "no-invented-progress",
+      "question": "payload에 없는 진행 정보(현재 단계·진행률)를 지어내지 않았는가?"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "checkSummary": {
+    "counts": {},
+    "notable": [],
+    "total": 0
+  },
+  "contextKind": "failed",
+  "coverage": null,
+  "diagnostics": [],
+  "failures": [
+    {
+      "actualStepId": "03_alignment",
+      "actualStepLabel": "참조 유전체 정렬",
+      "code": "sort_order_EVAL_SAMPLE_CANARY.L001",
+      "evidence": {
+        "code": "sort_order_EVAL_SAMPLE_CANARY.L001",
+        "section": "failures",
+        "source": "step documents",
+        "stepId": "03_alignment"
+      },
+      "message": "@HD does not report SO:coordinate"
+    }
+  ],
+  "identity": {
+    "captureKitId": null,
+    "jobId": "eval-job",
+    "profileId": "germline-illumina-wes-full",
+    "runId": "eval-run",
+    "runMode": "full",
+    "sampleId": "EVAL_SAMPLE"
+  },
+  "intendedUse": null,
+  "limitations": [],
+  "resultsAvailable": false,
+  "resultsUnavailableReason": "the run has not produced core_summary.json",
+  "sources": {
+    "failures": "step documents",
+    "warnings": "step documents"
+  },
+  "status": "failed",
+  "variantCalling": null
+}

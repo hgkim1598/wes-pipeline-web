@@ -282,6 +282,124 @@ def test_guardrail_failure_leaves_human_items_unjudged():
     assert all(r.outcome == "needs_review" for r in report.results if r.kind == "human")
 
 
+# --- open set, canary, and deliberate non-invocation ------------------------
+
+
+def test_an_open_set_failure_code_has_no_grounding_and_still_works():
+    """Case C's shape: a code main.sh composed from run values.
+
+    `sort_order_<sample>.L001` is not in wes_failures.json and never will be.
+    The payload must still carry the failure with its runtime message, and the
+    evidence id must still be mintable -- otherwise the model could not cite
+    the only thing that explains the run.
+    """
+    from app.services.explanation.deterministic import RunExplanation
+    from app.services.explanation.llm import contract
+    from app.services.explanation import knowledge
+
+    fixture = json.loads(
+        (FIXTURES / "execution_failed.json").read_text(encoding="utf-8")
+    )
+    code = fixture["failures"][0]["code"]
+    assert knowledge.failure(code) is None, "조립 code에 curated 지식이 있으면 안 된다"
+
+    payload, allowed = contract.build_payload(RunExplanation.model_validate(fixture))
+    assert f"fail:{code}" in allowed
+    assert payload["grounding"] == {}
+    row = payload["failures"][0]
+    assert row["code"] == code
+    assert row["messageFromPipeline"]
+
+
+def test_the_canary_inside_a_composed_code_is_not_a_leak():
+    """The distinction Case C forces.
+
+    The sample fragment lives *inside the failure code*, and that code is the
+    evidence id the model must cite. A blanket substring check would call the
+    correct behaviour a privacy failure.
+    """
+    from evals import run_eval
+
+    fixture = json.loads(
+        (FIXTURES / "execution_failed.json").read_text(encoding="utf-8")
+    )
+    assert "EVAL_SAMPLE_CANARY" in fixture["failures"][0]["code"]
+    result = run_eval.privacy_check(fixture)
+    assert result.outcome == "pass"
+    assert "조립 code" in result.detail
+
+
+def test_the_canary_anywhere_else_is_still_a_leak():
+    """The check did not simply stop looking."""
+    from evals import run_eval
+
+    fixture = json.loads(
+        (FIXTURES / "full_completed_with_warnings.json").read_text(encoding="utf-8")
+    )
+    # 검체 이름이 payload로 나가는 회귀를 흉내낸다.
+    fixture["variantCalling"]["coreEndpoint"] = "raw VCF for EVAL_SAMPLE_CANARY"
+    result = run_eval.privacy_check(fixture)
+    assert result.outcome == "fail"
+
+
+def test_a_skipped_case_reports_not_run_not_pass():
+    """Deciding not to ask is not the same as asking and being refused."""
+    expectations = {
+        "case": "x",
+        "mustMention": [],
+        "mustCite": [{"name": "cites-something", "ref": "lim:RUN_IN_PROGRESS"}],
+        "mustQualify": [],
+        "humanReview": [{"name": "readability", "question": "읽기 쉬운가?"}],
+    }
+    report = evaluators.run_expectations(
+        expectations,
+        {},
+        {"available": False, "errorCategory": None, "synthesis": None},
+        {},
+        model_invoked=False,
+    )
+    outcomes = {r.name: r.outcome for r in report.results}
+    assert outcomes["cites-something"] == "not_run"
+    assert outcomes["readability"] == "not_run"
+    assert outcomes["runtime-guardrails"] == "not_run"
+    # not_run은 실패가 아니다 -- 실행하지 않기로 한 것이므로.
+    assert report.ok is True
+    # 그렇다고 통과로 세지도 않는다.
+    assert not [r for r in report.results if r.outcome == "pass"]
+
+
+def test_a_provider_failure_is_not_recorded_as_skipped():
+    """The states must stay distinguishable in the report."""
+    expectations = {"case": "x", "mustMention": [], "mustCite": [], "mustQualify": [], "humanReview": []}
+    failed = evaluators.run_expectations(
+        expectations, {}, {"available": False, "errorCategory": "timeout"}, {}
+    )
+    assert not failed.ok
+    assert [r for r in failed.results if r.outcome == "fail"]
+
+
+def test_in_progress_expectations_do_not_demand_unseen_fields():
+    """The model is never shown currentStep, progress, steps or finishedAt.
+
+    Requiring them as a golden answer would make the case unpassable for a
+    reason that has nothing to do with the model.
+    """
+    from app.services.explanation.deterministic import RunExplanation
+    from app.services.explanation.llm import contract
+
+    fixture = json.loads((FIXTURES / "in_progress.json").read_text(encoding="utf-8"))
+    payload, _ = contract.build_payload(RunExplanation.model_validate(fixture))
+    blob = json.dumps(payload, ensure_ascii=False)
+    for absent in ("currentStep", "finishedAt", '"steps"'):
+        assert absent not in blob
+
+    expectations = json.loads(
+        (EXPECTATIONS / "in_progress.json").read_text(encoding="utf-8")
+    )
+    text = json.dumps(expectations, ensure_ascii=False)
+    assert "mustPreserve" not in text
+
+
 # --- the shipped cases are self-consistent -----------------------------------
 
 
@@ -294,7 +412,12 @@ def test_shipped_expectations_reference_ids_the_payload_can_mint():
     from app.services.explanation.deterministic import RunExplanation
     from app.services.explanation.llm import contract
 
-    for name in ("full_completed_with_warnings", "precheck_failed"):
+    for name in (
+        "full_completed_with_warnings",
+        "precheck_failed",
+        "execution_failed",
+        "in_progress",
+    ):
         fixture = json.loads((FIXTURES / f"{name}.json").read_text(encoding="utf-8"))
         expectations = json.loads(
             (EXPECTATIONS / f"{name}.json").read_text(encoding="utf-8")
@@ -311,9 +434,14 @@ def test_shipped_expectations_reference_ids_the_payload_can_mint():
 
 
 def test_shipped_fixtures_carry_no_sample_identifier():
-    for name in ("full_completed_with_warnings", "precheck_failed"):
+    for name in (
+        "full_completed_with_warnings",
+        "precheck_failed",
+        "execution_failed",
+        "in_progress",
+    ):
         blob = (FIXTURES / f"{name}.json").read_text(encoding="utf-8")
-        for forbidden in ("SRR2962669", "/home/", "vboxuser", "wes-2026"):
+        for forbidden in ("SRR2962669", "DEMO_WES", "/home/", "vboxuser", "wes-2026"):
             assert forbidden not in blob, f"{name}: {forbidden}"
 
 
@@ -328,3 +456,30 @@ def test_the_canary_never_reaches_the_payload():
     assert "EVAL_SAMPLE_CANARY" in json.dumps(fixture)  # fixture에는 있고
     payload, _ = contract.build_payload(RunExplanation.model_validate(fixture))
     assert "EVAL_SAMPLE_CANARY" not in json.dumps(payload)  # payload에는 없다
+
+
+def test_rescoring_a_skipped_baseline_does_not_call_it_a_provider_failure():
+    """The one distinction the skipped record exists to keep.
+
+    `--rescore` replays stored output through the current checks. A baseline
+    recorded with no model call has no output, and scoring it as if it did
+    turns "we never called" into "the provider failed" -- which would make a
+    real outage indistinguishable from a deliberate skip. Caught in review
+    after the live path already handled it correctly.
+    """
+    from . import run_eval
+
+    matches = sorted(run_eval.BASELINES.glob("*_in_progress_*.json"))
+    assert matches, "in_progress baseline이 없습니다"
+    stored = json.loads(matches[-1].read_text(encoding="utf-8"))
+    assert stored["invocationStatus"] == "skipped"
+
+    outcomes = {r["outcome"] for r in stored["evaluation"]["results"]}
+    assert "fail" not in outcomes, stored["evaluation"]["results"]
+    assert "not_run" in outcomes
+
+    guardrails = next(
+        r for r in stored["evaluation"]["results"] if r["name"] == "runtime-guardrails"
+    )
+    assert guardrails["outcome"] == "not_run"
+    assert "실패" not in guardrails["detail"]

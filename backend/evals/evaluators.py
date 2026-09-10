@@ -35,7 +35,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-Outcome = Literal["pass", "fail", "needs_review"]
+# not_run: 모델을 부르지 않아 채점할 출력이 없다. pass도 fail도 아니다.
+Outcome = Literal["pass", "fail", "needs_review", "not_run"]
 
 
 @dataclass
@@ -401,13 +402,43 @@ def run_expectations(
     fixture: dict[str, Any],
     result: dict[str, Any],
     payload: dict[str, Any] | None = None,
+    model_invoked: bool = True,
 ) -> EvalReport:
     """Apply one case's expectations to one synthesis result.
 
     `payload` is optional only so older callers keep working; when it is given
     the internal-name check runs against the exact keys the model saw.
+
+    `model_invoked=False` means the case was deliberately not sent to a model.
+    Then there is no output to score: the output-dependent checks are reported
+    as `not_run`, not as passes and not as failures. Deciding not to ask is not
+    the same as asking and being refused.
     """
     report = EvalReport(case=expectations.get("case", "unknown"))
+
+    if not model_invoked:
+        # 모델을 부르지 않았다. 출력에 의존하는 검사는 전부 not_run이다 --
+        # deterministic 계약 검사(privacy 등)는 호출부가 따로 붙인다.
+        for name in ("runtime-guardrails", "numbers-preserved", "no-internal-field-names"):
+            report.results.append(
+                CheckResult(name=name, outcome="not_run", detail="모델 호출 안 함")
+            )
+        for spec in expectations.get("mustCite", []):
+            report.results.append(
+                CheckResult(
+                    name=spec["name"], outcome="not_run", detail="모델 호출 안 함"
+                )
+            )
+        for spec in expectations.get("humanReview", []):
+            report.results.append(
+                CheckResult(
+                    name=spec["name"],
+                    outcome="not_run",
+                    detail=spec["question"],
+                    kind="human",
+                )
+            )
+        return report
 
     guard = check_guardrails(result)
     report.results.append(guard)

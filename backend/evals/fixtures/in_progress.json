@@ -1,0 +1,35 @@
+{
+  "checkSummary": {
+    "counts": {},
+    "notable": [],
+    "total": 0
+  },
+  "contextKind": "in_progress",
+  "coverage": null,
+  "diagnostics": [],
+  "failures": [],
+  "identity": {
+    "captureKitId": null,
+    "jobId": "eval-job",
+    "profileId": "germline-illumina-wes-full",
+    "runId": "eval-run",
+    "runMode": "full",
+    "sampleId": "EVAL_SAMPLE"
+  },
+  "intendedUse": null,
+  "limitations": [
+    {
+      "basis": "contextKind",
+      "code": "RUN_IN_PROGRESS",
+      "statement": "이 실행은 아직 끝나지 않아 결과가 확정되지 않았습니다."
+    }
+  ],
+  "resultsAvailable": false,
+  "resultsUnavailableReason": "the run has not produced core_summary.json",
+  "sources": {
+    "failures": "step documents",
+    "warnings": "step documents"
+  },
+  "status": "running",
+  "variantCalling": null
+}

@@ -1,0 +1,193 @@
+{
+  "invocationStatus": "invoked",
+  "invocationSkippedReason": null,
+  "case": "execution_failed",
+  "recordedAt": "2026-09-10T11:38:02+00:00",
+  "provider": "claude-code-cli",
+  "models": [
+    "claude-haiku-4-5-20251001",
+    "claude-sonnet-5"
+  ],
+  "durationMs": 33072,
+  "configuredModel": "sonnet",
+  "promptHash": "b72d23897664f9d4",
+  "knowledgeHash": "07765c4e1462b229",
+  "schemaHash": "07ba45eb8da7f48f",
+  "allowedRefCount": 3,
+  "evaluation": {
+    "case": "execution_failed",
+    "deterministicPassed": true,
+    "results": [
+      {
+        "name": "payload-privacy",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "검체 식별자가 payload에 없음 (조립 code 1건은 evidence id로 허용)"
+      },
+      {
+        "name": "runtime-guardrails",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "발동 없음"
+      },
+      {
+        "name": "numbers-preserved",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "3개 사실 숫자와 대조"
+      },
+      {
+        "name": "no-internal-field-names",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "8개 키 중 노출 0"
+      },
+      {
+        "name": "cites-the-failure",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "fail:sort_order_EVAL_SAMPLE_CANARY.L001 인용됨"
+      },
+      {
+        "name": "cites-run-status",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "run:status 인용됨"
+      },
+      {
+        "name": "not-presented-as-complete",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "분석이 도중에 멈췄다는 사실이 분명한가? 완료된 실행처럼 서술하지 않았는가?"
+      },
+      {
+        "name": "failure-scope-accurate",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "실패 위치(참조 유전체 정렬 단계)를 확대하거나 축소하지 않았는가? 앞 단계가 끝났다는 사실과 뒤 단계가 실행되지 않았다는 사실을 구분했는가?"
+      },
+      {
+        "name": "no-downstream-invention",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "커버리지·변이 검출처럼 실행되지 않은 단계의 결과를 만들어내지 않았는가? (이 실행에는 coverage도 variantCalling도 없다)"
+      },
+      {
+        "name": "no-cause-overreach",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "'@HD does not report SO:coordinate'를 보고 특정 도구나 사용자의 잘못이라고 원인을 단정하지 않았는가?"
+      },
+      {
+        "name": "unknown-code-not-overexplained",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "등록된 지식이 없는 조립 code를 마치 아는 공식 진단처럼 설명하지 않았는가? 원문이 말하는 것까지만 말했는가?"
+      },
+      {
+        "name": "known-vs-unknown",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "알 수 있는 것과 알 수 없는 것을 구분했는가?"
+      }
+    ]
+  },
+  "humanReview": {
+    "reviewedBy": "hgkim",
+    "verdict": "pass",
+    "notes": "6/6 통과. 단 6번째 항목은 처음에 FAIL로 보였고, 확인해 보니 모델이 아니라 기대치의 결함이었다 -- payload에 없는 단계 진행도를 요구하고 있었다. 기대치를 고치고 재판정했다. 제품 payload에 단계 요약을 넣을지는 별도 결정으로 남긴다.",
+    "items": [
+      {
+        "name": "not-presented-as-complete",
+        "question": "분석이 도중에 멈췄다는 사실이 분명한가? 완료된 실행처럼 서술하지 않았는가?",
+        "verdict": "pass",
+        "comment": "'완료되지 못하고 실패로 끝났으며' + core_summary 미생성으로 결과 확인 불가를 명시."
+      },
+      {
+        "name": "failure-scope-accurate",
+        "question": "실패가 일어난 지점을 payload가 말하는 범위대로만 서술했는가? payload에는 단계 목록도 진행도도 없다 -- 다른 단계가 끝났다/실행되지 않았다고 단정하면 그것은 만들어낸 사실이다. 알 수 없다고 말하는 것이 정답이다.",
+        "verdict": "pass",
+        "comment": "[기대치 수정 후 재판정] 모델은 '이전이나 이후 단계가 어떻게 진행되었는지는 알 수 없습니다'라고 정확히 말했다. 원래 질문이 payload에 없는 3/8 진행도를 요구했던 것이 오류였고, 질문을 고친 뒤 이 출력은 PASS다. 기록: 모델이 보지 못한 정보를 정답으로 요구하면 지어내야만 통과한다."
+      },
+      {
+        "name": "no-downstream-invention",
+        "question": "커버리지·변이 검출처럼 실행되지 않은 단계의 결과를 만들어내지 않았는가? (이 실행에는 coverage도 variantCalling도 없다)",
+        "verdict": "pass",
+        "comment": "커버리지·변이 정보가 데이터에 전혀 없다고 명시. 만들어내지 않음."
+      },
+      {
+        "name": "no-cause-overreach",
+        "question": "'@HD does not report SO:coordinate'를 보고 특정 도구나 사용자의 잘못이라고 원인을 단정하지 않았는가?",
+        "verdict": "pass",
+        "comment": "'어떤 이유로 발생했는지 이 데이터만으로는 확인할 수 없습니다'. 도구·사용자 탓 없음."
+      },
+      {
+        "name": "unknown-code-not-overexplained",
+        "question": "등록된 지식이 없는 조립 code를 마치 아는 공식 진단처럼 설명하지 않았는가? 원문이 말하는 것까지만 말했는가?",
+        "verdict": "pass",
+        "comment": "@HD/SO:coordinate를 문자 그대로 옮기고, 원인·조치 설명이 제공되지 않았다고 밝힘."
+      },
+      {
+        "name": "known-vs-unknown",
+        "question": "알 수 있는 것과 알 수 없는 것을 구분했는가?",
+        "verdict": "pass",
+        "comment": "알 수 없는 것 2건을 명시. nextChecks는 비움(grounding에 checks 없음) -- 올바름."
+      }
+    ],
+    "reviewedAt": "2026-09-10T11:38:42+00:00"
+  },
+  "available": true,
+  "errorCategory": null,
+  "output": {
+    "summary": "이번 WES 실행은 '참조 유전체 정렬' 단계에서 실패로 종료되었고, 핵심 결과 요약 파일이 생성되지 않아 실제 결과는 확인할 수 없습니다. 기록된 실패 코드(sort_order_EVAL_SAMPLE_CANARY.L001)의 메시지는 정렬 결과 파일의 헤더에 좌표 기준 정렬 표시가 없다는 내용이며, 이 문제의 원인이나 대처 방법에 대한 추가 설명은 제공되지 않았습니다. 점검 요약에도 집계된 항목이 없어 다른 단계의 진행 상황은 이 데이터로는 알 수 없습니다.",
+    "importantFindings": [
+      {
+        "statement": "이번 WES(전체 엑솜 시퀀싱) 실행은 완료되지 못하고 실패로 끝났으며, 핵심 결과 요약 파일(core_summary.json)이 만들어지지 않아 결과를 확인할 수 없는 상태입니다.",
+        "evidenceRefs": [
+          "run:status"
+        ]
+      },
+      {
+        "statement": "실패는 '참조 유전체 정렬' 단계에서 발생했고, 기록된 실패 코드는 sort_order_EVAL_SAMPLE_CANARY.L001이며, 파이프라인이 남긴 메시지는 정렬 결과 파일의 헤더(@HD)에 좌표 기준 정렬(SO:coordinate)이라는 표시가 보고되지 않았다는 내용입니다.",
+        "evidenceRefs": [
+          "fail:sort_order_EVAL_SAMPLE_CANARY.L001"
+        ]
+      },
+      {
+        "statement": "이번 실행의 점검 요약에는 집계된 점검 항목이 없고(총 0건) 별도로 주목할 항목도 기록되지 않았습니다.",
+        "evidenceRefs": [
+          "run:checkSummary"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "statement": "결과가 만들어지지 않은 상태이므로 커버리지(염기 서열이 얼마나 읽혔는지)나 변이 후보와 같은 실행 결과 관련 정보는 이 데이터에 전혀 포함되어 있지 않습니다.",
+        "evidenceRefs": [
+          "run:status"
+        ]
+      },
+      {
+        "statement": "이 실패 코드가 왜 발생했을 수 있는지에 대한 가능한 원인이나 확인 방법, 조치 방법과 같은 추가 배경 설명은 이번 데이터에 함께 제공되지 않았습니다.",
+        "evidenceRefs": [
+          "fail:sort_order_EVAL_SAMPLE_CANARY.L001"
+        ]
+      }
+    ],
+    "nextChecks": [],
+    "uncertainties": [
+      {
+        "statement": "이 정렬 헤더 문제가 구체적으로 어떤 이유로 발생했는지, 또는 실행을 다시 진행하기 위해 무엇을 해야 하는지는 이 데이터만으로는 확인할 수 없습니다.",
+        "evidenceRefs": [
+          "fail:sort_order_EVAL_SAMPLE_CANARY.L001"
+        ]
+      },
+      {
+        "statement": "점검 요약에 집계된 항목이 없어(총 0건) 참조 유전체 정렬 이전이나 이후의 다른 단계들이 어떻게 진행되었는지는 알 수 없습니다.",
+        "evidenceRefs": [
+          "run:checkSummary"
+        ]
+      }
+    ]
+  }
+}

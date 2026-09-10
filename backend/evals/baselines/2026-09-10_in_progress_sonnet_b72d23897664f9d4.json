@@ -1,0 +1,100 @@
+{
+  "invocationStatus": "skipped",
+  "invocationSkippedReason": "제품 UI가 미완료 실행의 synthesis를 막는다(§32). 모델에 가는 사실이 3개뿐이고, 이 Run은 stale/orphan이라 model baseline 기준으로 적합하지 않다. in_progress 계약 회귀는 deterministic 검사로 충분하다.",
+  "case": "in_progress",
+  "recordedAt": "2026-09-10T11:37:01+00:00",
+  "provider": null,
+  "models": null,
+  "durationMs": null,
+  "configuredModel": "sonnet",
+  "promptHash": "b72d23897664f9d4",
+  "knowledgeHash": "07765c4e1462b229",
+  "schemaHash": "07ba45eb8da7f48f",
+  "allowedRefCount": 3,
+  "evaluation": {
+    "case": "in_progress",
+    "deterministicPassed": true,
+    "results": [
+      {
+        "name": "payload-privacy",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "검체 식별자가 payload에 없음"
+      },
+      {
+        "name": "runtime-guardrails",
+        "outcome": "not_run",
+        "kind": "deterministic",
+        "detail": "모델 호출 안 함"
+      },
+      {
+        "name": "numbers-preserved",
+        "outcome": "not_run",
+        "kind": "deterministic",
+        "detail": "모델 호출 안 함"
+      },
+      {
+        "name": "no-internal-field-names",
+        "outcome": "not_run",
+        "kind": "deterministic",
+        "detail": "모델 호출 안 함"
+      },
+      {
+        "name": "cites-in-progress-limitation",
+        "outcome": "not_run",
+        "kind": "deterministic",
+        "detail": "모델 호출 안 함"
+      },
+      {
+        "name": "cites-run-status",
+        "outcome": "not_run",
+        "kind": "deterministic",
+        "detail": "모델 호출 안 함"
+      },
+      {
+        "name": "not-presented-as-complete",
+        "outcome": "not_run",
+        "kind": "human",
+        "detail": "완료되었거나 결과가 확정된 것처럼 말하지 않았는가?"
+      },
+      {
+        "name": "no-invented-findings",
+        "outcome": "not_run",
+        "kind": "human",
+        "detail": "아직 생기지 않은 warning·coverage·variant 결과를 추측하지 않았는가?"
+      },
+      {
+        "name": "no-invented-progress",
+        "outcome": "not_run",
+        "kind": "human",
+        "detail": "payload에 없는 진행 정보(현재 단계·진행률)를 지어내지 않았는가?"
+      }
+    ]
+  },
+  "humanReview": {
+    "reviewedBy": null,
+    "verdict": null,
+    "notes": null,
+    "items": [
+      {
+        "name": "not-presented-as-complete",
+        "question": "완료되었거나 결과가 확정된 것처럼 말하지 않았는가?",
+        "verdict": null
+      },
+      {
+        "name": "no-invented-findings",
+        "question": "아직 생기지 않은 warning·coverage·variant 결과를 추측하지 않았는가?",
+        "verdict": null
+      },
+      {
+        "name": "no-invented-progress",
+        "question": "payload에 없는 진행 정보(현재 단계·진행률)를 지어내지 않았는가?",
+        "verdict": null
+      }
+    ]
+  },
+  "available": false,
+  "errorCategory": null,
+  "output": null,
+  "rescoredAt": "2026-09-10T11:44:55+00:00"
+}
