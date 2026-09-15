@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0",
+  "kits": {
+    "agilent_sureselect_human_all_exon_v8": {
+      "status": "unconfirmed",
+      "manufacturer": "Agilent Technologies",
+      "capture_kit_name": "SureSelect Human All Exon",
+      "capture_kit_version": "V8",
+      "design_id": "S33266340",
+      "genome_build": "GRCh38",
+      "source": "Agilent SureDesign Published Designs",
+      "source_url": "https://suredesign.agilent.com/",
+      "target_bed": "TODO_DOWNLOAD_GRCH38_REGIONS_BED_FROM_SUREDESIGN_DESIGN_S33266340",
+      "target_bed_sha256": "TODO_64_CHARACTER_SHA256",
+      "coverage_bed": "TODO_DOWNLOAD_GRCH38_COVERED_BED_FROM_SUREDESIGN_DESIGN_S33266340",
+      "coverage_bed_sha256": "TODO_64_CHARACTER_SHA256",
+      "notes": "Manual download required. In SureDesign, open published design S33266340, select GRCh38, and download the Regions and Covered BED files. Do not substitute a lifted GRCh37 BED."
+    },
+    "idt_xgen_exome_hyb_panel_v2": {
+      "status": "confirmed",
+      "manufacturer": "Integrated DNA Technologies (IDT)",
+      "capture_kit_name": "xGen Exome Hyb Panel",
+      "capture_kit_version": "v2",
+      "design_id": "xgen-exome-hyb-panel-v2",
+      "genome_build": "GRCh38",
+      "source": "IDT official panel files",
+      "source_url": "https://www.idtdna.com/pages/products/next-generation-sequencing/workflow/xgen-ngs-hybridization-capture/pre-designed-hyb-cap-panels/exome-hyb-panel-v2",
+      "target_bed": "../resources/capture_beds/grch38/idt_xgen_exome_hyb_panel_v2.targets.hg38.bed",
+      "target_bed_sha256": "9b18f157033c49380e146ab370258976aa0eaf2a48e4f466c05a5e9f4e41df3a",
+      "coverage_bed": "../resources/capture_beds/grch38/idt_xgen_exome_hyb_panel_v2.probes.hg38.bed",
+      "coverage_bed_sha256": "3934ebff86cba64901f1441435feec75fe8fab21cf7b83d96a683552a3bcc66f",
+      "target_bed_download_url": "https://sfvideo.blob.core.windows.net/sitefinity/docs/default-source/supplementary-product-info/xgen-exome-hyb-panel-v2-targets-hg38.bed?download=true&sfvrsn=5dc1e207_4",
+      "coverage_bed_download_url": "https://sfvideo.blob.core.windows.net/sitefinity/docs/default-source/supplementary-product-info/xgen-exome-hyb-panel-v2-probes-hg38.bed?download=true&sfvrsn=45c1e207_4"
+    },
+    "twist_exome_2_0": {
+      "status": "confirmed",
+      "manufacturer": "Twist Bioscience",
+      "capture_kit_name": "Twist Exome",
+      "capture_kit_version": "2.0",
+      "design_id": "hg38-exome-v2.0.2-targets",
+      "genome_build": "GRCh38",
+      "source": "Twist Bioscience official data files",
+      "source_url": "https://www.twistbioscience.com/resources/data-files/twist-exome-20-bed-files",
+      "target_bed": "../resources/capture_beds/grch38/twist_exome_2.0.2.covered_targets.hg38.bed",
+      "target_bed_sha256": "8fa8f1a9fd5d2dcbefa2b48713e8b242065eb60bef0f9b8482322246ed4d5a77",
+      "coverage_bed": "../resources/capture_beds/grch38/twist_exome_2.0.2.covered_targets.hg38.bed",
+      "coverage_bed_sha256": "8fa8f1a9fd5d2dcbefa2b48713e8b242065eb60bef0f9b8482322246ed4d5a77",
+      "target_bed_download_url": "https://www.twistbioscience.com/content/dam/twistbioscience/resources/2022-12/hg38_exome_v2.0.2_targets_sorted_validated.re_annotated.bed"
+    },
+    "roche_kapa_hyperexome_v2": {
+      "status": "confirmed",
+      "manufacturer": "Roche",
+      "capture_kit_name": "KAPA HyperExome",
+      "capture_kit_version": "V2",
+      "design_id": "HyperExomeV2_hg38",
+      "genome_build": "GRCh38",
+      "source": "Roche KAPA HyperExome V2 hg38 design archive distributed by Nippon Genetics",
+      "source_url": "https://n-genetics.com/products/detail/09718656001/document/",
+      "target_bed": "../resources/capture_beds/grch38/roche_kapa_hyperexome_v2.primary_targets.hg38.bed",
+      "target_bed_sha256": "1dedc7d6fd130c54b8c5e5feadea751b2329ddfb71e882676b282c5a5a474b30",
+      "coverage_bed": "../resources/capture_beds/grch38/roche_kapa_hyperexome_v2.capture_targets.hg38.bed",
+      "coverage_bed_sha256": "0808567356fdccefcdec5ad3b4c5d954795c63c2088ba710370564ee2ea79175",
+      "archive_download_url": "https://n-genetics.com/files/co/Documents/technicaldata/kapa_20130.zip",
+      "archive_sha256": "41b5c6cdbc6860a27da972e1126224a7007fd7a549d7246f691306bf7a700f26",
+      "notes": "The Roche global V2 page currently links to an hg19 archive. This profile uses the separately published V2 hg38 archive and records both archive and extracted BED checksums."
+    }
+  }
+}

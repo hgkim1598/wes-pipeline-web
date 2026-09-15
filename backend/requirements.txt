@@ -1,0 +1,12 @@
+# Backend runtime dependencies.
+#
+# FastAPI is pre-1.0, so a MINOR bump is allowed to break its API. Its own docs
+# recommend pinning; this is an exact pin.
+#   https://fastapi.tiangolo.com/deployment/versions/
+#
+# [standard] pulls in uvicorn, so no separate uvicorn line is needed.
+#
+# Everything else this backend needs is in the standard library: sqlite3 for the
+# job/upload metadata store, subprocess for running script/main.sh, queue +
+# threading for the single worker. No SQLAlchemy, Celery, Redis or driver.
+fastapi[standard]==0.141.1

@@ -1,0 +1,44 @@
+{
+  "run_id": "TODO_RUN_ID",
+  "samplesheet": "TODO_SAMPLESHEET_CSV",
+  "output_root": "TODO_OUTPUT_ROOT",
+  "threads": 8,
+  "sort_threads": 4,
+  "sort_mem": "2G",
+  "fastqc_threads": 2,
+  "pairhmm_threads": 4,
+  "java_mem_gb": 16,
+  "interval_padding": 100,
+  "mosdepth_mapq": 20,
+  "low_coverage_depth": 20,
+  "coverage_min_mean_depth": 0,
+  "min_available_ram_gb": 8,
+  "trim_mode": "skip",
+  "bqsr_target_only": false,
+  "bqsr_diagnostics": false,
+  "resume_strict_checksums": false,
+  "capture_kit": {
+    "id": "idt_xgen_exome_hyb_panel_v2",
+    "registry": "config/capture_kits.grch38.json"
+  },
+  "resource_bundle": {
+    "bundle_id": "TODO_GRCH38_WES_BUNDLE_ID",
+    "assembly": "GRCh38",
+    "contig_style": "TODO_GRCH38_CONTIG_STYLE",
+    "reference_fasta": "TODO_GRCH38_REFERENCE_FASTA",
+    "known_sites": [
+      "TODO_GRCH38_KNOWN_SITE_1",
+      "TODO_GRCH38_KNOWN_SITE_2"
+    ],
+    "dbsnp_vcf": "TODO_GRCH38_DBSNP_VCF",
+    "clinvar_vcf": null,
+    "vep_cache": null,
+    "truth_vcf": null,
+    "truth_bed": null
+  },
+  "optional_steps": {
+    "filtering": false,
+    "annotation": false,
+    "intervar": false
+  }
+}

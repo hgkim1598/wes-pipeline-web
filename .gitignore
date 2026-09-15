@@ -1,0 +1,30 @@
+# Claude Code 개인 로컬 설정
+# 팀 공유용 .claude/settings.json 등 다른 설정 파일은 계속 추적합니다.
+.claude/settings.local.json
+**/.claude/settings.local.json
+
+# OS 생성 파일
+.DS_Store
+
+# Python generated files
+__pycache__/
+*.py[cod]
+
+# Downloaded reference resources are restored from versioned manifests/scripts.
+resources/capture_beds/
+
+# Pipeline runtime output. FASTQ/BAM/VCF and whole run directories live here and
+# are never committed: a single WES run is tens of gigabytes.
+/runs/
+/uploads/
+
+# Backend runtime. The virtualenv and the SQLite metadata store are rebuilt from
+# backend/requirements.txt and db.py, so neither belongs in version control.
+backend/.venv/
+backend/data/*.db
+backend/data/*.db-*
+backend/.env
+
+# Local deployment archives
+wes-results-api-patch.tar.gz
+wes-web_c0a94a5.tar.gz

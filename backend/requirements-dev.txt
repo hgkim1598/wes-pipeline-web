@@ -1,0 +1,10 @@
+# Development / test dependencies.
+#
+# Installed only into backend/.venv, never into the production environment:
+#   backend/.venv/Scripts/python.exe -m pip install -r backend/requirements-dev.txt
+#
+# httpx is deliberately not pinned here. Starlette's TestClient needs it, and
+# fastapi[standard] already pulls it in as a direct dependency; adding a second
+# constraint would only create a way for the two to disagree.
+-r requirements.txt
+pytest==8.*

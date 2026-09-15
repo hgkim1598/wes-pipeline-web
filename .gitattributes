@@ -1,0 +1,4 @@
+# Shell scripts must keep LF endings: a CRLF shebang breaks execution on Linux.
+*.sh text eol=lf
+*.md text eol=lf
+*.json text eol=lf
