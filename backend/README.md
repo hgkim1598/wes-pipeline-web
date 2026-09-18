@@ -137,6 +137,12 @@ http://127.0.0.1:8000/api/health   → {"status":"ok", ...}
 http://127.0.0.1:8000/docs         → API 목록을 브라우저에서 확인/시험 가능
 ```
 
+**배포된 Linux 서버**에서는 위 명령을 직접 치지 말고 `script/start_backend.sh`를
+쓰세요. 인터프리터(`wes-dev`)와 분석 도구 PATH(`wes-tools/bin`)를 고정하고
+`/api/health`까지 확인합니다 — 이 두 가지를 손으로 맞추다가 실제로 두 번
+장애가 났습니다. 배포 절차 전체는 `docs/DEPLOYMENT.md`, 실행 전 서버 점검은
+`script/server_preflight.sh`입니다.
+
 ## 환경 설정 (`backend/.env`)
 
 `backend/.env.example`을 복사해서 만듭니다. 실제 값은 각 PC마다 다르므로 git에 올리지 않습니다.

@@ -1,0 +1,59 @@
+# WES backend systemd unit -- TEMPLATE, not a unit file.
+#
+# The double-underscore tokens below are filled in by
+# script/install_systemd_service.sh, which reads them from the environment of
+# the machine it runs on. Nothing here names a user, a home directory or a
+# release: the same template installs on any Linux host.
+#
+# Do not copy this file into /etc/systemd/system by hand. The installer refuses
+# to install a unit that still has an unsubstituted token, and systemd would
+# reject it anyway.
+
+[Unit]
+Description=WES pipeline web backend (FastAPI)
+Documentation=file://__DEPLOY_ROOT__/current/docs/DEPLOYMENT.md
+# The backend binds a socket and the pipeline fetches nothing, but a release on
+# a networked VM should still wait for the network to be configured.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+__USER_LINE__
+# `current` on purpose, not a pinned release: a release swap plus `systemctl
+# restart` is then the whole deployment step, and the unit never goes stale.
+WorkingDirectory=__DEPLOY_ROOT__/current
+ExecStart=__DEPLOY_ROOT__/current/script/start_backend.sh --foreground
+
+# start_backend.sh --foreground exec()s uvicorn, so MAINPID is the server
+# itself and SIGTERM reaches it directly.
+Environment=WES_DEPLOY_ROOT=__DEPLOY_ROOT__
+Environment=WES_CONDA_ROOT=__CONDA_ROOT__
+# Per-host overrides (port, bind address, storage roots) go here rather than in
+# this template. An operator-owned file keeps machine values out of git:
+EnvironmentFile=-__DEPLOY_ROOT__/shared/backend.env
+
+# KillMode=process, deliberately.
+#
+# The backend starts main.sh with start_new_session=True and is written to
+# survive its own restart: worker.recover_orphans() re-attaches a running
+# pipeline to its DB row (backend/app/services/pipeline_executor.py and
+# worker.py say so in their own comments). systemd's default control-group kill
+# would SIGKILL that pipeline on every restart -- hours of WES work destroyed to
+# restart a web server. Only the main process is signalled here.
+#
+# The trade-off, stated plainly: a pipeline left running after `systemctl stop`
+# keeps writing to its run directory with no backend attached. It is re-attached
+# on the next start. To end a run, cancel the job through the API.
+KillMode=process
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+# uvicorn's own output. The journal is the log in this mode; <release>/runtime/
+# stays empty because --foreground writes no second copy.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=__WANTED_BY__

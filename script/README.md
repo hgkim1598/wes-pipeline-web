@@ -228,9 +228,15 @@ Windows 개발 PC에는 WES 분석 도구와 참조 유전체가 없기 때문�
 |---|---|
 | `main.sh` | **메인 파이프라인.** Backend가 실행하는 대상 |
 | `download_capture_beds.sh` | capture kit BED 파일을 공식 배포처에서 내려받고 SHA-256으로 검증. 이미 올바른 파일이 있으면 건너뜀 |
+| `bootstrap_server.sh` | **Linux 배포용** 최초 1회 provisioning. 디렉터리·shared storage·conda 환경·capture BED·`.env`를 준비하고 preflight를 호출. 여러 번 실행해도 안전하며 sudo가 필요 없습니다 |
+| `server_preflight.sh` | **Linux 배포용** 사전 점검. 도구·reference·capture BED(SHA 포함)·영속 경로를 run 제출 전에 확인. `main.sh`의 `00_input_validation`을 대신하지 않습니다 |
+| `start_backend.sh` | **Linux 배포용** backend 기동/재기동. wes-dev 인터프리터와 wes-tools PATH를 고정하고 `/api/health`까지 확인. `--foreground`는 systemd용. Windows 개발 실행에는 쓰지 않습니다 |
+| `install_systemd_service.sh` | **Linux 배포용** 부팅 시 자동 기동 설정. `systemd/wes-backend.service.template`을 이 머신 값으로 렌더링해 설치 (sudo 필요, `--user` 모드는 불필요) |
+| `systemd/wes-backend.service.template` | systemd unit template. 사용자·경로가 박혀 있지 않으며, 직접 복사하지 말고 위 installer로 설치합니다 |
 | `run_vcf_annotation.sh` / `run_vcf_annotation.py` | VEP·ClinVar·gnomAD·PanelApp을 이용한 **별도의 VCF 주석 도구**. `main.sh`가 호출하지 않는 독립 스크립트이며, 현재 웹 연동 대상이 아닙니다 |
 
 ## 더 자세한 내용
 
 - `docs/MAIN_SH_COMPLETE_GUIDE.md` — 파이프라인 종합 설명서 (설정 전체 설명, samplesheet 규칙, 단계별 상세, 현재 한계, Linux smoke test 절차)
 - `docs/CAPTURE_BED_RESOURCES.md` — capture kit BED 파일 준비 방법
+- `docs/DEPLOYMENT.md` — Linux 서버 배포 runbook (release / 영속 데이터 / runtime resource 구분, provisioning · preflight · 기동 · 부팅 시 자동 기동)
