@@ -21,7 +21,7 @@ import pytest
 
 from ..services.explanation import deterministic, knowledge as knowledge_module
 from ..services.explanation import run_context
-from ..services.explanation.llm import contract, prompt, provider
+from ..services.explanation.llm import contract, prompt, provider, validation
 from ..services.explanation.llm import synthesis as llm_synthesis
 
 
@@ -160,6 +160,138 @@ def test_a_statement_cannot_be_written_without_evidence():
     """min_length=1 on evidenceRefs, asserted so a relaxation is caught."""
     with pytest.raises(Exception):
         contract.SynthesisStatement(statement="unsupported", evidenceRefs=[])
+
+
+# --- B2. numbers and property names, enforced at runtime ---------------------
+#
+# Gates 4 and 5. Both were eval-only checks: they could tell you afterwards that
+# a generation had invented a figure, which is worth much less than refusing to
+# serve it. These tests pin the runtime behaviour, not the eval's.
+
+
+def test_a_number_from_the_payload_is_accepted(explanation):
+    """The positive case first, so a gate that rejects everything is visible."""
+    payload, allowed = contract.build_payload(explanation)
+    known = validation.collect_known_numbers(payload)
+    # Taken from the payload rather than typed in, so the test cannot drift from
+    # the fixture's values.
+    assert "48210" in known, "fixture no longer carries the expected record count"
+
+    response = _valid_response(allowed)
+    response["importantFindings"][0]["statement"] = (
+        "변이 후보 기록이 48,210건 있습니다."
+    )
+
+    result = llm_synthesis.build_run_synthesis(
+        explanation, run_provider=_provider_returning(response)
+    )
+    assert result.available is True
+    assert result.errorCategory is None
+
+
+def test_an_invented_number_rejects_the_whole_response(explanation):
+    """A figure nobody measured looks exactly like one that was."""
+    payload, allowed = contract.build_payload(explanation)
+    assert "99999999" not in validation.collect_known_numbers(payload)
+
+    response = _valid_response(allowed)
+    response["importantFindings"][0]["statement"] = (
+        "변이 후보 기록이 99,999,999건 있습니다."
+    )
+
+    result = llm_synthesis.build_run_synthesis(
+        explanation, run_provider=_provider_returning(response)
+    )
+    assert result.available is False
+    assert result.errorCategory == "unsupportedNumber"
+    # Whole response, not the offending sentence: same rule as a bad citation.
+    assert result.synthesis is None
+    assert result.errorMessage == llm_synthesis._SAFE_MESSAGES["unsupportedNumber"]
+
+
+def test_an_invented_number_in_the_summary_is_also_rejected(explanation):
+    """The summary carries no refs of its own, but it is still user prose."""
+    _payload, allowed = contract.build_payload(explanation)
+    response = _valid_response(allowed)
+    response["summary"] = "이 실행에서 12,345,678개가 확인되었습니다."
+
+    result = llm_synthesis.build_run_synthesis(
+        explanation, run_provider=_provider_returning(response)
+    )
+    assert result.available is False
+    assert result.errorCategory == "unsupportedNumber"
+
+
+def test_a_small_count_of_its_own_items_is_not_an_invented_number(explanation):
+    """The model counting its own list is not a claim about the run.
+
+    Without this allowance the gate would reject correct output for saying
+    "3개", which is the false positive most likely to make the feature useless.
+    """
+    _payload, allowed = contract.build_payload(explanation)
+    response = _valid_response(allowed)
+    response["summary"] = "확인할 사항 3가지를 정리했습니다."
+
+    result = llm_synthesis.build_run_synthesis(
+        explanation, run_provider=_provider_returning(response)
+    )
+    assert result.available is True
+
+
+def test_an_internal_property_name_rejects_the_whole_response(explanation):
+    """A schema identifier is not Korean, and the reader was promised Korean."""
+    payload, allowed = contract.build_payload(explanation)
+    assert "rawVariantRecords" in validation.camel_case_property_names(payload)
+
+    response = _valid_response(allowed)
+    response["importantFindings"][0]["statement"] = (
+        "rawVariantRecords 값을 확인하세요."
+    )
+
+    result = llm_synthesis.build_run_synthesis(
+        explanation, run_provider=_provider_returning(response)
+    )
+    assert result.available is False
+    assert result.errorCategory == "internalFieldName"
+    assert result.synthesis is None
+
+
+def test_an_ordinary_word_that_is_also_a_key_is_not_flagged(explanation):
+    """`assembly` is a payload key and an ordinary word in a knowledge sentence.
+
+    Only camelCase is inspected precisely so this sentence survives; flagging
+    every key would reject the canonical wording the model is asked to reuse.
+    """
+    payload, allowed = contract.build_payload(explanation)
+    assert "assembly" in validation.collect_property_names(payload)
+    assert "assembly" not in validation.camel_case_property_names(payload)
+
+    response = _valid_response(allowed)
+    response["limitations"][0]["statement"] = (
+        "같은 assembly release에서 나온 자료인지는 확인되지 않았습니다."
+    )
+
+    result = llm_synthesis.build_run_synthesis(
+        explanation, run_provider=_provider_returning(response)
+    )
+    assert result.available is True
+
+
+def test_the_gates_run_in_order_refs_before_prose(explanation):
+    """A response that fails several gates is reported by the first one.
+
+    Not cosmetic: the category is what the operator reads in the log and what
+    the frontend keys its message off, so it has to name one definite reason.
+    """
+    _payload, allowed = contract.build_payload(explanation)
+    response = _valid_response(allowed)
+    response["importantFindings"][0]["evidenceRefs"] = ["src:invented-paper-2024"]
+    response["importantFindings"][0]["statement"] = "기록이 99,999,999건입니다."
+
+    result = llm_synthesis.build_run_synthesis(
+        explanation, run_provider=_provider_returning(response)
+    )
+    assert result.errorCategory == "unknownEvidenceRef"
 
 
 # --- C/D. malformed and failing providers ------------------------------------
@@ -452,7 +584,12 @@ def test_every_error_category_has_a_curated_message():
 
     raised = {"providerUnavailable", "notAuthenticated", "meteredAuthPresent",
               "usageLimit", "timeout", "providerFailed", "malformedProviderResponse"}
-    domain = {"invalidSynthesis", "unknownEvidenceRef"}
+    domain = {
+        "invalidSynthesis",
+        "unknownEvidenceRef",
+        "unsupportedNumber",
+        "internalFieldName",
+    }
     assert raised | domain == set(llm_synthesis._SAFE_MESSAGES)
     assert prov.ProviderError("timeout", "x").category == "timeout"
 

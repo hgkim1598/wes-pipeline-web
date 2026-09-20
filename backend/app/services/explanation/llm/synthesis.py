@@ -9,17 +9,26 @@ the route.
 Validation is not a formality
 -----------------------------
 
-Three gates, in order, and the model has to pass all of them:
+Five gates, in order, and the model has to pass all of them:
 
     1. the CLI shapes the output against SYNTHESIS_JSON_SCHEMA
     2. Pydantic re-validates it here -- the CLI is not a trusted validator
     3. every evidenceRef must be an id this payload actually minted
+    4. every number in the prose must appear in the payload
+    5. no payload property name may appear in the prose
 
-Gate 3 is the one that matters. Gates 1 and 2 only check shape; a well-formed
-object can still cite `src:made-up-paper`. Rejecting the whole response on a
-bad ref is intentional: a response that cites something that does not exist has
-demonstrated it is willing to invent, and the rest of it cannot be trusted more
-than that.
+Gates 1 and 2 only check shape; a well-formed object can still cite
+`src:made-up-paper`, state a figure nobody measured, or hand a beginner
+`basesInLowMeanDepthIntervalsPct` as if it were a word. Gates 3 to 5 are the
+ones that look at content, and each rejects the **whole** response rather than
+editing it: a response willing to invent one citation or one number has shown
+what it is willing to do, and the sentences that happen to be sound have not
+earned more trust than that.
+
+Gates 4 and 5 were checks the eval harness already made against recorded
+output. Finding a defect in review is worth less than refusing to serve it, so
+the rules moved into `validation.py` and now run on every user request; the
+eval keeps using the same functions.
 """
 
 from __future__ import annotations
@@ -31,7 +40,7 @@ from pydantic import BaseModel, ValidationError
 
 from .... import config
 from ..deterministic import RunExplanation
-from . import contract, prompt, provider
+from . import contract, prompt, provider, validation
 
 log = logging.getLogger(__name__)
 
@@ -98,6 +107,8 @@ _SAFE_MESSAGES: dict[str, str] = {
     "malformedProviderResponse": "AI 응답을 읽을 수 없었습니다.",
     "invalidSynthesis": "생성된 설명이 예상한 형식과 달라 사용하지 않았습니다.",
     "unknownEvidenceRef": "생성된 설명이 제공되지 않은 근거를 인용해 폐기했습니다.",
+    "unsupportedNumber": "생성된 설명에 실행 기록에 없는 수치가 있어 폐기했습니다.",
+    "internalFieldName": "생성된 설명에 내부 필드 이름이 노출되어 폐기했습니다.",
 }
 
 _FALLBACK_MESSAGE = "AI 설명을 생성하지 못했습니다."
@@ -172,6 +183,35 @@ def build_run_synthesis(
             "supplied, so it was discarded.",
         )
 
+    # Gates 4 and 5 read the prose, so they need the statements rather than the
+    # refs. `payload` is the fact source on purpose: it is exactly what the
+    # model was shown, so anything outside it is something it could not have
+    # been quoting. See validation.py.
+    statements = _statements(synthesis)
+
+    invented = validation.find_unsupported_numbers(statements, payload)
+    if invented:
+        # A citation can be checked by a reader; a number cannot. A figure that
+        # was never measured is the most quietly damaging thing this feature
+        # could produce, because it looks exactly like the ones that were.
+        log.warning("synthesis stated unsupported numbers: %s", invented)
+        return _unavailable(
+            "unsupportedNumber",
+            f"the generated explanation stated numbers not present in the "
+            f"supplied data: {invented}",
+        )
+
+    exposed = validation.find_exposed_property_names(statements, payload)
+    if exposed:
+        # Not a safety failure but a contract failure: the reader was promised
+        # ordinary Korean, and a schema identifier is not that. The prompt asks
+        # for this; asking is not enforcing.
+        log.warning("synthesis exposed internal property names: %s", exposed)
+        return _unavailable(
+            "internalFieldName",
+            f"the generated explanation exposed internal property names: {exposed}",
+        )
+
     return SynthesisResult(
         available=True,
         synthesis=synthesis,
@@ -185,20 +225,40 @@ def build_run_synthesis(
     )
 
 
+def _statement_groups(
+    synthesis: contract.RunSynthesis,
+) -> tuple[list[contract.SynthesisStatement], ...]:
+    """The four cited groups, in one place so a new group cannot be missed.
+
+    `summary` is not here: it carries no refs of its own by design. It IS user
+    prose, so _statements() adds it separately -- a number invented in the
+    summary is exactly as wrong as one invented in a finding.
+    """
+    return (
+        synthesis.importantFindings,
+        synthesis.limitations,
+        synthesis.nextChecks,
+        synthesis.uncertainties,
+    )
+
+
 def _unknown_refs(
     synthesis: contract.RunSynthesis, allowed: set[str]
 ) -> set[str]:
     """Every cited id that this payload did not mint."""
     seen: set[str] = set()
-    for group in (
-        synthesis.importantFindings,
-        synthesis.limitations,
-        synthesis.nextChecks,
-        synthesis.uncertainties,
-    ):
+    for group in _statement_groups(synthesis):
         for item in group:
             seen.update(item.evidenceRefs)
     return seen - allowed
+
+
+def _statements(synthesis: contract.RunSynthesis) -> list[str]:
+    """Every sentence a user would read, including the summary."""
+    texts = [synthesis.summary]
+    for group in _statement_groups(synthesis):
+        texts.extend(item.statement for item in group)
+    return texts
 
 
 __all__ = [

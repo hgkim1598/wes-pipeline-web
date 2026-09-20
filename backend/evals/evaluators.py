@@ -31,9 +31,13 @@ apply -- a digit is a digit.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
+
+# eval -> app. Never the reverse: the request path must not depend on a test
+# harness. The shared rules live in the application because the runtime enforces
+# them on every synthesis; this module only scores what they find.
+from app.services.explanation.llm import validation
 
 # not_run: 모델을 부르지 않아 채점할 출력이 없다. pass도 fail도 아니다.
 Outcome = Literal["pass", "fail", "needs_review", "not_run"]
@@ -85,54 +89,22 @@ class EvalReport:
 
 
 # --- A. numbers --------------------------------------------------------------
+#
+# The rules themselves now live in the application, not here:
+#
+#     app/services/explanation/llm/validation.py
+#
+# They were moved because the runtime enforces them too -- a synthesis that
+# states an unrecorded number is refused before a user sees it, rather than
+# being noticed later in a review. Two copies of the same rule would drift, and
+# the copy that mattered would be the one nobody re-read.
+#
+# What stays here is the scoring: turning a finding into a CheckResult with a
+# name and a Korean detail line is an eval concern and has no place in the
+# request path. The import direction is eval -> app, never the reverse.
 
-# Numbers as they appear in prose: 52,379 · 10.9967 · 7.2115 · 36,458,262.
-_NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
-
-
-def _normalise(token: str) -> str:
-    """`52,379` and `52379` are the same number; `10.9967` keeps its digits."""
-    cleaned = token.replace(",", "")
-    if "." in cleaned:
-        cleaned = cleaned.rstrip("0").rstrip(".")
-    return cleaned or "0"
-
-
-def collect_known_numbers(facts: dict[str, Any]) -> set[str]:
-    """Every number the run actually recorded, normalised.
-
-    Walks the fixture rather than listing fields, so a new measurement added
-    upstream is automatically allowed instead of being reported as invented.
-    """
-    known: set[str] = set()
-
-    def walk(node: Any) -> None:
-        if isinstance(node, bool):
-            return
-        if isinstance(node, (int, float)):
-            known.add(_normalise(str(node)))
-            return
-        if isinstance(node, dict):
-            for key, value in node.items():
-                # 키에도 사실이 있다 `[코드근거]` -- coverage.breadth는
-                # {"30X": 2.6709} 형태여서 임계값 30·50·100이 **키**에만 있다.
-                # 값만 훑던 첫 버전은 모델이 "30X 2.6709%"라고 정확히 인용한
-                # 문장을 "지어낸 숫자"로 잡았다. 첫 baseline에서 실제로 발생.
-                walk(key)
-                walk(value)
-            return
-        if isinstance(node, list):
-            for value in node:
-                walk(value)
-            return
-        if isinstance(node, str):
-            # Pipeline messages carry their own numbers ("7.2115% of ...").
-            # Quoting those back is not invention.
-            for match in _NUMBER.findall(node):
-                known.add(_normalise(match))
-
-    walk(facts)
-    return known
+collect_known_numbers = validation.collect_known_numbers
+collect_property_names = validation.collect_property_names
 
 
 def check_numbers(
@@ -140,42 +112,25 @@ def check_numbers(
 ) -> CheckResult:
     """No number in the output that the run did not record.
 
-    Small integers are allowed by default: the model counts its own list
-    ("3개 항목") and those counts are not claims about the run. The threshold is
-    deliberately low so that a real measurement can never hide behind it --
-    every coverage and variant value in this project is far above it.
+    `facts` is the fixture here, not the payload. That is the source the
+    recorded baselines were scored against, so it is left as it was; the
+    runtime gate deliberately uses the payload instead, and validation.py says
+    why.
     """
-    known = collect_known_numbers(facts)
-    invented: list[str] = []
-    for text in statements:
-        for token in _NUMBER.findall(text):
-            value = _normalise(token)
-            if value in known:
-                continue
-            if allow_small_ordinals and _is_small_integer(value):
-                continue
-            invented.append(token)
-
+    invented = validation.find_unsupported_numbers(
+        statements, facts, allow_small_ordinals=allow_small_ordinals
+    )
     if invented:
         return CheckResult(
             name="numbers-preserved",
             outcome="fail",
-            detail=f"run에 없는 숫자: {sorted(set(invented))}",
+            detail=f"run에 없는 숫자: {invented}",
         )
     return CheckResult(
         name="numbers-preserved",
         outcome="pass",
-        detail=f"{len(known)}개 사실 숫자와 대조",
+        detail=f"{len(validation.collect_known_numbers(facts))}개 사실 숫자와 대조",
     )
-
-
-def _is_small_integer(value: str) -> bool:
-    if "." in value:
-        return False
-    try:
-        return 0 <= int(value) <= 20
-    except ValueError:
-        return False
 
 
 # --- B. evidence relations ---------------------------------------------------
@@ -274,39 +229,6 @@ def check_mentions(statements: list[str], needles: list[str], *, name: str):
 
 # --- D. internal names in user-facing prose ---------------------------------
 
-# camelCase 식별자만 잡는다: 소문자로 시작하고 중간에 대문자가 있는 토큰.
-#
-# 이 좁힘이 핵심이다 `[설계판단]`. payload의 모든 키를 금지하면
-# `assembly`·`scope`·`actions` 같은 평범한 단어가 걸리는데, 그중 일부는
-# canonical knowledge의 정답 문장에 실제로 들어 있다 -- wes_failures.json의
-# scope claim이 "같은 assembly release에서 나왔음을" 이라고 쓴다.
-#
-# 반면 중간 대문자는 schema 식별자의 기계적 서명이고, 한국어 산문이나 보통의
-# 영어 단어와 충돌하지 않는다. `rawVariantRecords`·`coreEndpoint`·
-# `basesInLowMeanDepthIntervalsPct`·`possibleCauses`가 전부 여기 걸린다.
-#
-# 손으로 유지하는 금칙어 목록이 아니다. 허용 여부는 **payload가 실제로 가진 키**로
-# 판단하므로, 필드가 바뀌면 검사도 따라 바뀐다.
-_CAMEL = re.compile(r"(?<![A-Za-z0-9])[a-z][a-z0-9]*(?:[A-Z][a-zA-Z0-9]*)+(?![A-Za-z0-9])")
-
-
-def collect_property_names(payload: Any) -> set[str]:
-    """Every dict key the model was shown."""
-    names: set[str] = set()
-
-    def walk(node: Any) -> None:
-        if isinstance(node, dict):
-            for key, value in node.items():
-                names.add(key)
-                walk(value)
-        elif isinstance(node, list):
-            for value in node:
-                walk(value)
-
-    walk(payload)
-    return names
-
-
 def check_no_internal_names(
     statements: list[str], payload: Any, *, name: str = "no-internal-field-names"
 ) -> CheckResult:
@@ -317,24 +239,19 @@ def check_no_internal_names(
     meant for a beginner. It had been told to -- an earlier prompt rule said to
     "describe it with the field's own wording".
 
-    Only camelCase is inspected, so a single ordinary word that happens to be a
-    key (`assembly`, `scope`) is not flagged. Those remain a human judgement.
+    The rule (camelCase only, derived from the payload's own keys) is in
+    validation.py and is enforced at runtime as well. Only the scoring is here.
     """
-    known = {n for n in collect_property_names(payload) if _CAMEL.fullmatch(n)}
+    known = validation.camel_case_property_names(payload)
     if not known:
         return CheckResult(name=name, outcome="pass", detail="camelCase 키 없음")
 
-    found: set[str] = set()
-    for text in statements:
-        for token in _CAMEL.findall(text):
-            if token in known:
-                found.add(token)
-
+    found = validation.find_exposed_property_names(statements, payload)
     if found:
         return CheckResult(
             name=name,
             outcome="fail",
-            detail=f"사용자 문장에 내부 필드명: {sorted(found)}",
+            detail=f"사용자 문장에 내부 필드명: {found}",
         )
     return CheckResult(
         name=name, outcome="pass", detail=f"{len(known)}개 키 중 노출 0"
