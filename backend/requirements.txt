@@ -10,3 +10,15 @@
 # job/upload metadata store, subprocess for running script/main.sh, queue +
 # threading for the single worker. No SQLAlchemy, Celery, Redis or driver.
 fastapi[standard]==0.141.1
+
+# The official MCP Python SDK, for app/agent_mcp: the server that exposes one
+# read-only WES tool (get_step_detail) to a model client. Exact pin for the
+# same reason FastAPI is pinned -- and a stronger one here, since the SDK just
+# went through a major version (2.x renamed FastMCP to MCPServer and moved the
+# wire models to snake_case), so a floating constraint could swap the API out
+# from under this code on a fresh install.
+#
+# The [cli] extra is deliberately NOT taken: it exists for `mcp dev`/`mcp
+# install`, which this backend does not use. The server is started by
+# `python -m app.agent_mcp`, and the tests drive it in process.
+mcp==2.2.0
