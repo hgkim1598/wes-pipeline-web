@@ -32,6 +32,20 @@ from pathlib import Path
 
 from ... import db
 from .privacy import Redactor
+from .tool_sink import ToolEvidenceSink
+
+# How many DIFFERENT steps one agent session may open.
+#
+# This is an operational limit on the agent, not a WES or biological judgement.
+# Nothing about this pipeline says two steps are enough to understand a run; the
+# number exists because the installed Claude Code CLI has no `--max-turns`, so
+# the only deterministic brake on a loop that keeps fetching is the tool itself.
+# Re-reading a step already fetched is free and does not count -- the cost being
+# capped is "how far can this wander", not "how many times may it ask".
+#
+# Raise it when there is evidence that a real explanation needed more, not
+# because a bigger number looks more capable.
+DEFAULT_MAX_DISTINCT_STEPS = 2
 
 
 class RunNotFound(Exception):
@@ -46,9 +60,18 @@ class RunScope:
     planned_steps: tuple[str, ...]
     run_mode: str
     redactor: Redactor
+    # Where successful tool results are recorded for the parent process. None
+    # means nothing is recorded, and the parent will credit no tool evidence.
+    sink: ToolEvidenceSink | None = None
+    max_distinct_steps: int = DEFAULT_MAX_DISTINCT_STEPS
 
 
-def for_job(job_id: str) -> RunScope:
+def for_job(
+    job_id: str,
+    *,
+    sink: ToolEvidenceSink | None = None,
+    max_distinct_steps: int = DEFAULT_MAX_DISTINCT_STEPS,
+) -> RunScope:
     """Resolve a job id to a scope. Server-side only; never from tool input.
 
     Raises RunNotFound for an unknown id.
@@ -78,7 +101,14 @@ def for_job(job_id: str) -> RunScope:
         planned_steps=tuple(db.loads(row["planned_steps"], [])),
         run_mode=row["run_mode"],
         redactor=Redactor(literals=literals),
+        sink=sink,
+        max_distinct_steps=max_distinct_steps,
     )
 
 
-__all__ = ["RunNotFound", "RunScope", "for_job"]
+__all__ = [
+    "DEFAULT_MAX_DISTINCT_STEPS",
+    "RunNotFound",
+    "RunScope",
+    "for_job",
+]

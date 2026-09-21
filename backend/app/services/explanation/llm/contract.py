@@ -484,6 +484,27 @@ def build_payload(explanation: RunExplanation) -> tuple[dict[str, Any], set[str]
     status_ref = "run:status"
     allowed.add(status_ref)
 
+    # --- the step list, so a tool call can name a step ----------------------
+    #
+    # Three fields per step and no more. This is a MENU, not a report: it exists
+    # so the model knows which step ids are real and which ones are worth
+    # opening, and every detail beyond "did it run, how long did it take" is the
+    # `get_step_detail` tool's job. Sending metrics or check rows here would
+    # both bloat every prompt and remove the reason to use the tool at all.
+    #
+    # Step ids are the pipeline's own vocabulary and carry nothing about the
+    # sample. They are snake_case, so gate 5 (camelCase property names) does not
+    # apply to them -- the prompt is what tells the model to name steps in
+    # Korean for the reader and keep the id for the tool argument.
+    steps = [
+        {
+            "stepId": state.stepId,
+            "status": state.status,
+            "elapsedSeconds": state.elapsedSeconds,
+        }
+        for state in explanation.steps
+    ]
+
     payload: dict[str, Any] = {
         "run": {
             "evidenceId": status_ref,
@@ -508,6 +529,14 @@ def build_payload(explanation: RunExplanation) -> tuple[dict[str, Any], set[str]
         "grounding": grounding,
         "sources": sources,
     }
+
+    # Conditional, like coverage below: an explanation with no recorded steps
+    # (every eval fixture predating this field) produces exactly the payload it
+    # produced before, so recorded baselines stay comparable.
+    if steps:
+        steps_ref = "run:steps"
+        allowed.add(steps_ref)
+        payload["steps"] = {"evidenceId": steps_ref, "planned": steps}
 
     if explanation.coverage is not None:
         ref = "run:coverage"

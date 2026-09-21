@@ -1,10 +1,23 @@
 """Build the input, call a provider, validate what comes back.
 
-The whole model-facing feature is this one function. It is deliberately not an
-agent: one call, no tools, no retries, no memory. If it fails, the deterministic
-explanation is still there and unchanged -- that is the property the design is
-protecting, and every failure path here returns a value rather than raising into
-the route.
+The whole model-facing feature is this one function. It is a *small* agent: one
+provider call in which the model may open at most two of this run's pipeline
+steps through `get_step_detail`, and nothing else -- no retries, no memory, no
+second tool, no write of any kind. If it fails, the deterministic explanation is
+still there and unchanged -- that is the property the design is protecting, and
+every failure path here returns a value rather than raising into the route.
+
+Two fact sources, one rule
+--------------------------
+
+    initial   contract.build_payload(explanation)     what the model was handed
+    fetched   the step evidence the tool RETURNED     what the model went and got
+
+The second is read from the sink the MCP server wrote (see tools.py), never
+from the model's own account of what it fetched. Then the two are merged and
+every gate below sees one fact set. That is what makes a tool useful rather than
+self-defeating: without the merge, a number the tool correctly returned would be
+rejected as invented; with it, a number from a step nobody opened still is.
 
 Validation is not a formality
 -----------------------------
@@ -13,9 +26,9 @@ Five gates, in order, and the model has to pass all of them:
 
     1. the CLI shapes the output against SYNTHESIS_JSON_SCHEMA
     2. Pydantic re-validates it here -- the CLI is not a trusted validator
-    3. every evidenceRef must be an id this payload actually minted
-    4. every number in the prose must appear in the payload
-    5. no payload property name may appear in the prose
+    3. every evidenceRef must be an id the payload minted or a tool returned
+    4. every number in the prose must appear in those same facts
+    5. no property name from those facts may appear in the prose
 
 Gates 1 and 2 only check shape; a well-formed object can still cite
 `src:made-up-paper`, state a figure nobody measured, or hand a beginner
@@ -40,7 +53,7 @@ from pydantic import BaseModel, ValidationError
 
 from .... import config
 from ..deterministic import RunExplanation
-from . import contract, prompt, provider, validation
+from . import contract, prompt, provider, tools, validation
 
 log = logging.getLogger(__name__)
 
@@ -147,20 +160,45 @@ def build_run_synthesis(
     would spend real usage while appearing to pass.
     """
     call = run_provider or provider.run_structured
-    payload, allowed_refs = contract.build_payload(explanation)
+    payload, initial_refs = contract.build_payload(explanation)
 
-    try:
-        result = call(
-            user_prompt=prompt.build_user_prompt(payload),
-            json_schema=contract.SYNTHESIS_JSON_SCHEMA,
-            model=model,
-            timeout_seconds=timeout_seconds,
+    # The tool channel lives exactly as long as the call. Inside the block the
+    # model may open up to two steps of THIS run; when it closes, the sink and
+    # its temporary directory are gone.
+    with tools.step_detail_toolset(explanation.identity.jobId) as toolset:
+        try:
+            result = call(
+                user_prompt=prompt.build_user_prompt(payload),
+                json_schema=contract.SYNTHESIS_JSON_SCHEMA,
+                model=model,
+                timeout_seconds=timeout_seconds,
+                mcp_config=toolset.mcp_config,
+                allowed_tools=toolset.allowed_tools,
+            )
+        except provider.ProviderError as exc:
+            # Expected, not exceptional: the provider being unavailable is a
+            # normal state of this feature, and the deterministic explanation is
+            # unaffected.
+            log.info("synthesis unavailable (%s): %s", exc.category, exc.message)
+            return _unavailable(exc.category, exc.message)
+
+        # Read before the sink is removed. What the model fetched is only
+        # knowable from what the server recorded answering -- never from the
+        # response, which is the thing being checked.
+        tool_evidence = toolset.evidence()
+
+    # Initial payload + the tool results that were actually returned. From here
+    # every gate sees one fact set, so a number from an opened step is quotable
+    # and a number from a step nobody opened is still invented.
+    facts, allowed_refs = tools.credit(payload, initial_refs, tool_evidence)
+    if tool_evidence:
+        log.info(
+            "synthesis used %d tool result(s): %s",
+            len(tool_evidence),
+            ", ".join(
+                str(item.get("evidenceId")) for item in tool_evidence
+            ),
         )
-    except provider.ProviderError as exc:
-        # Expected, not exceptional: the provider being unavailable is a normal
-        # state of this feature, and the deterministic explanation is unaffected.
-        log.info("synthesis unavailable (%s): %s", exc.category, exc.message)
-        return _unavailable(exc.category, exc.message)
 
     try:
         synthesis = contract.RunSynthesis.model_validate(result.payload)
@@ -184,12 +222,13 @@ def build_run_synthesis(
         )
 
     # Gates 4 and 5 read the prose, so they need the statements rather than the
-    # refs. `payload` is the fact source on purpose: it is exactly what the
-    # model was shown, so anything outside it is something it could not have
-    # been quoting. See validation.py.
+    # refs. `facts` is the fact source on purpose: it is exactly what the model
+    # was shown -- the payload it was given plus the tool results it fetched --
+    # so anything outside it is something it could not have been quoting. See
+    # validation.py, which walks a list as readily as a dict.
     statements = _statements(synthesis)
 
-    invented = validation.find_unsupported_numbers(statements, payload)
+    invented = validation.find_unsupported_numbers(statements, facts)
     if invented:
         # A citation can be checked by a reader; a number cannot. A figure that
         # was never measured is the most quietly damaging thing this feature
@@ -201,7 +240,7 @@ def build_run_synthesis(
             f"supplied data: {invented}",
         )
 
-    exposed = validation.find_exposed_property_names(statements, payload)
+    exposed = validation.find_exposed_property_names(statements, facts)
     if exposed:
         # Not a safety failure but a contract failure: the reader was promised
         # ordinary Korean, and a schema identifier is not that. The prompt asks

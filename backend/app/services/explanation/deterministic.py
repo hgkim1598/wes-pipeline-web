@@ -45,6 +45,7 @@ from .run_context import (
     RunCoverage,
     RunDiagnosticContext,
     RunIdentity,
+    RunStepState,
     RunVariantCalling,
 )
 
@@ -165,6 +166,14 @@ class RunExplanation(BaseModel):
 
     identity: RunIdentity
     checkSummary: CheckSummary
+    # The planned steps and how far each got, passed through from the context.
+    #
+    # Carried here so the LLM layer can offer a step list without reaching back
+    # into run_context: an agent that may fetch one step's detail has to be told
+    # which step ids exist, and a step id is the tool's only argument. Defaults
+    # to empty so an explanation recorded before this field existed -- every
+    # eval fixture -- still validates.
+    steps: list[RunStepState] = Field(default_factory=list)
     diagnostics: list[DiagnosticExplanation] = Field(default_factory=list)
     failures: list[FailureExplanation] = Field(default_factory=list)
 
@@ -349,6 +358,10 @@ def build_run_explanation(context: RunDiagnosticContext) -> RunExplanation:
         resultsUnavailableReason=context.resultsUnavailableReason,
         identity=context.identity,
         checkSummary=_summarise_checks(context),
+        # Passed through, not re-derived: run_status_reader already reconciled
+        # these with what GET /api/jobs/{id} reports, and a second derivation
+        # here could disagree with the screen.
+        steps=context.steps,
         diagnostics=_explain_diagnostics(context),
         failures=_explain_failures(context),
         # Passed through. Re-deriving coverage numbers here would create a

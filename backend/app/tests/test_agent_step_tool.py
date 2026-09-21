@@ -28,7 +28,7 @@ from mcp import Client
 
 from app.agent_mcp import server as mcp_server
 from app.services import step_reader
-from app.services.agent import run_scope
+from app.services.agent import run_scope, step_evidence, tool_sink
 from app.services.agent.privacy import Redactor
 from app.services.agent.step_evidence import (
     MalformedStepId,
@@ -406,6 +406,7 @@ def test_step_evidence_fields_are_pinned():
     StepEvidence fails this test until someone has decided a model may see it.
     """
     assert set(StepEvidence.model_fields) == {
+        "evidenceId",
         "stepId",
         "status",
         "exitCode",
@@ -453,6 +454,134 @@ def test_redactor_without_literals_still_removes_shapes():
     bare = Redactor()
 
     assert "PATIENT" not in bare.text("/srv/wes/runs/r1/PATIENT_A.raw.vcf.gz")
+
+
+# --- evidence id, sink and the per-session budget ----------------------------
+
+
+@pytest.fixture
+def sink(tmp_path):
+    return tool_sink.ToolEvidenceSink(path=tmp_path / "tool_evidence.jsonl")
+
+
+@pytest.fixture
+def recording_scope(make_job, run, sink):
+    """The same run, scoped the way a synthesis request scopes it."""
+    processing_run(run(RUN_ID))
+    job_id = make_job(RUN_ID, run_mode="full", planned=FULL_PLAN, sample_id=SAMPLE)
+    return run_scope.for_job(job_id, sink=sink)
+
+
+def test_evidence_id_is_derived_from_the_step_id(scope):
+    """The server mints it, so the server can check a citation against it."""
+    evidence = read_step_evidence(scope, "04_processing")
+
+    assert evidence.evidenceId == "step:04_processing"
+    assert evidence.evidenceId == step_evidence.evidence_id("04_processing")
+
+
+def test_a_successful_call_is_recorded_for_the_parent(recording_scope, sink):
+    result = call_tool(recording_scope, {"stepId": "04_processing"})
+
+    assert result.is_error is False
+    assert [entry["toolName"] for entry in sink.records()] == ["get_step_detail"]
+    recorded = sink.evidence()[0]
+    assert recorded["evidenceId"] == "step:04_processing"
+    assert recorded["elapsedSeconds"] == 2531
+    # What is recorded is the projection, not the reader's output.
+    assert SAMPLE not in json.dumps(recorded, ensure_ascii=False)
+
+
+def test_a_refused_call_records_nothing(recording_scope, sink):
+    """A step nobody could open must never become citable evidence."""
+    assert call_tool(recording_scope, {"stepId": "11_intervar"}).is_error is True
+    assert call_tool(recording_scope, {"stepId": "../../etc/passwd"}).is_error is True
+
+    assert sink.records() == []
+
+
+def test_two_different_steps_are_allowed_and_a_third_is_refused(
+    recording_scope, sink
+):
+    """The first version's operational limit: two open steps per session.
+
+    A technical brake on the loop, not a claim that two steps are enough to
+    understand a run -- the installed CLI has no --max-turns, so the tool is
+    where a bound can be enforced at all.
+    """
+    server = mcp_server.build_server(recording_scope)
+
+    async def go():
+        async with Client(server) as client:
+            first = await client.call_tool("get_step_detail", {"stepId": "04_processing"})
+            second = await client.call_tool(
+                "get_step_detail", {"stepId": "06_variant_calling"}
+            )
+            repeat = await client.call_tool(
+                "get_step_detail", {"stepId": "04_processing"}
+            )
+            third = await client.call_tool("get_step_detail", {"stepId": "01_raw_qc"})
+            return first, second, repeat, third
+
+    first, second, repeat, third = anyio.run(go)
+
+    assert first.is_error is False
+    assert second.is_error is False
+    # A step already opened is answered again, identically, and costs nothing.
+    assert repeat.is_error is False
+    assert repeat.structured_content == first.structured_content
+    # The third DIFFERENT step is where the session stops.
+    assert third.is_error is True
+    assert "budget" in error_text(third)
+
+    # The repeat did not produce a second record: the parent credits each
+    # opened step once.
+    assert [entry["evidence"]["stepId"] for entry in sink.records()] == [
+        "04_processing",
+        "06_variant_calling",
+    ]
+
+
+def test_a_refused_step_does_not_consume_the_budget(recording_scope):
+    """A typo must not end the session."""
+    server = mcp_server.build_server(recording_scope)
+
+    async def go():
+        async with Client(server) as client:
+            await client.call_tool("get_step_detail", {"stepId": "11_intervar"})
+            await client.call_tool("get_step_detail", {"stepId": "nonsense"})
+            first = await client.call_tool(
+                "get_step_detail", {"stepId": "04_processing"}
+            )
+            second = await client.call_tool(
+                "get_step_detail", {"stepId": "06_variant_calling"}
+            )
+            return first, second
+
+    first, second = anyio.run(go)
+
+    assert first.is_error is False
+    assert second.is_error is False
+
+
+def test_the_budget_is_per_session_not_per_run(recording_scope):
+    """A second server for the same run starts fresh; nothing is persisted."""
+    for _ in range(2):
+        server = mcp_server.build_server(recording_scope)
+
+        async def go(server=server):
+            async with Client(server) as client:
+                return await client.call_tool(
+                    "get_step_detail", {"stepId": "01_raw_qc"}
+                )
+
+        assert anyio.run(go).is_error is False
+
+
+def test_a_scope_without_a_sink_still_answers(scope):
+    """Recording is for the parent; a server started by hand has no parent."""
+    assert scope.sink is None
+    assert call_tool(scope, {"stepId": "04_processing"}).is_error is False
 
 
 def test_unknown_step_id_types_are_refused_by_the_wrapper(scope):

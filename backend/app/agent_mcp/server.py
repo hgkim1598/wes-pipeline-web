@@ -33,7 +33,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
-from ..services.agent import run_scope
+from ..services.agent import run_scope, tool_sink
 from ..services.agent.run_scope import RunScope
 from ..services.agent.step_evidence import (
     StepEvidence,
@@ -50,6 +50,21 @@ SERVER_VERSION = "0.1.0"
 # in process is given its scope directly, and neither path lets a tool call
 # choose one.
 JOB_ID_ENV = "WES_AGENT_JOB_ID"
+
+# Optional override of the per-session step budget, for an operator running the
+# server by hand. The synthesis path sets it explicitly; see
+# run_scope.DEFAULT_MAX_DISTINCT_STEPS for what the number is and is not.
+MAX_STEPS_ENV = "WES_AGENT_MAX_STEPS"
+
+
+def _max_distinct_steps() -> int:
+    """The budget for this process. Falls back to the default, never to 0."""
+    raw = os.environ.get(MAX_STEPS_ENV, "").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return run_scope.DEFAULT_MAX_DISTINCT_STEPS
+    return value if value > 0 else run_scope.DEFAULT_MAX_DISTINCT_STEPS
 
 _INSTRUCTIONS = (
     "Read-only evidence about ONE WES pipeline run that is already selected. "
@@ -76,12 +91,21 @@ _TOOL_DESCRIPTION = (
 
 
 def build_server(scope: RunScope) -> MCPServer:
-    """An MCP server whose tools can only read `scope`'s run."""
+    """An MCP server whose tools can only read `scope`'s run.
+
+    The per-session state -- which steps have been opened, and what they
+    answered -- lives in this closure, next to the scope. It is session state,
+    not run state: a second server built for the same run starts with a fresh
+    budget, and nothing is written to the run directory.
+    """
     server = MCPServer(
         name=SERVER_NAME,
         version=SERVER_VERSION,
         instructions=_INSTRUCTIONS,
     )
+
+    # stepId -> what this session already answered for it.
+    opened: dict[str, StepEvidence] = {}
 
     @server.tool(
         name="get_step_detail",
@@ -96,14 +120,42 @@ def build_server(scope: RunScope) -> MCPServer:
         ),
     )
     def get_step_detail(stepId: str) -> StepEvidence:
+        # Already opened: answer from this session's own memo. Re-reading the
+        # disk could return a DIFFERENT object for the same evidence id if the
+        # step finished in between, which would leave the parent validating a
+        # sentence against numbers the model never saw. Costs no budget.
+        memoised = opened.get(stepId) if isinstance(stepId, str) else None
+        if memoised is not None:
+            return memoised
+
+        if len(opened) >= scope.max_distinct_steps:
+            # Deterministic refusal, not a silent truncation: the model is told
+            # it has spent its budget so it can answer with what it has.
+            raise ToolError(
+                f"step detail budget spent: this session may open at most "
+                f"{scope.max_distinct_steps} different steps and already opened "
+                f"{', '.join(sorted(opened))}. Answer with the evidence you have."
+            )
+
         try:
-            return read_step_evidence(scope, stepId)
+            evidence = read_step_evidence(scope, stepId)
         except UnreadableStep as exc:
             # A refusal the model can act on: it says which ids are valid, and
             # carries nothing from the filesystem. Raised as ToolError because
             # any other exception is reported to the client as an opaque
             # "error executing tool" with the message dropped.
+            #
+            # A refused call costs no budget -- a mistyped id is not an attempt
+            # to wander, and charging for it would end the session on a typo.
             raise ToolError(str(exc)) from exc
+
+        opened[evidence.stepId] = evidence
+        if scope.sink is not None:
+            # Recorded only on success, and only what the tool actually
+            # returned. This is what lets the parent credit these facts later;
+            # a step that was never opened can never be cited.
+            scope.sink.record("get_step_detail", evidence)
+        return evidence
 
     return server
 
@@ -116,6 +168,8 @@ def main() -> int:
     is an explicit act, and the job id comes from the operator's environment,
     never from a model.
     """
+    # stderr, never stdout: stdout IS the MCP transport here, and a log line
+    # written to it would corrupt the protocol stream.
     logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 
     job_id = os.environ.get(JOB_ID_ENV, "").strip()
@@ -124,7 +178,13 @@ def main() -> int:
         return 2
 
     try:
-        scope = run_scope.for_job(job_id)
+        scope = run_scope.for_job(
+            job_id,
+            # Absent when a person starts this by hand; then the session simply
+            # records nothing and no parent is waiting for it.
+            sink=tool_sink.sink_from_environment(),
+            max_distinct_steps=_max_distinct_steps(),
+        )
     except run_scope.RunNotFound:
         print(f"no such job: {job_id}", file=sys.stderr)
         return 2
@@ -133,4 +193,11 @@ def main() -> int:
     return 0
 
 
-__all__ = ["JOB_ID_ENV", "SERVER_NAME", "SERVER_VERSION", "build_server", "main"]
+__all__ = [
+    "JOB_ID_ENV",
+    "MAX_STEPS_ENV",
+    "SERVER_NAME",
+    "SERVER_VERSION",
+    "build_server",
+    "main",
+]

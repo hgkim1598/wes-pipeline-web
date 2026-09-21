@@ -49,6 +49,12 @@ def test_response_carries_the_expected_sections(client, make_job, run):
         "resultsUnavailableReason",
         "identity",
         "checkSummary",
+        # Added when the synthesis layer gained a step-detail tool: an agent
+        # that may open one step has to be told which step ids exist, and the
+        # deterministic explanation is where that list is carried (stepId,
+        # status, elapsedSeconds -- no detail). It is additive for this GET;
+        # the same three values are already in GET /api/jobs/{id}.
+        "steps",
         "diagnostics",
         "failures",
         "coverage",

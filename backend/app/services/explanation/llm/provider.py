@@ -58,6 +58,7 @@ import logging
 import os
 import shutil
 import subprocess
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -214,8 +215,10 @@ def run_structured(
     model: str | None = None,
     executable: str = "claude",
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
+    mcp_config: dict[str, Any] | None = None,
+    allowed_tools: Sequence[str] = (),
 ) -> ProviderResult:
-    """One non-interactive, tool-less, single-turn call.
+    """One non-interactive call, with at most the tools the caller names.
 
     The payload travels over stdin, not argv -- see the module docstring.
 
@@ -224,28 +227,39 @@ def run_structured(
         -p                        non-interactive; exit after one response
                                   (with no prompt argument it reads stdin)
         (no --system-prompt)      a custom system prompt suppresses
-                                  structured_output on this CLI version, so the
-                                  constraints ride in the user turn instead
-                                  (see prompt.py)
-        (no --system-prompt)      a custom system prompt suppresses
                                   structured_output on this CLI version; the
                                   constraints ride in the user turn instead
                                   (see prompt.py)
         --output-format json      machine-readable envelope
         --json-schema             the model's output is shaped and parsed by
                                   the CLI, so no fence-stripping heuristics
-        --tools ""                NO tools. This call must not read the repo,
-                                  run Bash, or fetch anything -- its only input
-                                  is the payload we hand it
+        --tools ""                no BUILT-IN tools, always. The model may not
+                                  read the repo, run Bash or fetch anything;
+                                  `--tools` names the built-in set, so this
+                                  stays empty even when an MCP tool is offered
         --disable-slash-commands  a runtime string cannot invoke a skill
-        --strict-mcp-config       ignore any MCP servers configured on the box
+        --strict-mcp-config       ONLY the servers in --mcp-config; every MCP
+                                  server configured on the box is ignored
         --setting-sources ""      ignore user/project/local settings, so the
                                   result does not depend on the developer's
                                   machine
         --no-session-persistence  nothing about a user's run is written to the
                                   CLI's session store
 
-    Not agentic: one turn in, one object out.
+    The tool channel, when `mcp_config` is given:
+
+        --mcp-config <json>       the one stdio server this call may use,
+                                  described by the caller (app/agent_mcp)
+        --allowedTools <names>    an allowlist. Anything not named here is not
+                                  available, so the config cannot widen what a
+                                  server exposes
+        --permission-prompts none anything that would ask a human is denied
+                                  instead. There is no human here: without it a
+                                  permission request has nobody to answer it
+
+    This function still knows nothing about WES. It is handed a server
+    description and a tool name; what that tool reads, and what it may return,
+    is decided in app/agent_mcp and app/services/agent.
     """
     resolved = _preflight(executable)
 
@@ -264,6 +278,13 @@ def run_structured(
         "",
         "--no-session-persistence",
     ]
+    if mcp_config is not None:
+        argv += ["--mcp-config", json.dumps(mcp_config)]
+        if allowed_tools:
+            # Variadic option: it eats the following arguments, so the names go
+            # in as one comma-separated value rather than as separate words.
+            argv += ["--allowedTools", ",".join(allowed_tools)]
+        argv += ["--permission-prompts", "none"]
     if model:
         argv += ["--model", model]
 

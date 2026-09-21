@@ -51,6 +51,20 @@ from .privacy import MetricValue, Redactor
 from .run_scope import RunScope
 
 
+# The prefix every step-level evidence id carries, alongside the `run:`, `dx:`,
+# `fail:`, `lim:`, `src:` and `concept:` prefixes contract.py already mints.
+#
+# The id is DERIVED from the step id, never supplied by a model: the server can
+# therefore recompute it and check a citation against what the tool actually
+# returned. An id the model composes on its own is not evidence of anything.
+EVIDENCE_PREFIX = "step:"
+
+
+def evidence_id(step_id: str) -> str:
+    """The citable id for one step's evidence. Pure function of the step id."""
+    return f"{EVIDENCE_PREFIX}{step_id}"
+
+
 class UnreadableStep(Exception):
     """Base for the two refusals. Carries a message safe to show a model."""
 
@@ -97,6 +111,11 @@ class StepFailureEvidence(BaseModel):
 class StepEvidence(BaseModel):
     """The allowlist. A field that is not here is not sent, by construction."""
 
+    # What a statement resting on this step must cite, in the same shape the
+    # payload's own ids use. It travels WITH the data the model reads, so the
+    # model copies an id it was given rather than inventing one -- and the
+    # server, which minted it from the step id, can verify that.
+    evidenceId: str
     stepId: str
     # pending / running are backend-derived: main.sh writes a step document
     # only when a step ends, so neither state exists on disk.
@@ -164,6 +183,7 @@ def _project(detail: dict[str, Any], redactor: Redactor) -> StepEvidence:
     metrics, withheld = redactor.metrics(detail.get("metrics") or {})
 
     return StepEvidence(
+        evidenceId=evidence_id(detail["stepId"]),
         # Not scrubbed: it was validated against the recorded plan, so it is
         # one of the pipeline's own step ids.
         stepId=detail["stepId"],
@@ -203,6 +223,7 @@ def _project(detail: dict[str, Any], redactor: Redactor) -> StepEvidence:
 
 
 __all__ = [
+    "EVIDENCE_PREFIX",
     "MalformedStepId",
     "StepCheckEvidence",
     "StepEvidence",
@@ -210,5 +231,6 @@ __all__ = [
     "StepNotInThisRun",
     "StepWarningEvidence",
     "UnreadableStep",
+    "evidence_id",
     "read_step_evidence",
 ]
