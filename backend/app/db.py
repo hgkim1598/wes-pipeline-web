@@ -53,6 +53,36 @@ CREATE TABLE IF NOT EXISTS jobs (
     updated_at        TEXT NOT NULL
 );
 
+-- One row per model-backed synthesis request. Observability only: nothing in
+-- the request path reads it back, and no API returns it.
+--
+-- A separate table rather than columns on `jobs` because the cardinality is
+-- different: one job can be explained many times, and the answer differs every
+-- time. Folding it into `jobs` would keep only the most recent attempt and put
+-- model metadata into a row this module's own docstring reserves for
+-- orchestration state.
+--
+-- What may be stored here is deliberately narrow -- see
+-- services/explanation/llm/trace.py. No prompt, no model reasoning, no tool
+-- result content, no sample name, no path.
+CREATE TABLE IF NOT EXISTS synthesis_traces (
+    trace_id        TEXT PRIMARY KEY,
+    -- Internal linkage only. Never sent to a model, never in an API response.
+    job_id          TEXT NOT NULL,
+    created_at      TEXT NOT NULL,
+    models          TEXT NOT NULL,      -- JSON array of model ids the CLI reported
+    duration_ms     INTEGER,
+    num_turns       INTEGER,
+    -- JSON array of pipeline step ids the agent actually opened. [] means the
+    -- tool was never used, which is a fact worth keeping, not a missing value.
+    opened_step_ids TEXT NOT NULL,
+    available       INTEGER NOT NULL,   -- 1 when the user was shown a synthesis
+    error_category  TEXT                -- NULL when available
+);
+
+CREATE INDEX IF NOT EXISTS idx_synthesis_traces_job
+    ON synthesis_traces (job_id, created_at);
+
 CREATE TABLE IF NOT EXISTS uploads (
     upload_id         TEXT PRIMARY KEY,
     original_filename TEXT NOT NULL,

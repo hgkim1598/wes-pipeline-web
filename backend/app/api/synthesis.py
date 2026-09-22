@@ -38,6 +38,7 @@ from ..api.jobs import JOB_ID_RE
 from ..services import result_reader
 from ..services.explanation import deterministic, run_context
 from ..services.explanation.llm import synthesis as llm_synthesis
+from ..services.explanation.llm import trace
 from ..services.explanation.llm.synthesis import SynthesisResult
 
 log = logging.getLogger(__name__)
@@ -70,4 +71,10 @@ def create_synthesis(job_id: str) -> SynthesisResult:
         ) from exc
 
     explanation = deterministic.build_run_explanation(context)
-    return llm_synthesis.build_run_synthesis(explanation)
+    # The trace is written here rather than inside the service because this is
+    # where the job id lives, and because the record is about a REQUEST: the
+    # service explains an explanation and does not know it was asked over HTTP.
+    # Nothing of it reaches the response -- see services/.../llm/trace.py.
+    return llm_synthesis.build_run_synthesis(
+        explanation, on_trace=trace.recorder(job_id)
+    )

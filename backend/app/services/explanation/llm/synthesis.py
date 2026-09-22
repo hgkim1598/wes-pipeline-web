@@ -54,7 +54,7 @@ from pydantic import BaseModel, ValidationError
 
 from .... import config
 from ..deterministic import RunExplanation
-from . import contract, prompt, provider, tools, validation
+from . import contract, prompt, provider, tools, trace, validation
 
 log = logging.getLogger(__name__)
 
@@ -144,6 +144,7 @@ def build_run_synthesis(
     timeout_seconds: int = provider.DEFAULT_TIMEOUT_SECONDS,
     run_provider=None,
     on_tool_use: Callable[[tools.ToolUse], None] | None = None,
+    on_trace: Callable[[trace.SynthesisTrace], None] | None = None,
 ) -> SynthesisResult:
     """Summarise one already-built deterministic explanation.
 
@@ -160,8 +161,15 @@ def build_run_synthesis(
     a few milliseconds inside this function before the sink is deleted. Rather
     than persisting a trace or widening SynthesisResult -- which would put agent
     internals into an API response and then into the frontend -- a caller that
-    wants to watch passes a callback. The route passes none, so nothing about
-    the production response changes.
+    wants to watch passes a callback. Neither observer changes what the caller
+    gets back, and neither adds a field to any response.
+
+    `on_trace` is the second observer, and the one production uses. It fires
+    exactly once on every exit path -- success, guardrail rejection, provider
+    failure -- with the execution record described in trace.py. The two
+    observers carry different things on purpose: `on_tool_use` hands over the
+    tool's RESULTS, which an eval needs in memory and which must never be
+    stored; `on_trace` hands over only what may be kept.
 
     `run_provider` defaults to None and is resolved here rather than in the
     signature. A default of `provider.run_structured` would bind the function
@@ -171,6 +179,34 @@ def build_run_synthesis(
     """
     call = run_provider or provider.run_structured
     payload, initial_refs = contract.build_payload(explanation)
+
+    # Filled in as the call progresses, so a failure part-way through still
+    # reports what had happened by then -- a provider timeout after the agent
+    # opened a step is a different event from one that timed out immediately.
+    opened: tuple[str, ...] = ()
+    models: list[str] = []
+    duration_ms: int | None = None
+    num_turns: int | None = None
+
+    def emit(outcome: SynthesisResult) -> SynthesisResult:
+        """Report the execution record, then return the result unchanged.
+
+        Every `return` in this function goes through here, which is what makes
+        "a trace exists for every attempt" a property of the control flow
+        rather than a rule someone has to remember.
+        """
+        if on_trace is not None:
+            on_trace(
+                trace.SynthesisTrace(
+                    models=tuple(models),
+                    durationMs=duration_ms,
+                    numTurns=num_turns,
+                    openedStepIds=opened,
+                    available=outcome.available,
+                    errorCategory=outcome.errorCategory,
+                )
+            )
+        return outcome
 
     # The tool channel lives exactly as long as the call. Inside the block the
     # model may open up to two steps of THIS run; when it closes, the sink and
@@ -190,7 +226,10 @@ def build_run_synthesis(
             # normal state of this feature, and the deterministic explanation is
             # unaffected.
             log.info("synthesis unavailable (%s): %s", exc.category, exc.message)
-            return _unavailable(exc.category, exc.message)
+            # The tool may already have answered before the provider died, and
+            # that is exactly what makes such a trace worth having.
+            opened = tools.observe(toolset.evidence()).openedStepIds
+            return emit(_unavailable(exc.category, exc.message))
 
         # Read before the sink is removed. What the model fetched is only
         # knowable from what the server recorded answering -- never from the
@@ -202,10 +241,18 @@ def build_run_synthesis(
     # and a number from a step nobody opened is still invented.
     facts, allowed_refs = tools.credit(payload, initial_refs, tool_evidence)
 
+    use = tools.observe(tool_evidence)
+    opened = use.openedStepIds
+    models = result.models
+    duration_ms = result.durationMs
+    # Collected by the provider since the beginning and never used until now.
+    # One turn means the model answered from the payload alone.
+    num_turns = result.numTurns
+
     if on_tool_use is not None:
         # Handed out, never stored. What the observer does with it -- score it,
         # print it, drop it -- is not this function's business.
-        on_tool_use(tools.observe(tool_evidence))
+        on_tool_use(use)
 
     if tool_evidence:
         log.info(
@@ -220,9 +267,11 @@ def build_run_synthesis(
         synthesis = contract.RunSynthesis.model_validate(result.payload)
     except ValidationError as exc:
         log.warning("synthesis failed validation: %s", exc)
-        return _unavailable(
-            "invalidSynthesis",
-            "the generated explanation did not match the expected structure.",
+        return emit(
+            _unavailable(
+                "invalidSynthesis",
+                "the generated explanation did not match the expected structure.",
+            )
         )
 
     unknown = _unknown_refs(synthesis, allowed_refs)
@@ -231,10 +280,12 @@ def build_run_synthesis(
         # one sentence would leave a response that invented a citation and
         # present the rest as if it were sound.
         log.warning("synthesis cited unknown evidence: %s", sorted(unknown))
-        return _unavailable(
-            "unknownEvidenceRef",
-            "the generated explanation referred to evidence that was not "
-            "supplied, so it was discarded.",
+        return emit(
+            _unavailable(
+                "unknownEvidenceRef",
+                "the generated explanation referred to evidence that was not "
+                "supplied, so it was discarded.",
+            )
         )
 
     # Gates 4 and 5 read the prose, so they need the statements rather than the
@@ -250,10 +301,12 @@ def build_run_synthesis(
         # was never measured is the most quietly damaging thing this feature
         # could produce, because it looks exactly like the ones that were.
         log.warning("synthesis stated unsupported numbers: %s", invented)
-        return _unavailable(
-            "unsupportedNumber",
-            f"the generated explanation stated numbers not present in the "
-            f"supplied data: {invented}",
+        return emit(
+            _unavailable(
+                "unsupportedNumber",
+                f"the generated explanation stated numbers not present in the "
+                f"supplied data: {invented}",
+            )
         )
 
     exposed = validation.find_exposed_property_names(statements, facts)
@@ -262,21 +315,26 @@ def build_run_synthesis(
         # ordinary Korean, and a schema identifier is not that. The prompt asks
         # for this; asking is not enforcing.
         log.warning("synthesis exposed internal property names: %s", exposed)
-        return _unavailable(
-            "internalFieldName",
-            f"the generated explanation exposed internal property names: {exposed}",
+        return emit(
+            _unavailable(
+                "internalFieldName",
+                f"the generated explanation exposed internal property names: "
+                f"{exposed}",
+            )
         )
 
-    return SynthesisResult(
-        available=True,
-        synthesis=synthesis,
-        provenance=SynthesisProvenance(
-            models=result.models,
-            generatedAt=datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            contextKind=explanation.contextKind,
-            runStatus=explanation.status,
-            durationMs=result.durationMs,
-        ),
+    return emit(
+        SynthesisResult(
+            available=True,
+            synthesis=synthesis,
+            provenance=SynthesisProvenance(
+                models=result.models,
+                generatedAt=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                contextKind=explanation.contextKind,
+                runStatus=explanation.status,
+                durationMs=result.durationMs,
+            ),
+        )
     )
 
 
