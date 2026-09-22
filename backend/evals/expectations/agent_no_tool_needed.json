@@ -1,0 +1,33 @@
+{
+  "case": "agent_no_tool_needed",
+  "_comment": [
+    "Tool-selection case C. 합성 Run -- agent_cases.py의 _clean_full_run().",
+    "",
+    "경고도 실패도 없고 검증표는 전부 PASS이며, coverage / 변이 기록 수 /",
+    "사용 범위가 이미 payload에 있다. step 상세가 바꿀 수 있는 문장이 없다.",
+    "",
+    "그러므로 Tool 호출 자체가 오답이다. 이유 없이 step을 여는 습관은 Tool이",
+    "늘어날수록 비싸지고, 모델이 말할 수 있는 범위만 넓힌다.",
+    "expectedStepIds는 비어 있고, step 선택 검사는 not_run으로 보고된다."
+  ],
+
+  "expectedToolUse": false,
+  "expectedStepIds": [],
+
+  "mustMention": [],
+  "mustCite": [
+    {
+      "name": "cites-intended-use",
+      "ref": "lim:INTENDED_USE",
+      "why": "연구·교육 범위. 문제가 없는 Run일수록 이 경계가 빠지기 쉽다"
+    }
+  ],
+  "mustQualify": [],
+
+  "humanReview": [
+    {
+      "name": "no-threshold-verdict",
+      "question": "이상이 없다고 해서 품질이 좋다/충분하다고 판정하지 않았는가?"
+    }
+  ]
+}

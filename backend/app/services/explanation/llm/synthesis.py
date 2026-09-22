@@ -47,6 +47,7 @@ eval keeps using the same functions.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import datetime, timezone
 
 from pydantic import BaseModel, ValidationError
@@ -142,6 +143,7 @@ def build_run_synthesis(
     model: str | None = DEFAULT_MODEL,
     timeout_seconds: int = provider.DEFAULT_TIMEOUT_SECONDS,
     run_provider=None,
+    on_tool_use: Callable[[tools.ToolUse], None] | None = None,
 ) -> SynthesisResult:
     """Summarise one already-built deterministic explanation.
 
@@ -153,11 +155,19 @@ def build_run_synthesis(
     `run_provider` is injected so tests never spawn a process. It is the seam a
     LangGraph node would occupy.
 
-    It defaults to None and is resolved here rather than in the signature. A
-    default of `provider.run_structured` would bind the function object once, at
-    import time, so patching the module attribute afterwards would silently have
-    no effect -- and a test that believes it stubbed the provider but did not
-    would spend real usage while appearing to pass.
+    `on_tool_use` is the observation seam, and the whole of it. The eval harness
+    needs to know whether the agent searched and where, and that fact exists for
+    a few milliseconds inside this function before the sink is deleted. Rather
+    than persisting a trace or widening SynthesisResult -- which would put agent
+    internals into an API response and then into the frontend -- a caller that
+    wants to watch passes a callback. The route passes none, so nothing about
+    the production response changes.
+
+    `run_provider` defaults to None and is resolved here rather than in the
+    signature. A default of `provider.run_structured` would bind the function
+    object once, at import time, so patching the module attribute afterwards
+    would silently have no effect -- and a test that believes it stubbed the
+    provider but did not would spend real usage while appearing to pass.
     """
     call = run_provider or provider.run_structured
     payload, initial_refs = contract.build_payload(explanation)
@@ -191,6 +201,12 @@ def build_run_synthesis(
     # every gate sees one fact set, so a number from an opened step is quotable
     # and a number from a step nobody opened is still invented.
     facts, allowed_refs = tools.credit(payload, initial_refs, tool_evidence)
+
+    if on_tool_use is not None:
+        # Handed out, never stored. What the observer does with it -- score it,
+        # print it, drop it -- is not this function's business.
+        on_tool_use(tools.observe(tool_evidence))
+
     if tool_evidence:
         log.info(
             "synthesis used %d tool result(s): %s",

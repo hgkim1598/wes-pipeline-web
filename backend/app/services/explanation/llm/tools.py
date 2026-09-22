@@ -76,6 +76,62 @@ def step_detail_toolset(
         )
 
 
+@dataclass(frozen=True)
+class ToolUse:
+    """What the agent actually went and looked at, in three values.
+
+    The smallest thing an observer needs in order to ask "did it search, and
+    did it search in the right place" -- which is a different question from
+    "was the answer grounded", and is scored by a different evaluator.
+
+    Derived from the sink, so it reports execution rather than intention: a
+    model that says it consulted a step appears here only if the server
+    answered one.
+
+    Deliberately not part of any API response, not persisted, and not shown to
+    a user. It exists for the length of one call; `synthesis.py` hands it to an
+    observer if one was passed, and otherwise it is discarded with the sink.
+    """
+
+    toolUsed: bool
+    openedStepIds: tuple[str, ...]
+    toolEvidenceIds: tuple[str, ...]
+    # The returned objects themselves, for an observer that has to judge the
+    # answer against them -- an eval checking for invented numbers has to know
+    # that a figure came back from a step, or it reports fetched evidence as
+    # invention. Left out of to_json(): an eval RECORD wants the three ids, not
+    # a second copy of the evidence.
+    evidence: tuple[dict[str, Any], ...] = ()
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "toolUsed": self.toolUsed,
+            "openedStepIds": list(self.openedStepIds),
+            "toolEvidenceIds": list(self.toolEvidenceIds),
+        }
+
+
+def observe(tool_evidence: list[dict[str, Any]]) -> ToolUse:
+    """Summarise one request's recorded tool results.
+
+    Order is the order the tool answered in, and duplicates cannot occur: the
+    server answers a repeated step from its own memo without recording it
+    again.
+    """
+    step_ids = tuple(
+        str(item["stepId"]) for item in tool_evidence if item.get("stepId")
+    )
+    evidence_ids = tuple(
+        str(item["evidenceId"]) for item in tool_evidence if item.get("evidenceId")
+    )
+    return ToolUse(
+        toolUsed=bool(tool_evidence),
+        openedStepIds=step_ids,
+        toolEvidenceIds=evidence_ids,
+        evidence=tuple(tool_evidence),
+    )
+
+
 def credit(
     payload: dict[str, Any],
     allowed_refs: set[str],
@@ -98,4 +154,4 @@ def credit(
     return facts, refs
 
 
-__all__ = ["Toolset", "credit", "step_detail_toolset"]
+__all__ = ["ToolUse", "Toolset", "credit", "observe", "step_detail_toolset"]

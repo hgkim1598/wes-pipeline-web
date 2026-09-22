@@ -2,6 +2,7 @@
 
     python -m evals.run_eval --case full
     python -m evals.run_eval --case all --record-baseline --yes
+    python -m evals.run_eval --case agent            # tool-selection cases
 
 The only code in this repository that can spend subscription usage outside a
 user's own request. `pytest` never reaches it: pytest.ini sets
@@ -41,7 +42,7 @@ from app import config
 from app.services.explanation.deterministic import RunExplanation
 from app.services.explanation.llm import contract, prompt, synthesis
 
-from . import evaluators
+from . import agent_cases, evaluators
 
 HERE = Path(__file__).resolve().parent
 FIXTURES = HERE / "fixtures"
@@ -53,6 +54,20 @@ CASES = {
     "precheck": "precheck_failed",
     "execfailed": "execution_failed",
     "inprogress": "in_progress",
+}
+
+# Agent cases. Same harness, same report, same baseline format -- the only
+# difference is where the case comes from and what extra question it asks.
+#
+#     the four above   a frozen RunExplanation   "was the answer grounded?"
+#     these three      a run built on the spot   "did it fetch the right thing?"
+#
+# They are built rather than frozen because the tool reads a real run: see
+# agent_cases.py. `--case agent` runs exactly these.
+AGENT_CASES = {
+    "agentfail": "agent_failed_step",
+    "agentwarn": "agent_warning_step",
+    "agentnotool": "agent_no_tool_needed",
 }
 
 # fixture가 검체 이름 자리에 넣어 둔 값. payload에 나타나면 allowlist가 뚫린
@@ -129,6 +144,84 @@ def privacy_check(fixture: dict[str, Any]) -> evaluators.CheckResult:
     return evaluators.CheckResult(
         name="payload-privacy", outcome="pass", detail=detail
     )
+
+
+def load_expectations(name: str) -> dict[str, Any]:
+    return json.loads((EXPECTATIONS / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def evaluate_agent(name: str) -> dict[str, Any]:
+    """One agent case: build the run, call the model once, score what it did.
+
+    The extra thing this path does is pass an observer. `build_run_synthesis`
+    hands it what the MCP server recorded answering during the call, which is
+    the only honest source for "did the agent open a step, and which one" --
+    the model's own text is the thing under examination, not a witness to it.
+    """
+    case = agent_cases.CASES[name]
+    expectations = load_expectations(name)
+    observed: dict[str, Any] = {}
+    fetched: list[Any] = []
+
+    def watch(use) -> None:
+        observed.update(use.to_json())
+        # What came back, for the number check: a measurement the agent
+        # fetched is not a measurement it invented.
+        fetched.extend(use.evidence)
+
+    with agent_cases.materialise(case) as explanation:
+        payload, allowed = contract.build_payload(explanation)
+        result = synthesis.build_run_synthesis(
+            explanation, on_tool_use=watch
+        ).model_dump()
+
+    fixture = explanation.model_dump()
+    report = evaluators.run_expectations(
+        expectations,
+        fixture,
+        result,
+        payload,
+        tool_use=observed,
+        fetched_facts=fetched,
+    )
+    report.results.insert(0, privacy_check(fixture))
+
+    provenance = result.get("provenance") or {}
+    return {
+        "invocationStatus": "invoked",
+        "invocationSkippedReason": None,
+        "case": name,
+        "caseKind": "agent",
+        "caseIntent": case.intent,
+        "recordedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "provider": provenance.get("provider"),
+        "models": provenance.get("models"),
+        "durationMs": provenance.get("durationMs"),
+        "configuredModel": config.SYNTHESIS_MODEL,
+        "promptHash": _hash(prompt.CONSTRAINTS),
+        "knowledgeHash": _knowledge_hash(),
+        "schemaHash": _hash(json.dumps(contract.SYNTHESIS_JSON_SCHEMA, sort_keys=True)),
+        "allowedRefCount": len(allowed),
+        # What the agent actually did. Transient at runtime -- it is recorded in
+        # this eval record and nowhere else, and there is still no trace store.
+        "toolUse": observed,
+        "expectedToolUse": expectations.get("expectedToolUse"),
+        "expectedStepIds": expectations.get("expectedStepIds"),
+        "evaluation": report.to_json(),
+        "humanReview": {
+            "reviewedBy": None,
+            "verdict": None,
+            "notes": None,
+            "items": [
+                {"name": r.name, "question": r.detail, "verdict": None}
+                for r in report.results
+                if r.kind == "human"
+            ],
+        },
+        "available": result.get("available"),
+        "errorCategory": result.get("errorCategory"),
+        "output": result.get("synthesis"),
+    }
 
 
 def load_case(name: str) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -238,6 +331,13 @@ def rescore(names: list[str], *, record: bool) -> int:
     """Re-evaluate stored baselines. No model call."""
     failed = 0
     for name in names:
+        if name in agent_cases.CASES:
+            # An agent case has no frozen fixture: its run is built on the spot
+            # and its tool-use observation only exists during the call. Scoring
+            # a stored output again would answer the grounding questions and
+            # silently skip the two that case exists for.
+            print(f"{name}: agent case는 rescore를 지원하지 않습니다 (실행이 필요).")
+            continue
         matches = sorted(BASELINES.glob(f"*_{name}_*.json"))
         if not matches:
             print(f"{name}: baseline이 없습니다.")
@@ -275,7 +375,11 @@ def rescore(names: list[str], *, record: bool) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--case", choices=[*sorted(CASES), "all"], required=True)
+    parser.add_argument(
+        "--case",
+        choices=[*sorted(CASES), *sorted(AGENT_CASES), "all", "agent"],
+        required=True,
+    )
     parser.add_argument(
         "--record-baseline",
         action="store_true",
@@ -293,7 +397,14 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    names = list(CASES.values()) if args.case == "all" else [CASES[args.case]]
+    if args.case == "all":
+        names = list(CASES.values())
+    elif args.case == "agent":
+        names = list(AGENT_CASES.values())
+    elif args.case in AGENT_CASES:
+        names = [AGENT_CASES[args.case]]
+    else:
+        names = [CASES[args.case]]
 
     if args.rescore:
         # evaluator를 고쳤을 때 쓴다. 모델 출력은 그대로 두고 채점만 다시 한다 --
@@ -320,7 +431,9 @@ def main() -> int:
 
     records = []
     for name in names:
-        record = evaluate(name)
+        record = (
+            evaluate_agent(name) if name in agent_cases.CASES else evaluate(name)
+        )
         print_report(record)
         records.append(record)
 

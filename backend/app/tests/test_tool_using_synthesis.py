@@ -281,3 +281,59 @@ def test_credit_without_tool_results_changes_nothing():
 
     assert refs == {"run:status"}
     assert facts == [payload]
+
+
+# --- the observation seam ----------------------------------------------------
+#
+# The eval harness needs to know whether the agent searched and where. That
+# fact lives for a moment inside build_run_synthesis and is then discarded with
+# the sink, so a caller that wants it passes a callback. Nothing is persisted
+# and no response carries it.
+
+
+def test_the_observer_reports_what_the_tool_actually_returned(explanation):
+    seen = []
+    fake = provider_that(
+        _answer("경고가 기록되었습니다.", "run:status"),
+        opens=["04_processing", "06_variant_calling"],
+    )
+
+    llm_synthesis.build_run_synthesis(
+        explanation, run_provider=fake, on_tool_use=seen.append
+    )
+
+    assert len(seen) == 1
+    assert seen[0].to_json() == {
+        "toolUsed": True,
+        "openedStepIds": ["04_processing", "06_variant_calling"],
+        "toolEvidenceIds": ["step:04_processing", "step:06_variant_calling"],
+    }
+
+
+def test_the_observer_reports_an_unused_tool_as_unused(explanation):
+    seen = []
+    fake = provider_that(_answer("경고가 기록되었습니다.", "run:status"))
+
+    llm_synthesis.build_run_synthesis(
+        explanation, run_provider=fake, on_tool_use=seen.append
+    )
+
+    assert seen[0].to_json() == {
+        "toolUsed": False,
+        "openedStepIds": [],
+        "toolEvidenceIds": [],
+    }
+
+
+def test_the_response_never_carries_the_observation(explanation):
+    """Agent internals stay out of the API schema and off the frontend."""
+    fake = provider_that(
+        _answer("경고가 기록되었습니다.", "run:status"), opens=["04_processing"]
+    )
+
+    result = llm_synthesis.build_run_synthesis(explanation, run_provider=fake)
+
+    body = json.dumps(result.model_dump(), ensure_ascii=False)
+    assert "toolUsed" not in body
+    assert "openedStepIds" not in body
+    assert "04_processing" not in body

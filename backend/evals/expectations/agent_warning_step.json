@@ -1,0 +1,33 @@
+{
+  "case": "agent_warning_step",
+  "_comment": [
+    "Tool-selection case B. 합성 Run -- agent_cases.py의 _warning_in_raw_qc().",
+    "",
+    "이 Run은 완주했고 진단은 01_raw_qc의 MULTIQC_FAILED 하나뿐이다.",
+    "다른 단계는 전부 PASS이므로 05나 06을 여는 것은 이 Run의 근거가 가리키는",
+    "선택이 아니다. 즉 '열긴 열었다'가 아니라 '맞는 곳을 열었다'를 본다.",
+    "",
+    "step 선택은 집합 동일성으로 채점한다(evaluators.check_step_selection).",
+    "budget이 2이므로 불필요한 한 칸이 공짜가 아니다."
+  ],
+
+  "expectedToolUse": true,
+  "expectedStepIds": ["01_raw_qc"],
+
+  "mustMention": [],
+  "mustCite": [
+    {
+      "name": "cites-multiqc-failed",
+      "ref": "dx:MULTIQC_FAILED",
+      "why": "이 Run의 유일한 진단이다. 빠지면 사용자가 무엇이 불완전한지 모른다"
+    }
+  ],
+  "mustQualify": [],
+
+  "humanReview": [
+    {
+      "name": "warning-not-escalated",
+      "question": "집계 리포트 실패를 분석 실패로 격상하지 않았는가? 레인별 FastQC는 남아 있음을 말했는가?"
+    }
+  ]
+}

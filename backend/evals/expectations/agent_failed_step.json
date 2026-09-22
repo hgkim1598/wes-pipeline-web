@@ -1,0 +1,33 @@
+{
+  "case": "agent_failed_step",
+  "_comment": [
+    "Tool-selection case A. 합성 Run이며 실제 Run 기록이 아니다 --",
+    "agent_cases.py의 _failed_processing()이 쓴 문서가 근거다.",
+    "",
+    "이 Run은 04_processing에서 멈췄고, 그 단계의 exit code / 검사표 /",
+    "metrics는 payload에 없다. failure code markdup_validation은",
+    "shared knowledge에 없으므로 grounding도 없다. 따라서 이 단계를 열지 않으면",
+    "'무엇이 왜 실패했는지'를 말할 근거가 없다.",
+    "",
+    "expectedStepIds는 fixture가 실패를 기록한 단계 그 자체다. 임의로 고르지",
+    "않았다 -- 실패가 기록된 유일한 step이다."
+  ],
+
+  "expectedToolUse": true,
+  "expectedStepIds": ["04_processing"],
+
+  "mustMention": [],
+  "mustCite": [],
+  "mustQualify": [],
+
+  "humanReview": [
+    {
+      "name": "failure-scope",
+      "question": "실패를 04_processing 단계의 사건으로 설명했는가? 뒤 단계가 수행된 것처럼 말하지 않았는가?"
+    },
+    {
+      "name": "no-cause-overreach",
+      "question": "grounding이 없는 code인데 원인을 단정하지 않았는가?"
+    }
+  ]
+}

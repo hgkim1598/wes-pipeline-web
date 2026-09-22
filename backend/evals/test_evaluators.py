@@ -483,3 +483,285 @@ def test_rescoring_a_skipped_baseline_does_not_call_it_a_provider_failure():
     )
     assert guardrails["outcome"] == "not_run"
     assert "실패" not in guardrails["detail"]
+
+
+# --- E. tool selection -------------------------------------------------------
+#
+# A different question from every test above: not "was the answer grounded",
+# but "did the agent go and get the right evidence". Stub observations only --
+# the shape `tools.observe()` produces, never a model call.
+
+
+def _use(*step_ids: str) -> dict:
+    """An observation as the runtime hands it over."""
+    return {
+        "toolUsed": bool(step_ids),
+        "openedStepIds": list(step_ids),
+        "toolEvidenceIds": [f"step:{s}" for s in step_ids],
+    }
+
+
+def test_tool_expected_and_used_passes():
+    result = evaluators.check_tool_use(
+        {"expectedToolUse": True}, _use("04_processing")
+    )
+    assert result.outcome == "pass"
+
+
+def test_tool_expected_and_not_used_fails():
+    """The failure that matters most: the agent never went to look."""
+    result = evaluators.check_tool_use({"expectedToolUse": True}, _use())
+    assert result.outcome == "fail"
+    assert "호출하지 않음" in result.detail
+
+
+def test_tool_forbidden_and_not_used_passes():
+    result = evaluators.check_tool_use({"expectedToolUse": False}, _use())
+    assert result.outcome == "pass"
+
+
+def test_tool_forbidden_but_used_fails():
+    """Opening a step for no reason is a finding, not a free extra."""
+    result = evaluators.check_tool_use(
+        {"expectedToolUse": False}, _use("99_finalization")
+    )
+    assert result.outcome == "fail"
+    assert "99_finalization" in result.detail
+
+
+def test_a_missing_observation_is_read_as_no_tool_use():
+    """An older record, or a call that never reported: absence is not use."""
+    assert evaluators.check_tool_use({"expectedToolUse": False}, None).outcome == "pass"
+    assert evaluators.check_tool_use({"expectedToolUse": True}, None).outcome == "fail"
+
+
+def test_the_expected_step_passes():
+    result = evaluators.check_step_selection(
+        {"expectedToolUse": True, "expectedStepIds": ["04_processing"]},
+        _use("04_processing"),
+    )
+    assert result.outcome == "pass"
+
+
+def test_a_different_step_fails():
+    result = evaluators.check_step_selection(
+        {"expectedToolUse": True, "expectedStepIds": ["04_processing"]},
+        _use("01_raw_qc"),
+    )
+    assert result.outcome == "fail"
+    assert "04_processing" in result.detail
+
+
+def test_several_expected_steps_pass_in_any_order():
+    """Order is the agent's business; the set is what was asked for."""
+    result = evaluators.check_step_selection(
+        {"expectedToolUse": True, "expectedStepIds": ["01_raw_qc", "04_processing"]},
+        _use("04_processing", "01_raw_qc"),
+    )
+    assert result.outcome == "pass"
+
+
+def test_the_right_step_plus_an_extra_one_fails():
+    """Set equality, not containment: the budget is two, so an extra is not free."""
+    result = evaluators.check_step_selection(
+        {"expectedToolUse": True, "expectedStepIds": ["04_processing"]},
+        _use("04_processing", "05_coverage_qc"),
+    )
+    assert result.outcome == "fail"
+    assert "05_coverage_qc" in result.detail
+
+
+def test_one_of_two_expected_steps_fails_and_says_which():
+    result = evaluators.check_step_selection(
+        {"expectedToolUse": True, "expectedStepIds": ["01_raw_qc", "04_processing"]},
+        _use("01_raw_qc"),
+    )
+    assert result.outcome == "fail"
+    assert "04_processing" in result.detail
+
+
+def test_step_selection_is_not_run_when_no_tool_was_expected():
+    """Nothing to judge. A pass here would be a check that cannot fail."""
+    result = evaluators.check_step_selection(
+        {"expectedToolUse": False, "expectedStepIds": []}, _use()
+    )
+    assert result.outcome == "not_run"
+
+
+def test_tool_checks_only_run_for_cases_that_declare_them():
+    """The four original cases must score exactly as they did before."""
+    without = evaluators.run_expectations(
+        {"case": "x", "mustCite": [], "humanReview": []},
+        {},
+        _ok(_synthesis()),
+        {},
+    )
+    assert not [r for r in without.results if r.name.startswith("tool-")]
+
+    with_tools = evaluators.run_expectations(
+        {
+            "case": "x",
+            "expectedToolUse": True,
+            "expectedStepIds": ["04_processing"],
+            "mustCite": [],
+            "humanReview": [],
+        },
+        {},
+        _ok(_synthesis()),
+        {},
+        tool_use=_use("04_processing"),
+    )
+    outcomes = {r.name: r.outcome for r in with_tools.results}
+    assert outcomes["tool-use"] == "pass"
+    assert outcomes["tool-step-selection"] == "pass"
+
+
+def test_tool_selection_is_still_scored_when_the_answer_was_discarded():
+    """How the agent searched is knowable even when its answer was refused."""
+    report = evaluators.run_expectations(
+        {
+            "case": "x",
+            "expectedToolUse": True,
+            "expectedStepIds": ["04_processing"],
+            "mustCite": [],
+            "humanReview": [],
+        },
+        {},
+        {"available": False, "errorCategory": "unsupportedNumber", "synthesis": None},
+        {},
+        tool_use=_use("04_processing"),
+    )
+    outcomes = {r.name: r.outcome for r in report.results}
+    assert outcomes["tool-use"] == "pass"
+    assert outcomes["runtime-guardrails"] == "fail"
+
+
+def test_a_skipped_agent_case_reports_tool_checks_as_not_run():
+    report = evaluators.run_expectations(
+        {
+            "case": "x",
+            "expectedToolUse": True,
+            "expectedStepIds": ["04_processing"],
+            "mustCite": [],
+            "humanReview": [],
+        },
+        {},
+        {"available": False, "errorCategory": None, "synthesis": None},
+        {},
+        model_invoked=False,
+    )
+    outcomes = {r.name: r.outcome for r in report.results}
+    assert outcomes["tool-use"] == "not_run"
+    assert outcomes["tool-step-selection"] == "not_run"
+    assert report.ok is True
+
+
+def test_the_shipped_agent_expectations_name_steps_the_case_actually_plans():
+    """An expected step that the run never planned could never be opened."""
+    from . import agent_cases
+
+    for key, case in agent_cases.CASES.items():
+        expectations = json.loads(
+            (EXPECTATIONS / f"{key}.json").read_text(encoding="utf-8")
+        )
+        assert expectations["case"] == key
+        for step_id in expectations["expectedStepIds"]:
+            assert step_id in case.planned, (key, step_id)
+        if not expectations["expectedToolUse"]:
+            assert expectations["expectedStepIds"] == []
+
+
+# --- the agent cases are what their expectations claim -----------------------
+#
+# No model. The run is built, the deterministic explanation is derived from it,
+# and the expectation is checked against that -- so "the right step" is a fact
+# of the case rather than something someone picked.
+
+
+def test_agent_case_evidence_anchors_the_expected_step():
+    from . import agent_cases
+
+    for key, case in agent_cases.CASES.items():
+        expectations = json.loads(
+            (EXPECTATIONS / f"{key}.json").read_text(encoding="utf-8")
+        )
+        with agent_cases.materialise(case) as explanation:
+            anchored = {
+                item.actualStepId
+                for item in (*explanation.diagnostics, *explanation.failures)
+                if item.actualStepId
+            }
+            if expectations["expectedToolUse"]:
+                # The step the case expects is the step this run recorded its
+                # problem in -- not a preference.
+                assert anchored == set(expectations["expectedStepIds"]), key
+            else:
+                # Nothing to investigate is why no call is expected.
+                assert not anchored, key
+                assert not explanation.checkSummary.notable, key
+
+
+def test_the_agent_cases_offer_a_step_list_to_choose_from():
+    """Without it the model cannot name a step id at all."""
+    from app.services.explanation.llm import contract
+
+    from . import agent_cases
+
+    case = agent_cases.CASES["agent_failed_step"]
+    with agent_cases.materialise(case) as explanation:
+        payload, allowed = contract.build_payload(explanation)
+
+    assert [row["stepId"] for row in payload["steps"]["planned"]] == list(case.planned)
+    assert "run:steps" in allowed
+
+
+def test_the_agent_cases_keep_the_sample_name_out_of_the_payload():
+    from . import agent_cases, run_eval
+
+    for case in agent_cases.CASES.values():
+        with agent_cases.materialise(case) as explanation:
+            result = run_eval.privacy_check(explanation.model_dump())
+        assert result.outcome == "pass", (case.name, result.detail)
+
+
+def test_a_number_the_tool_returned_is_not_counted_as_invented():
+    """Found by the first live agent eval: 18.4 came back from the step.
+
+    The runtime scores against payload + tool results and accepted it. The eval
+    scored against the fixture alone and called it invented -- a false failure
+    that would have trained us to distrust a correct answer.
+    """
+    statements = ["중복률은 18.4%였습니다."]
+    fixture = {"status": "failed"}
+    fetched = [{"evidenceId": "step:04_processing", "metrics": {"percent_duplication": 18.4}}]
+
+    assert evaluators.check_numbers(statements, fixture).outcome == "fail"
+
+    report = evaluators.run_expectations(
+        {
+            "case": "x",
+            "expectedToolUse": True,
+            "expectedStepIds": ["04_processing"],
+            "mustCite": [],
+            "humanReview": [],
+        },
+        fixture,
+        _ok(_synthesis(importantFindings=[_statement(statements[0], ["step:04_processing"])])),
+        {},
+        tool_use=_use("04_processing"),
+        fetched_facts=fetched,
+    )
+    outcomes = {r.name: r.outcome for r in report.results}
+    assert outcomes["numbers-preserved"] == "pass"
+
+
+def test_the_four_frozen_cases_keep_the_fixture_as_their_fact_source():
+    """No fetched facts, no change: their baselines stay comparable."""
+    report = evaluators.run_expectations(
+        {"case": "x", "mustCite": [], "humanReview": []},
+        {"status": "failed"},
+        _ok(_synthesis(importantFindings=[_statement("중복률은 18.4%였습니다.", ["run:status"])])),
+        {},
+    )
+    outcomes = {r.name: r.outcome for r in report.results}
+    assert outcomes["numbers-preserved"] == "fail"

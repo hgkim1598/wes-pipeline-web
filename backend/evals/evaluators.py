@@ -258,6 +258,104 @@ def check_no_internal_names(
     )
 
 
+# --- E. tool selection -------------------------------------------------------
+#
+# A different question from everything above, and the reason it is a separate
+# pair of checks rather than another clause in one of them:
+#
+#     the checks above   did the ANSWER stay inside its evidence?
+#     these two          did the agent GO AND GET the right evidence?
+#
+# An answer can be perfectly grounded and still be thin because the agent never
+# opened the step that explains the failure; that costs nothing in the checks
+# above and is exactly what these two see.
+#
+# The observation comes from `tools.observe()`, i.e. from what the MCP server
+# recorded answering. A model's own claim that it consulted a step is not
+# evidence that it did, and is never read here.
+
+
+def check_tool_use(
+    expectations: dict[str, Any], tool_use: dict[str, Any] | None
+) -> CheckResult:
+    """Did the agent use the tool exactly when the case needed it?
+
+    Both directions fail. Not fetching the one thing that would explain the run
+    leaves the reader where they started; fetching when the payload already
+    answers the question spends a turn, widens what the model can talk about,
+    and is a habit that gets worse with more tools.
+    """
+    expected = bool(expectations.get("expectedToolUse"))
+    used = bool((tool_use or {}).get("toolUsed"))
+    opened = list((tool_use or {}).get("openedStepIds") or [])
+
+    if expected and not used:
+        return CheckResult(
+            name="tool-use",
+            outcome="fail",
+            detail="step 상세가 필요한 case인데 Tool을 호출하지 않음",
+        )
+    if used and not expected:
+        return CheckResult(
+            name="tool-use",
+            outcome="fail",
+            detail=f"payload만으로 답할 수 있는 case인데 step을 열었음: {opened}",
+        )
+    if expected:
+        return CheckResult(
+            name="tool-use", outcome="pass", detail=f"필요한 case에서 호출함: {opened}"
+        )
+    return CheckResult(
+        name="tool-use", outcome="pass", detail="불필요한 호출 없음"
+    )
+
+
+def check_step_selection(
+    expectations: dict[str, Any], tool_use: dict[str, Any] | None
+) -> CheckResult:
+    """Were the opened steps exactly the ones this case points at?
+
+    Set equality, not containment `[설계판단]`. The budget is two steps, so an
+    extra step is not free: it is a step the run's own evidence did not point
+    at, and treating that as a pass would make "chose the right place" mean
+    "included the right place somewhere". Missing and extra are reported
+    separately so a failure says which mistake it was.
+
+    `not_run` when the case expects no tool use: there is no selection to
+    judge, and calling that a pass would inflate the suite with checks that
+    cannot fail.
+    """
+    if not expectations.get("expectedToolUse"):
+        return CheckResult(
+            name="tool-step-selection",
+            outcome="not_run",
+            detail="Tool 사용을 기대하지 않는 case",
+        )
+
+    expected = set(expectations.get("expectedStepIds") or [])
+    opened = set((tool_use or {}).get("openedStepIds") or [])
+
+    if not opened:
+        return CheckResult(
+            name="tool-step-selection",
+            outcome="fail",
+            detail=f"연 step이 없음. 기대: {sorted(expected)}",
+        )
+    missing = sorted(expected - opened)
+    extra = sorted(opened - expected)
+    if missing or extra:
+        return CheckResult(
+            name="tool-step-selection",
+            outcome="fail",
+            detail=f"기대 {sorted(expected)} · 누락 {missing} · 불필요 {extra}",
+        )
+    return CheckResult(
+        name="tool-step-selection",
+        outcome="pass",
+        detail=f"기대한 step만 열었음: {sorted(opened)}",
+    )
+
+
 # --- C. runtime guardrail outcome --------------------------------------------
 
 
@@ -320,11 +418,25 @@ def run_expectations(
     result: dict[str, Any],
     payload: dict[str, Any] | None = None,
     model_invoked: bool = True,
+    tool_use: dict[str, Any] | None = None,
+    fetched_facts: list[Any] | None = None,
 ) -> EvalReport:
     """Apply one case's expectations to one synthesis result.
 
     `payload` is optional only so older callers keep working; when it is given
     the internal-name check runs against the exact keys the model saw.
+
+    `tool_use` is what the MCP server recorded during the call, as
+    `tools.observe()` shapes it. The two tool checks run only for a case whose
+    expectations declare `expectedToolUse`, so the four original cases score
+    exactly as they did before.
+
+    `fetched_facts` is what the tool RETURNED, and it belongs to the number
+    check: an agent that opened a step was shown that step's measurements, so
+    quoting one is not invention. Without it the first agent eval reported a
+    correctly fetched `18.4` as a made-up number -- the same trap the runtime
+    gate avoids by scoring against payload + tool results. Omitted for the four
+    frozen cases, whose fact source stays the fixture exactly as recorded.
 
     `model_invoked=False` means the case was deliberately not sent to a model.
     Then there is no output to score: the output-dependent checks are reported
@@ -336,6 +448,12 @@ def run_expectations(
     if not model_invoked:
         # 모델을 부르지 않았다. 출력에 의존하는 검사는 전부 not_run이다 --
         # deterministic 계약 검사(privacy 등)는 호출부가 따로 붙인다.
+        if "expectedToolUse" in expectations:
+            # Tool 사용 여부도 모델이 결정하는 것이므로 마찬가지다.
+            for name in ("tool-use", "tool-step-selection"):
+                report.results.append(
+                    CheckResult(name=name, outcome="not_run", detail="모델 호출 안 함")
+                )
         for name in ("runtime-guardrails", "numbers-preserved", "no-internal-field-names"):
             report.results.append(
                 CheckResult(name=name, outcome="not_run", detail="모델 호출 안 함")
@@ -357,6 +475,13 @@ def run_expectations(
             )
         return report
 
+    if "expectedToolUse" in expectations:
+        # Scored BEFORE the guardrail early-return on purpose: how the agent
+        # searched is knowable even when its answer was discarded, and losing
+        # that would hide the most useful half of an agent failure.
+        report.results.append(check_tool_use(expectations, tool_use))
+        report.results.append(check_step_selection(expectations, tool_use))
+
     guard = check_guardrails(result)
     report.results.append(guard)
     if guard.outcome == "fail":
@@ -375,7 +500,8 @@ def run_expectations(
     synthesis = result.get("synthesis") or {}
     statements = all_statements(synthesis)
 
-    report.results.append(check_numbers(statements, fixture))
+    facts: Any = [fixture, *fetched_facts] if fetched_facts else fixture
+    report.results.append(check_numbers(statements, facts))
 
     if payload is not None:
         report.results.append(check_no_internal_names(statements, payload))
