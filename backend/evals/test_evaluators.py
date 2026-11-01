@@ -1152,3 +1152,158 @@ def test_a_name_collision_stops_before_any_model_call(tmp_path, monkeypatch, cap
     assert run_eval.main() == 2
     assert taken.read_text(encoding="utf-8") == "kept\n"
     assert "호출하지 않았습니다" in capsys.readouterr().out
+
+
+# --- the runtime's own record, kept in the eval record ----------------------
+#
+# The eval stores what build_run_synthesis already hands out -- the tool
+# observation and the execution trace -- instead of re-deriving either. No
+# model is called: the fake below calls the two observers the way the runtime
+# does and returns a result.
+
+
+def test_evidence_use_separates_cited_from_unused_returns():
+    use = {"toolEvidenceIds": ["step:04_processing", "step:00_input_validation"]}
+    result = _ok(
+        _synthesis(
+            importantFindings=[
+                _statement("처리 단계에서 멈췄습니다.", ["step:04_processing", "run:status"])
+            ]
+        )
+    )
+
+    assert evaluators.evidence_use(use, result) == {
+        "returnedToolEvidenceIds": ["step:04_processing", "step:00_input_validation"],
+        "citedToolEvidenceIds": ["step:04_processing"],
+        "returnedNotCitedIds": ["step:00_input_validation"],
+    }
+
+
+def test_evidence_use_does_not_count_payload_refs_as_tool_evidence():
+    result = _ok(_synthesis(importantFindings=[_statement("끝났습니다.", ["run:status"])]))
+
+    assert evaluators.evidence_use({"toolEvidenceIds": []}, result) == {
+        "returnedToolEvidenceIds": [],
+        "citedToolEvidenceIds": [],
+        "returnedNotCitedIds": [],
+    }
+
+
+def test_evidence_use_without_an_answer_is_unknown_not_empty():
+    """A discarded answer cited nothing we can see -- which is not 'cited nothing'."""
+    use = {"toolEvidenceIds": ["step:04_processing"]}
+    discarded = {"available": False, "errorCategory": "unsupportedNumber", "synthesis": None}
+
+    assert evaluators.evidence_use(use, discarded) == {
+        "returnedToolEvidenceIds": ["step:04_processing"],
+        "citedToolEvidenceIds": None,
+        "returnedNotCitedIds": None,
+    }
+    assert evaluators.evidence_use(None, discarded)["returnedToolEvidenceIds"] == []
+
+
+def _observing_synthesis(*, opened=(), available=True, error=None, answer=None):
+    """Stands in for build_run_synthesis, firing both observers once each."""
+    from app.services.explanation.llm import synthesis, tools, trace
+
+    def fake(explanation, **kwargs):
+        evidence = [{"stepId": s, "evidenceId": f"step:{s}"} for s in opened]
+        attempts = [{"outcome": "opened", "stepId": s, "reason": None} for s in opened]
+        attempts.append({"outcome": "refused", "stepId": None, "reason": "unknownStep"})
+        kwargs["on_tool_use"](tools.observe(evidence, attempts))
+        kwargs["on_trace"](
+            trace.SynthesisTrace(
+                models=("test-model",),
+                durationMs=1234,
+                numTurns=5,
+                openedStepIds=tuple(opened),
+                available=available,
+                errorCategory=error,
+            )
+        )
+        if not available:
+            return synthesis.SynthesisResult(available=False, errorCategory=error)
+        return synthesis.SynthesisResult(available=True, synthesis=answer)
+
+    return fake
+
+
+def test_an_agent_record_keeps_trace_tool_use_and_evidence_use(monkeypatch):
+    from app.services.explanation.llm import contract
+
+    from . import run_eval
+
+    answer = contract.RunSynthesis.model_validate(
+        _synthesis(
+            summary="실행을 확인했습니다.",
+            importantFindings=[_statement("처리 단계에서 멈췄습니다.", ["step:04_processing"])],
+        )
+    )
+    monkeypatch.setattr(
+        run_eval.synthesis,
+        "build_run_synthesis",
+        _observing_synthesis(opened=["04_processing", "00_input_validation"], answer=answer),
+    )
+
+    record = run_eval.evaluate_agent("agent_failed_step")
+
+    assert record["trace"] == {
+        "models": ["test-model"],
+        "durationMs": 1234,
+        "numTurns": 5,
+        "openedStepIds": ["04_processing", "00_input_validation"],
+        "available": True,
+        "errorCategory": None,
+    }
+    assert record["toolUse"]["callCount"] == 3
+    assert record["toolUse"]["refusals"] == [{"stepId": None, "reason": "unknownStep"}]
+    assert record["evidenceUse"]["citedToolEvidenceIds"] == ["step:04_processing"]
+    assert record["evidenceUse"]["returnedNotCitedIds"] == ["step:00_input_validation"]
+    json.dumps(record, ensure_ascii=False)
+
+
+def test_a_failed_call_still_leaves_its_trace_in_the_record(monkeypatch):
+    """Before: models / duration / turns were None whenever the answer died."""
+    from . import run_eval
+
+    monkeypatch.setattr(
+        run_eval.synthesis,
+        "build_run_synthesis",
+        _observing_synthesis(opened=["04_processing"], available=False, error="timeout"),
+    )
+
+    record = run_eval.evaluate_agent("agent_failed_step")
+
+    assert record["durationMs"] is None  # provenance exists only on success
+    assert record["trace"]["durationMs"] == 1234
+    assert record["trace"]["numTurns"] == 5
+    assert record["trace"]["errorCategory"] == "timeout"
+    assert record["toolUse"]["openedStepIds"] == ["04_processing"]
+    assert record["evidenceUse"]["citedToolEvidenceIds"] is None
+    rows = {r["name"]: r["outcome"] for r in record["evaluation"]["results"]}
+    assert rows["tool-step-selection"] == "pass"
+
+
+def test_a_frozen_record_keeps_trace_and_tool_use_but_scores_as_before(monkeypatch):
+    from . import run_eval
+
+    monkeypatch.setattr(
+        run_eval.synthesis,
+        "build_run_synthesis",
+        _observing_synthesis(available=False, error="timeout"),
+    )
+
+    record = run_eval.evaluate("execution_failed")
+
+    assert record["trace"]["errorCategory"] == "timeout"
+    assert record["toolUse"]["callCount"] == 1
+    assert not [r for r in record["evaluation"]["results"] if r["name"].startswith("tool-")]
+
+
+def test_a_skipped_record_observed_nothing():
+    from . import run_eval
+
+    record = run_eval.evaluate("in_progress")
+
+    assert record["invocationStatus"] == "skipped"
+    assert (record["toolUse"], record["trace"], record["evidenceUse"]) == (None, None, None)

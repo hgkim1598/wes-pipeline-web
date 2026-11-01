@@ -107,6 +107,28 @@ def build_server(scope: RunScope) -> MCPServer:
     # stepId -> what this session already answered for it.
     opened: dict[str, StepEvidence] = {}
 
+    def _planned_or_none(step_id: object) -> str | None:
+        """Keep a requested id only if it is one this run planned."""
+        if isinstance(step_id, str) and step_id in scope.planned_steps:
+            return step_id
+        return None
+
+    def _note(
+        outcome: tool_sink.AttemptOutcome,
+        step_id: str | None,
+        *,
+        reason: tool_sink.RefusalReason | None = None,
+    ) -> None:
+        """Record a call that returned no new evidence. Observation only.
+
+        Written before the answer or refusal is returned, and unable to change
+        either: the sink swallows its own write failures.
+        """
+        if scope.sink is not None:
+            scope.sink.record_attempt(
+                "get_step_detail", outcome, step_id=step_id, reason=reason
+            )
+
     @server.tool(
         name="get_step_detail",
         title="Get WES pipeline step detail",
@@ -126,9 +148,13 @@ def build_server(scope: RunScope) -> MCPServer:
         # sentence against numbers the model never saw. Costs no budget.
         memoised = opened.get(stepId) if isinstance(stepId, str) else None
         if memoised is not None:
+            # Noted, not re-recorded as evidence: the parent credits each
+            # opened step once. A memo key is always a planned step id.
+            _note("repeat", memoised.stepId)
             return memoised
 
         if len(opened) >= scope.max_distinct_steps:
+            _note("refused", _planned_or_none(stepId), reason="budget")
             # Deterministic refusal, not a silent truncation: the model is told
             # it has spent its budget so it can answer with what it has.
             raise ToolError(
@@ -147,6 +173,10 @@ def build_server(scope: RunScope) -> MCPServer:
             #
             # A refused call costs no budget -- a mistyped id is not an attempt
             # to wander, and charging for it would end the session on a typo.
+            #
+            # Noted without the id: a refused id is not a planned one, so it is
+            # model-written text and is not kept.
+            _note("refused", None, reason="unknownStep")
             raise ToolError(str(exc)) from exc
 
         opened[evidence.stepId] = evidence

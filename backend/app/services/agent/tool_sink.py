@@ -40,6 +40,26 @@ provider decided to echo, and would need its own filtering to be safe. This
 file cannot contain a path, a sample name, a jobId, a runId or a log line,
 because the object it stores cannot.
 
+Attempts that returned nothing new `[설계판단]`
+----------------------------------------------
+
+A call that was refused, or that re-asked for a step already opened, returns no
+new evidence -- but whether it happened is exactly what an evaluation needs in
+order to tell "never called the tool" from "called it and was refused". Those
+calls are recorded as a second kind of line, `attempt`, made of fixed codes and
+nothing else:
+
+    {"toolName": ..., "attempt": {"outcome": "repeat"|"refused",
+                                  "stepId": <a PLANNED step id> | null,
+                                  "reason": "budget"|"unknownStep" | null}}
+
+The step id is kept only when it is one this run planned -- the pipeline's own
+vocabulary. Whatever else a model typed is dropped, not stored: a refused id is
+model-written text, and the refusal message the model saw is not stored either.
+
+An attempt line has no `evidence`, so `records()` / `evidence()` never return
+it and it can never be credited as a fact. Only `attempts()` reads it.
+
 Where the file lives
 --------------------
 
@@ -60,9 +80,17 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 log = logging.getLogger(__name__)
+
+# What a call that returned no new evidence was. Closed sets: anything else
+# read back from the file is ignored rather than trusted.
+AttemptOutcome = Literal["repeat", "refused"]
+RefusalReason = Literal["budget", "unknownStep"]
+
+_ATTEMPT_OUTCOMES = ("repeat", "refused")
+_REFUSAL_REASONS = ("budget", "unknownStep")
 
 # How the server process is told where to write. Set by the parent when it
 # describes the server to the CLI; absent for a server started by hand, which
@@ -88,23 +116,40 @@ class ToolEvidenceSink:
         payload = (
             evidence.model_dump() if hasattr(evidence, "model_dump") else evidence
         )
-        line = json.dumps(
-            {"toolName": tool_name, "evidence": payload}, ensure_ascii=False
+        self._append({"toolName": tool_name, "evidence": payload})
+
+    def record_attempt(
+        self,
+        tool_name: str,
+        outcome: AttemptOutcome,
+        *,
+        step_id: str | None,
+        reason: RefusalReason | None = None,
+    ) -> None:
+        """Append one call that returned no new evidence.
+
+        `step_id` must already be a planned step id or None -- the server
+        decides that, because only it knows the plan. Fails the same way
+        record() does: logged and swallowed, so the tool's answer, refusal and
+        budget are never affected by whether this line was written.
+        """
+        self._append(
+            {
+                "toolName": tool_name,
+                "attempt": {"outcome": outcome, "stepId": step_id, "reason": reason},
+            }
         )
+
+    def _append(self, entry: dict[str, Any]) -> None:
+        line = json.dumps(entry, ensure_ascii=False)
         try:
             with self.path.open("a", encoding="utf-8", newline="\n") as handle:
                 handle.write(line + "\n")
         except OSError as exc:  # pragma: no cover - filesystem failure
             log.warning("could not record tool evidence: %s", exc)
 
-    def records(self) -> list[dict[str, Any]]:
-        """Every recorded call, in the order the tool answered them.
-
-        A malformed line is skipped rather than raising: this file is read
-        while deciding whether a model's answer may be shown, and one bad line
-        must not turn a working feature into a 500. A skipped line simply is
-        not credited as evidence.
-        """
+    def _lines(self) -> list[dict[str, Any]]:
+        """Every well-formed line, in the order the tool answered."""
         if not self.path.is_file():
             return []
         out: list[dict[str, Any]] = []
@@ -116,13 +161,57 @@ class ToolEvidenceSink:
             except ValueError:
                 log.warning("skipping unreadable tool evidence line")
                 continue
-            if isinstance(entry, dict) and isinstance(entry.get("evidence"), dict):
+            if isinstance(entry, dict):
                 out.append(entry)
         return out
+
+    def records(self) -> list[dict[str, Any]]:
+        """Every recorded tool RESULT, in the order the tool answered them.
+
+        Attempt lines are not results and are not returned here. A malformed line is skipped rather than raising: this file is read
+        while deciding whether a model's answer may be shown, and one bad line
+        must not turn a working feature into a 500. A skipped line simply is
+        not credited as evidence.
+        """
+        return [
+            entry for entry in self._lines() if isinstance(entry.get("evidence"), dict)
+        ]
 
     def evidence(self) -> list[dict[str, Any]]:
         """Just the evidence objects, for the guardrails' fact source."""
         return [entry["evidence"] for entry in self.records()]
+
+    def attempts(self) -> list[dict[str, Any]]:
+        """Every call the server answered, as `{outcome, stepId, reason}`.
+
+        A successful first open reads as outcome `opened`, from its evidence
+        line; the others come from attempt lines. For observation only -- the
+        guardrails never read this.
+        """
+        out: list[dict[str, Any]] = []
+        for entry in self._lines():
+            evidence = entry.get("evidence")
+            attempt = entry.get("attempt")
+            if isinstance(evidence, dict):
+                step_id = evidence.get("stepId")
+                out.append(
+                    {
+                        "outcome": "opened",
+                        "stepId": step_id if isinstance(step_id, str) else None,
+                        "reason": None,
+                    }
+                )
+            elif isinstance(attempt, dict) and attempt.get("outcome") in _ATTEMPT_OUTCOMES:
+                step_id = attempt.get("stepId")
+                reason = attempt.get("reason")
+                out.append(
+                    {
+                        "outcome": attempt["outcome"],
+                        "stepId": step_id if isinstance(step_id, str) else None,
+                        "reason": reason if reason in _REFUSAL_REASONS else None,
+                    }
+                )
+        return out
 
 
 @contextmanager
@@ -139,6 +228,8 @@ def sink_from_environment() -> ToolEvidenceSink | None:
 
 
 __all__ = [
+    "AttemptOutcome",
+    "RefusalReason",
     "SINK_PATH_ENV",
     "ToolEvidenceSink",
     "request_sink",

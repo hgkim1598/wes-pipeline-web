@@ -590,3 +590,159 @@ def test_unknown_step_id_types_are_refused_by_the_wrapper(scope):
         read_step_evidence(scope, "../etc/passwd")
     with pytest.raises(StepNotInThisRun):
         read_step_evidence(scope, "11_intervar")
+
+
+# --- attempts: calls that returned no new evidence ---------------------------
+#
+# Observation only. The answers, refusals and budget above are unchanged; these
+# tests pin what the server now NOTES about each call, and that the note can
+# never become evidence.
+
+
+def _calls(scope, *step_ids):
+    """Several calls in ONE session, the way one synthesis request makes them."""
+    server = mcp_server.build_server(scope)
+
+    async def go():
+        async with Client(server) as client:
+            return [
+                await client.call_tool("get_step_detail", {"stepId": step_id})
+                for step_id in step_ids
+            ]
+
+    return anyio.run(go)
+
+
+def test_a_first_open_reads_as_opened(recording_scope, sink):
+    _calls(recording_scope, "04_processing")
+
+    assert sink.attempts() == [
+        {"outcome": "opened", "stepId": "04_processing", "reason": None}
+    ]
+
+
+def test_a_repeat_is_noted_but_not_recorded_as_evidence_again(recording_scope, sink):
+    first, repeat = _calls(recording_scope, "04_processing", "04_processing")
+
+    assert repeat.structured_content == first.structured_content
+    assert [a["outcome"] for a in sink.attempts()] == ["opened", "repeat"]
+    assert sink.attempts()[1]["stepId"] == "04_processing"
+    assert len(sink.evidence()) == 1
+
+
+def test_a_budget_refusal_is_noted_with_its_planned_step(recording_scope, sink):
+    results = _calls(
+        recording_scope, "04_processing", "06_variant_calling", "01_raw_qc"
+    )
+
+    assert results[2].is_error is True
+    assert "budget" in error_text(results[2])
+    assert sink.attempts()[2] == {
+        "outcome": "refused",
+        "stepId": "01_raw_qc",
+        "reason": "budget",
+    }
+
+
+def test_a_budget_refusal_of_an_unplanned_id_keeps_no_id(recording_scope, sink):
+    _calls(recording_scope, "04_processing", "06_variant_calling", "11_intervar")
+
+    assert sink.attempts()[2] == {
+        "outcome": "refused",
+        "stepId": None,
+        "reason": "budget",
+    }
+
+
+@pytest.mark.parametrize(
+    "step_id", ["11_intervar", "../../etc/passwd", "nonsense", f"{SAMPLE}_step"]
+)
+def test_an_unknown_step_is_noted_without_the_id(recording_scope, sink, step_id):
+    (result,) = _calls(recording_scope, step_id)
+
+    assert result.is_error is True
+    assert sink.attempts() == [
+        {"outcome": "refused", "stepId": None, "reason": "unknownStep"}
+    ]
+    # Neither the model-written id nor the refusal text reaches the file.
+    raw = sink.path.read_text(encoding="utf-8")
+    assert step_id not in raw
+    assert SAMPLE not in raw
+    assert "planned steps" not in raw
+
+
+def test_noted_attempts_are_never_evidence(recording_scope, sink):
+    """Only a real answer can be cited: a refusal or a repeat credits nothing."""
+    _calls(
+        recording_scope,
+        "11_intervar",
+        "04_processing",
+        "04_processing",
+        "06_variant_calling",
+        "01_raw_qc",
+    )
+
+    assert len(sink.attempts()) == 5
+    assert [e["stepId"] for e in sink.evidence()] == [
+        "04_processing",
+        "06_variant_calling",
+    ]
+    assert all("attempt" not in entry for entry in sink.records())
+
+
+def test_the_attempt_file_holds_codes_and_planned_ids_only(recording_scope, sink):
+    _calls(
+        recording_scope,
+        "../../etc/passwd",
+        "04_processing",
+        "04_processing",
+        "06_variant_calling",
+        "01_raw_qc",
+    )
+
+    for raw in sink.path.read_text(encoding="utf-8").splitlines():
+        entry = json.loads(raw)
+        if "attempt" in entry:
+            assert set(entry) == {"toolName", "attempt"}
+            assert set(entry["attempt"]) == {"outcome", "stepId", "reason"}
+            assert entry["attempt"]["stepId"] in (None, *FULL_PLAN)
+
+
+def test_a_failed_note_changes_no_answer_and_no_budget(make_job, run, tmp_path):
+    """A sink that cannot be written to is logged, never felt by the model."""
+    processing_run(run(RUN_ID))
+    job_id = make_job(RUN_ID, run_mode="full", planned=FULL_PLAN, sample_id=SAMPLE)
+    unwritable = tool_sink.ToolEvidenceSink(path=tmp_path / "absent" / "sink.jsonl")
+    scope = run_scope.for_job(job_id, sink=unwritable)
+
+    results = _calls(
+        scope, "11_intervar", "04_processing", "04_processing", "06_variant_calling", "01_raw_qc"
+    )
+
+    assert [r.is_error for r in results] == [True, False, False, False, True]
+    assert results[2].structured_content == results[1].structured_content
+    assert "budget" in error_text(results[4])
+    assert unwritable.attempts() == []
+
+
+def test_attempts_ignore_lines_outside_the_closed_codes(sink):
+    """What is read back is checked again, not trusted."""
+    sink.path.write_text(
+        "\n".join(
+            [
+                json.dumps({"toolName": "t", "attempt": {"outcome": "deleted", "stepId": "x"}}),
+                json.dumps(
+                    {
+                        "toolName": "t",
+                        "attempt": {"outcome": "refused", "stepId": 7, "reason": "other"},
+                    }
+                ),
+                "not json",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert sink.attempts() == [{"outcome": "refused", "stepId": None, "reason": None}]
+    assert sink.evidence() == []

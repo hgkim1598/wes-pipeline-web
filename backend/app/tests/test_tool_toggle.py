@@ -288,3 +288,5 @@ def test_v1_tells_an_observer_that_nothing_was_used(explanation):
     assert len(uses) == 1
     assert uses[0].toolUsed is False
     assert uses[0].openedStepIds == ()
+    assert uses[0].callCount == 0
+    assert uses[0].refusals == ()

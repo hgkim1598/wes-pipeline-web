@@ -307,6 +307,9 @@ def test_the_observer_reports_what_the_tool_actually_returned(explanation):
         "toolUsed": True,
         "openedStepIds": ["04_processing", "06_variant_calling"],
         "toolEvidenceIds": ["step:04_processing", "step:06_variant_calling"],
+        "callCount": 2,
+        "repeatCount": 0,
+        "refusals": [],
     }
 
 
@@ -322,6 +325,9 @@ def test_the_observer_reports_an_unused_tool_as_unused(explanation):
         "toolUsed": False,
         "openedStepIds": [],
         "toolEvidenceIds": [],
+        "callCount": 0,
+        "repeatCount": 0,
+        "refusals": [],
     }
 
 
@@ -337,3 +343,144 @@ def test_the_response_never_carries_the_observation(explanation):
     assert "toolUsed" not in body
     assert "openedStepIds" not in body
     assert "04_processing" not in body
+
+
+# --- attempts, and every exit path reporting them ----------------------------
+
+
+def provider_that_tries(answer: dict | None, *, opens=(), attempts=(), fails=None):
+    """A fake Claude whose tool calls include refused or repeated ones.
+
+    `attempts` are (outcome, stepId, reason) lines written the way the server
+    notes them. `fails` is a ProviderError category raised AFTER the tool
+    lines are written -- the agent looked, then the provider died.
+    """
+
+    def fake(**kwargs):
+        sink = ToolEvidenceSink(path=sink_path_of(kwargs["mcp_config"]))
+        for step_id in opens:
+            sink.record("get_step_detail", real_evidence(step_id))
+        for outcome, step_id, reason in attempts:
+            sink.record_attempt(
+                "get_step_detail", outcome, step_id=step_id, reason=reason
+            )
+        if fails:
+            raise provider.ProviderError(fails, "boom")
+        return provider.ProviderResult(payload=answer, models=["test-model"], numTurns=4)
+
+    return fake
+
+
+def test_the_observer_counts_every_call_the_server_answered(explanation):
+    seen = []
+    fake = provider_that_tries(
+        _answer("경고가 기록되었습니다.", "run:status"),
+        opens=["04_processing"],
+        attempts=[
+            ("repeat", "04_processing", None),
+            ("refused", None, "unknownStep"),
+            ("refused", "01_raw_qc", "budget"),
+        ],
+    )
+
+    llm_synthesis.build_run_synthesis(
+        explanation, run_provider=fake, on_tool_use=seen.append
+    )
+
+    assert seen[0].to_json() == {
+        "toolUsed": True,
+        "openedStepIds": ["04_processing"],
+        "toolEvidenceIds": ["step:04_processing"],
+        "callCount": 4,
+        "repeatCount": 1,
+        "refusals": [
+            {"stepId": None, "reason": "unknownStep"},
+            {"stepId": "01_raw_qc", "reason": "budget"},
+        ],
+    }
+
+
+def test_called_but_refused_is_not_the_same_as_never_called(explanation):
+    refused, unused = [], []
+    llm_synthesis.build_run_synthesis(
+        explanation,
+        run_provider=provider_that_tries(
+            _answer("경고가 기록되었습니다.", "run:status"),
+            attempts=[("refused", None, "unknownStep")],
+        ),
+        on_tool_use=refused.append,
+    )
+    llm_synthesis.build_run_synthesis(
+        explanation,
+        run_provider=provider_that_tries(_answer("경고가 기록되었습니다.", "run:status")),
+        on_tool_use=unused.append,
+    )
+
+    assert refused[0].toolUsed is unused[0].toolUsed is False
+    assert (refused[0].callCount, unused[0].callCount) == (1, 0)
+
+
+def test_a_refused_step_cannot_be_cited(explanation):
+    """An attempt is not evidence: citing the step it named is still invented."""
+    fake = provider_that_tries(
+        _answer("품질 단계를 확인했습니다.", "step:01_raw_qc"),
+        opens=["04_processing"],
+        attempts=[("refused", "01_raw_qc", "budget")],
+    )
+
+    result = llm_synthesis.build_run_synthesis(explanation, run_provider=fake)
+
+    assert result.errorCategory == "unknownEvidenceRef"
+
+
+def test_a_provider_failure_still_reports_the_tool_use_once(explanation):
+    seen, traces = [], []
+    fake = provider_that_tries(
+        None,
+        opens=["04_processing"],
+        attempts=[("refused", None, "unknownStep")],
+        fails="timeout",
+    )
+
+    result = llm_synthesis.build_run_synthesis(
+        explanation, run_provider=fake, on_tool_use=seen.append, on_trace=traces.append
+    )
+
+    # The outcome is what it always was.
+    assert result.available is False
+    assert result.errorCategory == "timeout"
+    # And what the agent did before it died is no longer lost.
+    assert len(seen) == 1
+    assert seen[0].openedStepIds == ("04_processing",)
+    assert seen[0].callCount == 2
+    assert len(traces) == 1
+    assert traces[0].openedStepIds == ("04_processing",)
+    assert traces[0].errorCategory == "timeout"
+
+
+def test_a_rejected_answer_still_reports_the_tool_use_once(explanation):
+    seen, traces = [], []
+    fake = provider_that_tries(
+        _answer("검사 결과는 987654건이었습니다.", "run:status"),
+        opens=["04_processing"],
+    )
+
+    result = llm_synthesis.build_run_synthesis(
+        explanation, run_provider=fake, on_tool_use=seen.append, on_trace=traces.append
+    )
+
+    assert result.errorCategory == "unsupportedNumber"
+    assert len(seen) == 1
+    assert seen[0].openedStepIds == ("04_processing",)
+    assert len(traces) == 1
+    assert traces[0].numTurns == 4
+
+
+def test_without_attempts_observe_counts_only_what_was_returned():
+    """A caller holding evidence alone learns no more than evidence can say."""
+    evidence = [{"stepId": "04_processing", "evidenceId": "step:04_processing"}]
+
+    use = tools.observe(evidence)
+
+    assert (use.callCount, use.repeatCount, use.refusals) == (1, 0, ())
+    assert tools.observe([], []).callCount == 0

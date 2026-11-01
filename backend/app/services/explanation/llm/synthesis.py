@@ -244,32 +244,41 @@ def build_run_synthesis(
             # unaffected.
             log.info("synthesis unavailable (%s): %s", exc.category, exc.message)
             # The tool may already have answered before the provider died, and
-            # that is exactly what makes such a trace worth having.
-            if toolset is not None:
-                opened = tools.observe(toolset.evidence()).openedStepIds
+            # that is exactly what makes such a trace worth having -- for the
+            # stored trace and for an observer alike.
+            use = _observe(toolset)
+            opened = use.openedStepIds
+            if on_tool_use is not None:
+                on_tool_use(use)
             return emit(_unavailable(exc.category, exc.message))
 
         # Read before the sink is removed. What the model fetched is only
         # knowable from what the server recorded answering -- never from the
         # response, which is the thing being checked.
-        tool_evidence = toolset.evidence() if toolset is not None else []
+        use = _observe(toolset)
+
+    tool_evidence = list(use.evidence)
 
     # Initial payload + the tool results that were actually returned. From here
     # every gate sees one fact set, so a number from an opened step is quotable
-    # and a number from a step nobody opened is still invented.
+    # and a number from a step nobody opened is still invented. Refused and
+    # repeated calls are not in `tool_evidence`, so they credit nothing.
     facts, allowed_refs = tools.credit(payload, initial_refs, tool_evidence)
 
-    use = tools.observe(tool_evidence)
     opened = use.openedStepIds
     models = result.models
     duration_ms = result.durationMs
-    # Collected by the provider since the beginning and never used until now.
-    # One turn means the model answered from the payload alone.
+    # The CLI's own turn count. It is NOT a tool-call count: an observed run
+    # that opened no step reported two turns (the structured-output step takes
+    # one, see prompt.py). How turns grow with tool calls has not been
+    # measured, so nothing here derives one from the other -- callCount on the
+    # tool observation is the count.
     num_turns = result.numTurns
 
     if on_tool_use is not None:
         # Handed out, never stored. What the observer does with it -- score it,
-        # print it, drop it -- is not this function's business.
+        # print it, drop it -- is not this function's business. Called once:
+        # this path and the provider-failure path above are exclusive.
         on_tool_use(use)
 
     if tool_evidence:
@@ -354,6 +363,13 @@ def build_run_synthesis(
             ),
         )
     )
+
+
+def _observe(toolset: tools.Toolset | None) -> tools.ToolUse:
+    """What the server recorded answering. Nothing, when no tool was offered."""
+    if toolset is None:
+        return tools.observe([], [])
+    return tools.observe(toolset.evidence(), toolset.attempts())
 
 
 def _statement_groups(

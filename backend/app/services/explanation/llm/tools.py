@@ -55,6 +55,10 @@ class Toolset:
         """
         return self._sink.evidence()
 
+    def attempts(self) -> list[dict[str, Any]]:
+        """Every call the server answered, refused ones included. Observation only."""
+        return self._sink.attempts()
+
 
 @contextmanager
 def step_detail_toolset(
@@ -96,6 +100,17 @@ class ToolUse:
     toolUsed: bool
     openedStepIds: tuple[str, ...]
     toolEvidenceIds: tuple[str, ...]
+    # How the agent used the tool, as opposed to what it got. `callCount` is
+    # every get_step_detail call the MCP server answered in this request --
+    # first opens + repeats + refusals. A call that never reached the server
+    # (the server failed to start, the CLI blocked it) is not counted, because
+    # nothing records it. `toolUsed` keeps its meaning: at least one step was
+    # actually opened. So callCount > 0 with toolUsed False is "called, and
+    # every call was refused", which the three fields above cannot say.
+    callCount: int = 0
+    repeatCount: int = 0
+    # {"stepId": planned id or None, "reason": "budget" | "unknownStep"}.
+    refusals: tuple[dict[str, Any], ...] = ()
     # The returned objects themselves, for an observer that has to judge the
     # answer against them -- an eval checking for invented numbers has to know
     # that a figure came back from a step, or it reports fetched evidence as
@@ -108,15 +123,25 @@ class ToolUse:
             "toolUsed": self.toolUsed,
             "openedStepIds": list(self.openedStepIds),
             "toolEvidenceIds": list(self.toolEvidenceIds),
+            "callCount": self.callCount,
+            "repeatCount": self.repeatCount,
+            "refusals": [dict(item) for item in self.refusals],
         }
 
 
-def observe(tool_evidence: list[dict[str, Any]]) -> ToolUse:
-    """Summarise one request's recorded tool results.
+def observe(
+    tool_evidence: list[dict[str, Any]],
+    attempts: list[dict[str, Any]] | None = None,
+) -> ToolUse:
+    """Summarise one request's recorded tool results and attempts.
 
-    Order is the order the tool answered in, and duplicates cannot occur: the
-    server answers a repeated step from its own memo without recording it
-    again.
+    Order is the order the tool answered in, and duplicate evidence cannot
+    occur: the server answers a repeated step from its own memo and records it
+    as an attempt, not as evidence again.
+
+    `attempts` is `Toolset.attempts()`. Without it -- a caller that only has
+    evidence -- every recorded result counts as one call and nothing else is
+    known, which is what the evidence alone can support.
     """
     step_ids = tuple(
         str(item["stepId"]) for item in tool_evidence if item.get("stepId")
@@ -124,11 +149,24 @@ def observe(tool_evidence: list[dict[str, Any]]) -> ToolUse:
     evidence_ids = tuple(
         str(item["evidenceId"]) for item in tool_evidence if item.get("evidenceId")
     )
+    if attempts is None:
+        call_count, repeat_count, refusals = len(tool_evidence), 0, ()
+    else:
+        call_count = len(attempts)
+        repeat_count = sum(1 for item in attempts if item["outcome"] == "repeat")
+        refusals = tuple(
+            {"stepId": item["stepId"], "reason": item["reason"]}
+            for item in attempts
+            if item["outcome"] == "refused"
+        )
     return ToolUse(
         toolUsed=bool(tool_evidence),
         openedStepIds=step_ids,
         toolEvidenceIds=evidence_ids,
         evidence=tuple(tool_evidence),
+        callCount=call_count,
+        repeatCount=repeat_count,
+        refusals=refusals,
     )
 
 

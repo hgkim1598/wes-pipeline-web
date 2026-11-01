@@ -18,9 +18,13 @@ Why the fields are the ones they are
 
     models           which model answered -- a comparison is impossible without it
     durationMs       the cost the user actually felt
-    numTurns         already measured by the CLI and, until now, thrown away.
-                     One turn means the model answered without using the tool;
-                     more means it went and looked
+    numTurns         the CLI's own turn count, already measured and, until
+                     now, thrown away. It is NOT a tool-call count: a recorded
+                     run that opened no step reported 2, because structured
+                     output takes a turn of its own (see prompt.py). How it
+                     grows with tool calls has not been measured, so do not
+                     read one from the other -- the eval's tool observation
+                     carries the call count
     openedStepIds    where it went. From the MCP server's own record of what it
                      answered (tools.observe), never from the model's account
     available        was the user shown anything

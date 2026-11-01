@@ -594,6 +594,47 @@ def all_statements(synthesis: dict[str, Any]) -> list[str]:
     return out
 
 
+# --- evidence use ------------------------------------------------------------
+
+
+def evidence_use(
+    tool_use: dict[str, Any] | None, result: dict[str, Any]
+) -> dict[str, Any]:
+    """Which tool results the answer cited, and which it left unused.
+
+    An auxiliary record, not a check: it has no outcome and decides nothing.
+    A cited id says the answer pointed at that evidence, not that what it said
+    about it is right -- that stays a human judgement.
+
+    The citation side is None when there is no answer to read (discarded or
+    never produced). That is "unknown", not "cited nothing". A cited `step:`
+    id that was never returned cannot appear here: gate 3 discards such an
+    answer before it is recorded.
+    """
+    returned = list((tool_use or {}).get("toolEvidenceIds") or [])
+    synthesis = result.get("synthesis")
+    if not synthesis:
+        return {
+            "returnedToolEvidenceIds": returned,
+            "citedToolEvidenceIds": None,
+            "returnedNotCitedIds": None,
+        }
+    cited: set[str] = set()
+    for group in (
+        "importantFindings",
+        "limitations",
+        "nextChecks",
+        "uncertainties",
+    ):
+        for item in synthesis.get(group) or []:
+            cited.update(item.get("evidenceRefs") or [])
+    return {
+        "returnedToolEvidenceIds": returned,
+        "citedToolEvidenceIds": [ref for ref in returned if ref in cited],
+        "returnedNotCitedIds": [ref for ref in returned if ref not in cited],
+    }
+
+
 # --- expectations -> checks --------------------------------------------------
 
 

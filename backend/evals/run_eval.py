@@ -32,6 +32,7 @@ make and asks first.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import hashlib
 import json
 import sys
@@ -162,6 +163,36 @@ def privacy_check(fixture: dict[str, Any]) -> evaluators.CheckResult:
     )
 
 
+class Observation:
+    """What one call reported through the two observer seams.
+
+    `build_run_synthesis` already hands both out -- the tool observation and
+    the execution trace production stores -- on every exit path. This only
+    keeps them for the record, so the eval reuses the runtime's own record
+    instead of re-deriving one. `fetched` is the returned evidence, held in
+    memory for the number check and never written to the record.
+    """
+
+    def __init__(self) -> None:
+        self.tool_use: dict[str, Any] | None = None
+        self.fetched: list[Any] = []
+        self.trace: dict[str, Any] | None = None
+
+    def on_tool_use(self, use) -> None:
+        self.tool_use = use.to_json()
+        # What came back, for the number check: a measurement the agent
+        # fetched is not a measurement it invented.
+        self.fetched = list(use.evidence)
+
+    def on_trace(self, trace) -> None:
+        # The same six fields synthesis_traces stores, as JSON. Tuples become
+        # lists; nothing is added.
+        self.trace = {
+            key: list(value) if isinstance(value, tuple) else value
+            for key, value in dataclasses.asdict(trace).items()
+        }
+
+
 def load_expectations(name: str) -> dict[str, Any]:
     return json.loads((EXPECTATIONS / f"{name}.json").read_text(encoding="utf-8"))
 
@@ -180,19 +211,15 @@ def evaluate_agent(name: str, *, variant: str = DEFAULT_VARIANT) -> dict[str, An
     offer_tools = VARIANTS[variant]
     case = agent_cases.CASES[name]
     expectations = load_expectations(name)
-    observed: dict[str, Any] = {}
-    fetched: list[Any] = []
-
-    def watch(use) -> None:
-        observed.update(use.to_json())
-        # What came back, for the number check: a measurement the agent
-        # fetched is not a measurement it invented.
-        fetched.extend(use.evidence)
+    seen = Observation()
 
     with agent_cases.materialise(case) as explanation:
         payload, allowed = contract.build_payload(explanation)
         result = synthesis.build_run_synthesis(
-            explanation, on_tool_use=watch, offer_tools=offer_tools
+            explanation,
+            on_tool_use=seen.on_tool_use,
+            on_trace=seen.on_trace,
+            offer_tools=offer_tools,
         ).model_dump()
 
     fixture = explanation.model_dump()
@@ -201,8 +228,8 @@ def evaluate_agent(name: str, *, variant: str = DEFAULT_VARIANT) -> dict[str, An
         fixture,
         result,
         payload,
-        tool_use=observed,
-        fetched_facts=fetched,
+        tool_use=seen.tool_use,
+        fetched_facts=seen.fetched,
         tools_offered=offer_tools,
     )
     report.results.insert(0, privacy_check(fixture))
@@ -226,8 +253,12 @@ def evaluate_agent(name: str, *, variant: str = DEFAULT_VARIANT) -> dict[str, An
         "schemaHash": _hash(json.dumps(contract.SYNTHESIS_JSON_SCHEMA, sort_keys=True)),
         "allowedRefCount": len(allowed),
         # What the agent actually did. Transient at runtime -- it is recorded in
-        # this eval record and nowhere else, and there is still no trace store.
-        "toolUse": observed,
+        # this eval record and nowhere else.
+        "toolUse": seen.tool_use,
+        # The runtime's execution record, failures included.
+        "trace": seen.trace,
+        # Auxiliary: which returned evidence the answer cited. Not a score.
+        "evidenceUse": evaluators.evidence_use(seen.tool_use, result),
         "expectedToolUse": expectations.get("expectedToolUse"),
         "expectedStepIds": expectations.get("expectedStepIds"),
         "acceptableStepSets": expectations.get("acceptableStepSets"),
@@ -270,6 +301,9 @@ def evaluate(name: str, *, variant: str = DEFAULT_VARIANT) -> dict[str, Any]:
 
     payload, allowed = contract.build_payload(explanation)
     skipped = SKIP_MODEL.get(name)
+    # Recorded, not scored: these cases declare no tool expectation, and their
+    # fact source stays the fixture -- `seen.fetched` is deliberately unused.
+    seen = Observation()
 
     if skipped:
         result = {"available": False, "errorCategory": None, "synthesis": None}
@@ -278,7 +312,10 @@ def evaluate(name: str, *, variant: str = DEFAULT_VARIANT) -> dict[str, Any]:
         )
     else:
         result = synthesis.build_run_synthesis(
-            explanation, offer_tools=offer_tools
+            explanation,
+            on_tool_use=seen.on_tool_use,
+            on_trace=seen.on_trace,
+            offer_tools=offer_tools,
         ).model_dump()
         report = evaluators.run_expectations(
             expectations, fixture, result, payload, tools_offered=offer_tools
@@ -301,6 +338,10 @@ def evaluate(name: str, *, variant: str = DEFAULT_VARIANT) -> dict[str, Any]:
         "knowledgeHash": _knowledge_hash(),
         "schemaHash": _hash(json.dumps(contract.SYNTHESIS_JSON_SCHEMA, sort_keys=True)),
         "allowedRefCount": len(allowed),
+        # None when skipped: nothing was called, so there is nothing observed.
+        "toolUse": seen.tool_use,
+        "trace": seen.trace,
+        "evidenceUse": None if skipped else evaluators.evidence_use(seen.tool_use, result),
         "evaluation": report.to_json(),
         # 사람이 채운다. 자동으로 pass를 넣지 않는다.
         "humanReview": {
