@@ -4,15 +4,23 @@
     "Tool-selection case B. 합성 Run -- agent_cases.py의 _warning_in_raw_qc().",
     "",
     "이 Run은 완주했고 진단은 01_raw_qc의 MULTIQC_FAILED 하나뿐이다.",
-    "다른 단계는 전부 PASS이므로 05나 06을 여는 것은 이 Run의 근거가 가리키는",
-    "선택이 아니다. 즉 '열긴 열었다'가 아니라 '맞는 곳을 열었다'를 본다.",
+    "최초 payload에 이미 있는 것: 진단 code, 파이프라인 메시지, 그리고 영향 문구",
+    "'레인별 FastQC 결과는 그대로 있습니다'(diagnostics의 impactFromPipeline).",
+    "Tool로만 얻는 것: 01_raw_qc의 검사 행(fastqc_per_lane PASS, multiqc_report",
+    "WARN 상세)과 lanes metric, exit code, nextStepReady.",
     "",
-    "step 선택은 집합 동일성으로 채점한다(evaluators.check_step_selection).",
-    "budget이 2이므로 불필요한 한 칸이 공짜가 아니다."
+    "핵심 사실이 payload에 있으므로 Tool은 필수가 아니다(optional). 열었다면",
+    "01_raw_qc만 허용한다 -- 다른 단계는 전부 PASS이므로 05나 06을 여는 것은",
+    "이 Run의 근거가 가리키는 선택이 아니다.",
+    "",
+    "인용이 있다는 것은 의미가 맞다는 뜻이 아니다 -- 경고를 실패로 격상했는지는",
+    "humanReview가 본다."
   ],
 
-  "expectedToolUse": true,
-  "expectedStepIds": ["01_raw_qc"],
+  "expectedToolUse": "optional",
+  "acceptableStepSets": [
+    ["01_raw_qc"]
+  ],
 
   "mustMention": [],
   "mustCite": [

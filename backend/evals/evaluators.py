@@ -52,6 +52,11 @@ class CheckResult:
     detail: str = ""
     # Human rubric entries carry no verdict until a person fills one in.
     kind: Literal["deterministic", "human"] = "deterministic"
+    # Numbers an aggregate needs and a detail string cannot carry reliably --
+    # step-selection precision and recall. None for every check that has none,
+    # and then absent from the JSON, so records of the frozen cases keep the
+    # shape their baselines were written in.
+    metrics: dict[str, Any] | None = None
 
 
 @dataclass
@@ -76,16 +81,20 @@ class EvalReport:
         return {
             "case": self.case,
             "deterministicPassed": self.ok,
-            "results": [
-                {
-                    "name": r.name,
-                    "outcome": r.outcome,
-                    "kind": r.kind,
-                    "detail": r.detail,
-                }
-                for r in self.results
-            ],
+            "results": [_result_json(r) for r in self.results],
         }
+
+
+def _result_json(r: CheckResult) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "name": r.name,
+        "outcome": r.outcome,
+        "kind": r.kind,
+        "detail": r.detail,
+    }
+    if r.metrics is not None:
+        out["metrics"] = r.metrics
+    return out
 
 
 # --- A. numbers --------------------------------------------------------------
@@ -273,35 +282,144 @@ def check_no_internal_names(
 # The observation comes from `tools.observe()`, i.e. from what the MCP server
 # recorded answering. A model's own claim that it consulted a step is not
 # evidence that it did, and is never read here.
+#
+# How much a case needs the tool `[설계판단]`
+# -----------------------------------------
+#
+#     required    the case cannot be explained without a fact only the tool
+#                 returns. Not using it is a missed call.
+#     forbidden   the payload already answers everything. Using it is a false
+#                 call.
+#     optional    the payload is enough, and opening the step is also a
+#                 defensible reading. Whether the tool was called is NOT
+#                 scored -- only recorded -- and which steps were opened still
+#                 is, if any were.
+#
+# `optional` exempts exactly one check, tool-use. Every check on the answer
+# itself -- guardrails, numbers, citations, human review -- runs as for any
+# other case. Not needing the tool is not the same as not needing to be right.
+#
+# The two agent cases that used to say `true` were re-read against the payload
+# they actually produce, and both carry their key facts in it already (the
+# failed check row reaches checkSummary.notable; the warning's impact line
+# reaches diagnostics). Calling the tool mandatory there scored a habit, not a
+# need. `true` / `false` are still accepted and mean required / forbidden.
+
+ToolNeed = Literal["required", "optional", "forbidden"]
+# A mapping rather than a tuple so the lookup returns the Literal type itself.
+_TOOL_NEEDS: dict[str, ToolNeed] = {
+    "required": "required",
+    "optional": "optional",
+    "forbidden": "forbidden",
+}
+
+
+def tool_need(expectations: dict[str, Any]) -> ToolNeed:
+    """The case's `expectedToolUse`, normalised.
+
+    Exists because a plain truth test is wrong here: the string "forbidden" is
+    truthy, so `if expectations["expectedToolUse"]` would read it as "needs the
+    tool". Every reader of the field goes through this instead. An unknown
+    value raises rather than falling into one of the three.
+    """
+    raw = expectations.get("expectedToolUse")
+    if raw is True:
+        return "required"
+    if raw is False:
+        return "forbidden"
+    if isinstance(raw, str) and raw in _TOOL_NEEDS:
+        return _TOOL_NEEDS[raw]
+    raise ValueError(
+        f"expectedToolUse must be one of {sorted(_TOOL_NEEDS)} or a bool, got {raw!r}"
+    )
+
+
+def acceptable_step_sets(expectations: dict[str, Any]) -> list[frozenset[str]]:
+    """Every step selection this case accepts as correct.
+
+    `acceptableStepSets` when the case has more than one defensible answer --
+    the failed-step case accepts {04} and also {04, 00}, which is what a rule
+    "on failure, also read input validation" selects. Without it the case's
+    single `expectedStepIds` is the only answer, which is exactly the strict
+    set equality this check applied before the field existed.
+    """
+    raw = expectations.get("acceptableStepSets")
+    if raw is None:
+        return [frozenset(expectations.get("expectedStepIds") or [])]
+    return [frozenset(steps) for steps in raw]
+
+
+def _core_and_allowed(
+    sets: list[frozenset[str]],
+) -> tuple[frozenset[str], frozenset[str]]:
+    """core = in every accepted set (must open); allowed = in any (may open)."""
+    core = frozenset.intersection(*sets) if sets else frozenset()
+    allowed = frozenset().union(*sets) if sets else frozenset()
+    return core, allowed
+
+
+def _selection_metrics(
+    opened: set[str], core: frozenset[str], allowed: frozenset[str]
+) -> dict[str, Any]:
+    """Recall against what must be opened, precision against what may be.
+
+    None where the ratio has no denominator, rather than 0 or 1: "opened
+    nothing" has no precision, and a case with no core step has no recall.
+    """
+    return {
+        "openedStepIds": sorted(opened),
+        "coreStepIds": sorted(core),
+        "allowedStepIds": sorted(allowed),
+        "recall": len(opened & core) / len(core) if core else None,
+        "precision": len(opened & allowed) / len(opened) if opened else None,
+    }
+
+
+def _fmt_sets(sets: list[frozenset[str]]) -> str:
+    return " | ".join(str(sorted(s)) for s in sets)
 
 
 def check_tool_use(
     expectations: dict[str, Any], tool_use: dict[str, Any] | None
 ) -> CheckResult:
-    """Did the agent use the tool exactly when the case needed it?
+    """Did the agent use the tool when the case needed it, and not when not?
 
-    Both directions fail. Not fetching the one thing that would explain the run
-    leaves the reader where they started; fetching when the payload already
-    answers the question spends a turn, widens what the model can talk about,
-    and is a habit that gets worse with more tools.
+    Both directions fail for a required or forbidden case. Not fetching the one
+    thing that would explain the run leaves the reader where they started;
+    fetching when the payload already answers spends a turn, widens what the
+    model can talk about, and is a habit that gets worse with more tools.
+
+    An optional case is reported `not_run`: whether the call happened is
+    written in the detail and in `metrics`, so it can be counted, but it is
+    neither a pass nor a fail.
     """
-    expected = bool(expectations.get("expectedToolUse"))
+    need = tool_need(expectations)
     used = bool((tool_use or {}).get("toolUsed"))
     opened = list((tool_use or {}).get("openedStepIds") or [])
 
-    if expected and not used:
+    if need == "optional":
+        return CheckResult(
+            name="tool-use",
+            outcome="not_run",
+            detail=(
+                f"Tool 사용이 선택인 case라 호출 여부는 채점하지 않음 · "
+                f"{'호출함: ' + str(opened) if used else '호출 안 함'}"
+            ),
+            metrics={"toolUsed": used},
+        )
+    if need == "required" and not used:
         return CheckResult(
             name="tool-use",
             outcome="fail",
             detail="step 상세가 필요한 case인데 Tool을 호출하지 않음",
         )
-    if used and not expected:
+    if need == "forbidden" and used:
         return CheckResult(
             name="tool-use",
             outcome="fail",
             detail=f"payload만으로 답할 수 있는 case인데 step을 열었음: {opened}",
         )
-    if expected:
+    if need == "required":
         return CheckResult(
             name="tool-use", outcome="pass", detail=f"필요한 case에서 호출함: {opened}"
         )
@@ -310,49 +428,116 @@ def check_tool_use(
     )
 
 
+def _selection_not_scored(
+    name: str, need: ToolNeed, opened: set[str]
+) -> CheckResult | None:
+    """The not_run cases shared by both selection checks, or None to score.
+
+    A forbidden case has no selection to judge, and an optional case in which
+    nothing was opened has none either. Calling either a pass would inflate the
+    suite with checks that cannot fail.
+    """
+    if need == "forbidden":
+        return CheckResult(
+            name=name, outcome="not_run", detail="Tool 사용을 기대하지 않는 case"
+        )
+    if need == "optional" and not opened:
+        return CheckResult(
+            name=name,
+            outcome="not_run",
+            detail="Tool 사용이 선택인 case에서 step을 열지 않음",
+        )
+    return None
+
+
 def check_step_selection(
     expectations: dict[str, Any], tool_use: dict[str, Any] | None
 ) -> CheckResult:
-    """Were the opened steps exactly the ones this case points at?
+    """Is the set of opened steps one of the selections this case accepts?
 
-    Set equality, not containment `[설계판단]`. The budget is two steps, so an
-    extra step is not free: it is a step the run's own evidence did not point
-    at, and treating that as a pass would make "chose the right place" mean
-    "included the right place somewhere". Missing and extra are reported
-    separately so a failure says which mistake it was.
+    Set equality against each accepted set, not containment `[설계판단]`. The
+    budget is two steps, so an extra step is not free: a step outside every
+    accepted set is one the run's own evidence did not point at, and treating
+    that as a pass would make "chose the right place" mean "included the right
+    place somewhere".
 
-    `not_run` when the case expects no tool use: there is no selection to
-    judge, and calling that a pass would inflate the suite with checks that
-    cannot fail.
+    Precision and recall ride along in `metrics` as supporting numbers; the
+    outcome is decided by membership alone. A missing core step is also
+    reported on its own by check_step_core, so a failure here can be told
+    apart: wrong extra step, or the essential one missed.
     """
-    if not expectations.get("expectedToolUse"):
-        return CheckResult(
-            name="tool-step-selection",
-            outcome="not_run",
-            detail="Tool 사용을 기대하지 않는 case",
-        )
-
-    expected = set(expectations.get("expectedStepIds") or [])
+    name = "tool-step-selection"
+    need = tool_need(expectations)
     opened = set((tool_use or {}).get("openedStepIds") or [])
+
+    skipped = _selection_not_scored(name, need, opened)
+    if skipped is not None:
+        return skipped
+
+    sets = acceptable_step_sets(expectations)
+    core, allowed = _core_and_allowed(sets)
+    metrics = _selection_metrics(opened, core, allowed)
 
     if not opened:
         return CheckResult(
-            name="tool-step-selection",
+            name=name,
             outcome="fail",
-            detail=f"연 step이 없음. 기대: {sorted(expected)}",
+            detail=f"연 step이 없음. 허용: {_fmt_sets(sets)}",
+            metrics=metrics,
         )
-    missing = sorted(expected - opened)
-    extra = sorted(opened - expected)
-    if missing or extra:
+    if frozenset(opened) in sets:
         return CheckResult(
-            name="tool-step-selection",
-            outcome="fail",
-            detail=f"기대 {sorted(expected)} · 누락 {missing} · 불필요 {extra}",
+            name=name,
+            outcome="pass",
+            detail=f"허용 조합과 일치: {sorted(opened)}",
+            metrics=metrics,
+        )
+    missing = sorted(core - opened)
+    extra = sorted(opened - allowed)
+    return CheckResult(
+        name=name,
+        outcome="fail",
+        detail=(
+            f"허용 {_fmt_sets(sets)} · 열림 {sorted(opened)} · "
+            f"핵심 누락 {missing} · 허용 밖 {extra}"
+        ),
+        metrics=metrics,
+    )
+
+
+def check_step_core(
+    expectations: dict[str, Any], tool_use: dict[str, Any] | None
+) -> CheckResult:
+    """Did the agent open every step that all accepted answers contain?
+
+    A separate record from check_step_selection on purpose. "Opened 04 and an
+    extra 05" and "never opened 04" both fail selection, but only the second
+    leaves the explanation without its evidence. This check fails only for that
+    one.
+
+    `not_run` when no core step is defined -- e.g. a case that accepts the
+    empty selection -- because then nothing is essential.
+    """
+    name = "tool-step-core"
+    need = tool_need(expectations)
+    opened = set((tool_use or {}).get("openedStepIds") or [])
+
+    skipped = _selection_not_scored(name, need, opened)
+    if skipped is not None:
+        return skipped
+
+    core, _allowed = _core_and_allowed(acceptable_step_sets(expectations))
+    if not core:
+        return CheckResult(
+            name=name, outcome="not_run", detail="모든 허용 조합에 공통인 step이 없음"
+        )
+    missing = sorted(core - opened)
+    if missing:
+        return CheckResult(
+            name=name, outcome="fail", detail=f"핵심 step을 열지 않음: {missing}"
         )
     return CheckResult(
-        name="tool-step-selection",
-        outcome="pass",
-        detail=f"기대한 step만 열었음: {sorted(opened)}",
+        name=name, outcome="pass", detail=f"핵심 step을 모두 열었음: {sorted(core)}"
     )
 
 
@@ -420,6 +605,7 @@ def run_expectations(
     model_invoked: bool = True,
     tool_use: dict[str, Any] | None = None,
     fetched_facts: list[Any] | None = None,
+    tools_offered: bool = True,
 ) -> EvalReport:
     """Apply one case's expectations to one synthesis result.
 
@@ -427,9 +613,10 @@ def run_expectations(
     the internal-name check runs against the exact keys the model saw.
 
     `tool_use` is what the MCP server recorded during the call, as
-    `tools.observe()` shapes it. The two tool checks run only for a case whose
-    expectations declare `expectedToolUse`, so the four original cases score
-    exactly as they did before.
+    `tools.observe()` shapes it. The three tool checks run only for a case
+    whose expectations declare `expectedToolUse`, so the four original cases
+    score exactly as they did before. An `optional` case exempts the tool-use
+    check alone; everything that scores the answer runs as usual.
 
     `fetched_facts` is what the tool RETURNED, and it belongs to the number
     check: an agent that opened a step was shown that step's measurements, so
@@ -442,6 +629,11 @@ def run_expectations(
     Then there is no output to score: the output-dependent checks are reported
     as `not_run`, not as passes and not as failures. Deciding not to ask is not
     the same as asking and being refused.
+
+    `tools_offered=False` is the no-tool variant (V1). The model had no tool,
+    so whether it used one is not a question: the three tool checks are
+    `not_run`. Scoring them would let a `forbidden` case pass for a model that
+    never had the choice. Everything that scores the answer still runs.
     """
     report = EvalReport(case=expectations.get("case", "unknown"))
 
@@ -450,7 +642,7 @@ def run_expectations(
         # deterministic 계약 검사(privacy 등)는 호출부가 따로 붙인다.
         if "expectedToolUse" in expectations:
             # Tool 사용 여부도 모델이 결정하는 것이므로 마찬가지다.
-            for name in ("tool-use", "tool-step-selection"):
+            for name in ("tool-use", "tool-step-selection", "tool-step-core"):
                 report.results.append(
                     CheckResult(name=name, outcome="not_run", detail="모델 호출 안 함")
                 )
@@ -475,12 +667,20 @@ def run_expectations(
             )
         return report
 
-    if "expectedToolUse" in expectations:
+    if "expectedToolUse" in expectations and not tools_offered:
+        for name in ("tool-use", "tool-step-selection", "tool-step-core"):
+            report.results.append(
+                CheckResult(
+                    name=name, outcome="not_run", detail="Tool 미제공 variant"
+                )
+            )
+    elif "expectedToolUse" in expectations:
         # Scored BEFORE the guardrail early-return on purpose: how the agent
         # searched is knowable even when its answer was discarded, and losing
         # that would hide the most useful half of an agent failure.
         report.results.append(check_tool_use(expectations, tool_use))
         report.results.append(check_step_selection(expectations, tool_use))
+        report.results.append(check_step_core(expectations, tool_use))
 
     guard = check_guardrails(result)
     report.results.append(guard)

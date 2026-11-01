@@ -850,8 +850,8 @@ R-5 채택 여부는 [D-V2](#8-open-questions)로 남긴다. **R-5는 4-4의 A4�
 | F2 | 실행 실패 | 실측 fixture | V0/V1 전용 | 해당 없음 | 해당 없음 | 실패 단계 정확, 원인 단정 금지 |
 | F3 | 사전점검 실패 | 실측 fixture | V0/V1 전용 | 해당 없음 | 해당 없음 | 분석 미수행 명시, 사용자 탓 금지 |
 | R1 | 경고 3건 완료 (cba73e) | **실측 Run(단계 문서)** | G-none / G-rule 혼합 | either | {}, {05}, {06}, {05,06} | 경고 3건의 영향 차이 구분. `NM_MD_REPAIRED`는 "조치 불필요". 열었다면 연 단계 근거만 인용 |
-| A1 | 04 실패 | 현행(개발용) | G-rule | true | {04}, {04,00} | 실패 검증표 인용 |
-| A2 | 01에만 attention 경고 | 현행(개발용) | G-rule | true | {01} | 경고를 실패로 격상하지 않음 |
+| A1 | 04 실패 | 현행(개발용) | G-rule | optional (실패 코드·FAIL 검사 행이 최초 payload에 있음) | {04}, {04,00} | 실패 검증표 인용 |
+| A2 | 01에만 attention 경고 | 현행(개발용) | G-rule | optional (경고 메시지·영향 문구가 최초 payload에 있음) | {01} | 경고를 실패로 격상하지 않음 |
 | A3 | 이상 없음 | 현행(개발용) | G-none | false | 해당 없음 | 열지 않음, 한계 포함 |
 | A4 | 05 실패 `coverage_bed_invalid`("Coverage BED / BAM contig validation failed"). 단서는 00의 `contig_style`, `assembly`, `target_bed_genome_build` metric | 합성(신규) | **(a)를 따르면 G-rule**, (b)를 따르면 G-hard | true | {05, 00} | 실패 사실과 00 설정 값을 구분해 제시. 원인 단정 금지 |
 | A4b | 05 attention 경고 `ZERO_COVERAGE_TARGET_BASES`. 단서는 03의 `mapped_pct` 저하 | 합성(신규) | **G-hard** | true | {05, 03} | 매핑률을 "확인할 사실"로 제시하고 인과를 단정하지 않음 |

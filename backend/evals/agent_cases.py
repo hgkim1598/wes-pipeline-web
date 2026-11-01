@@ -96,11 +96,16 @@ class AgentCase:
 def _failed_processing(builder: RunBuilder) -> None:
     """A full run that died in 04_processing, with no result document.
 
-    The payload will carry the failure's code and message and nothing else
-    about that step: `markdup_validation` is not in the shared knowledge (the
-    failure set is open -- main.sh composes codes from run values), so there is
-    no grounding to fall back on. Exit code, the check table and the step's own
-    metrics exist only behind the tool.
+    `markdup_validation` is not in the shared knowledge (the failure set is
+    open -- main.sh composes codes from run values), so there is no grounding
+    to fall back on.
+
+    What the initial payload already carries: the failure's code and message,
+    and the FAIL check row with its detail -- with no result document the
+    context reads the step documents' check tables, and every non-PASS row
+    reaches checkSummary.notable. What only the tool returns: the exit code,
+    the PASS row, the step's metrics and nextStepReady. Hence `optional` in the
+    expectations, not `required`.
     """
     for step_id in ("00_input_validation", "01_raw_qc", "02_preprocessing", "03_alignment"):
         builder.step(step_id, elapsed_seconds=40)
@@ -169,9 +174,13 @@ def _warning_in_raw_qc(builder: RunBuilder) -> None:
     """A full run that finished, with one diagnostic and it is in 01_raw_qc.
 
     The anchor is unambiguous on purpose: every other step is clean, so opening
-    05 or 06 is not a defensible reading of this run. What MULTIQC_FAILED meant
-    *here* -- which checks still passed, what the step measured -- is only in
-    the step document.
+    05 or 06 is not a defensible reading of this run.
+
+    The warning's message and impact line ("레인별 FastQC 결과는 그대로
+    있습니다") reach the payload through diagnostics, so the key fact needs no
+    tool. Only the step's own check rows and metrics are behind it -- the run's
+    check table here is the final validation, not 01_raw_qc's. Hence
+    `optional` in the expectations.
     """
     builder.as_completed_full()
     builder.final_validation(rows=_CLEAN_VALIDATION)
@@ -246,7 +255,7 @@ def _clean_full_run(builder: RunBuilder) -> None:
 CASES: dict[str, AgentCase] = {
     "agent_failed_step": AgentCase(
         name="agent_failed_step",
-        intent="04_processing에서 멈춘 실행 -- 그 단계를 열어야 설명할 수 있다",
+        intent="04_processing에서 멈춘 실행 -- payload로 설명 가능, 연다면 04가 핵심",
         run_mode="full",
         planned=tuple(FULL_PLAN),
         job_status=worker.DONE,
@@ -254,7 +263,7 @@ CASES: dict[str, AgentCase] = {
     ),
     "agent_warning_step": AgentCase(
         name="agent_warning_step",
-        intent="경고가 01_raw_qc 하나에만 있는 실행 -- 다른 step을 열면 오답",
+        intent="경고가 01_raw_qc 하나에만 있는 실행 -- 연다면 01만, 다른 step은 오답",
         run_mode="full",
         planned=tuple(FULL_PLAN),
         job_status=worker.DONE,

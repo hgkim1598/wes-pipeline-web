@@ -6,13 +6,12 @@
     "경고도 실패도 없고 검증표는 전부 PASS이며, coverage / 변이 기록 수 /",
     "사용 범위가 이미 payload에 있다. step 상세가 바꿀 수 있는 문장이 없다.",
     "",
-    "그러므로 Tool 호출 자체가 오답이다. 이유 없이 step을 여는 습관은 Tool이",
-    "늘어날수록 비싸지고, 모델이 말할 수 있는 범위만 넓힌다.",
-    "expectedStepIds는 비어 있고, step 선택 검사는 not_run으로 보고된다."
+    "그러므로 Tool 호출 자체가 오답이다(forbidden). 이유 없이 step을 여는 습관은",
+    "Tool이 늘어날수록 비싸지고, 모델이 말할 수 있는 범위만 넓힌다.",
+    "허용 step 조합을 두지 않으며, step 선택 검사는 not_run으로 보고된다."
   ],
 
-  "expectedToolUse": false,
-  "expectedStepIds": [],
+  "expectedToolUse": "forbidden",
 
   "mustMention": [],
   "mustCite": [

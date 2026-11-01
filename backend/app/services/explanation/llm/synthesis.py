@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from contextlib import nullcontext
 from datetime import datetime, timezone
 
 from pydantic import BaseModel, ValidationError
@@ -145,6 +146,7 @@ def build_run_synthesis(
     run_provider=None,
     on_tool_use: Callable[[tools.ToolUse], None] | None = None,
     on_trace: Callable[[trace.SynthesisTrace], None] | None = None,
+    offer_tools: bool = True,
 ) -> SynthesisResult:
     """Summarise one already-built deterministic explanation.
 
@@ -176,6 +178,13 @@ def build_run_synthesis(
     object once, at import time, so patching the module attribute afterwards
     would silently have no effect -- and a test that believes it stubbed the
     provider but did not would spend real usage while appearing to pass.
+
+    `offer_tools=False` withholds the step detail tool, for evaluation only --
+    the route never passes it. No tool channel is opened, no MCP config is
+    handed to the provider, and the prompt drops the tool's instructions (see
+    prompt.py). Everything else is the same call: the same payload, schema,
+    gates and trace. With nothing fetched, the fact set is the payload alone,
+    so a `step:` citation is rejected by gate 3 like any other invented id.
     """
     call = run_provider or provider.run_structured
     payload, initial_refs = contract.build_payload(explanation)
@@ -210,16 +219,24 @@ def build_run_synthesis(
 
     # The tool channel lives exactly as long as the call. Inside the block the
     # model may open up to two steps of THIS run; when it closes, the sink and
-    # its temporary directory are gone.
-    with tools.step_detail_toolset(explanation.identity.jobId) as toolset:
+    # its temporary directory are gone. Without the tool there is no channel,
+    # and `toolset` is None for the length of the same block.
+    channel = (
+        tools.step_detail_toolset(explanation.identity.jobId)
+        if offer_tools
+        else nullcontext(None)
+    )
+    with channel as toolset:
         try:
             result = call(
-                user_prompt=prompt.build_user_prompt(payload),
+                user_prompt=prompt.build_user_prompt(
+                    payload, offer_tools=offer_tools
+                ),
                 json_schema=contract.SYNTHESIS_JSON_SCHEMA,
                 model=model,
                 timeout_seconds=timeout_seconds,
-                mcp_config=toolset.mcp_config,
-                allowed_tools=toolset.allowed_tools,
+                mcp_config=toolset.mcp_config if toolset is not None else None,
+                allowed_tools=toolset.allowed_tools if toolset is not None else (),
             )
         except provider.ProviderError as exc:
             # Expected, not exceptional: the provider being unavailable is a
@@ -228,13 +245,14 @@ def build_run_synthesis(
             log.info("synthesis unavailable (%s): %s", exc.category, exc.message)
             # The tool may already have answered before the provider died, and
             # that is exactly what makes such a trace worth having.
-            opened = tools.observe(toolset.evidence()).openedStepIds
+            if toolset is not None:
+                opened = tools.observe(toolset.evidence()).openedStepIds
             return emit(_unavailable(exc.category, exc.message))
 
         # Read before the sink is removed. What the model fetched is only
         # knowable from what the server recorded answering -- never from the
         # response, which is the thing being checked.
-        tool_evidence = toolset.evidence()
+        tool_evidence = toolset.evidence() if toolset is not None else []
 
     # Initial payload + the tool results that were actually returned. From here
     # every gate sees one fact set, so a number from an opened step is quotable

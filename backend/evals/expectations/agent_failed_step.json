@@ -4,20 +4,35 @@
     "Tool-selection case A. 합성 Run이며 실제 Run 기록이 아니다 --",
     "agent_cases.py의 _failed_processing()이 쓴 문서가 근거다.",
     "",
-    "이 Run은 04_processing에서 멈췄고, 그 단계의 exit code / 검사표 /",
-    "metrics는 payload에 없다. failure code markdup_validation은",
-    "shared knowledge에 없으므로 grounding도 없다. 따라서 이 단계를 열지 않으면",
-    "'무엇이 왜 실패했는지'를 말할 근거가 없다.",
+    "이 Run은 04_processing에서 멈췄다. 최초 payload에 이미 있는 것:",
+    "failure code markdup_validation과 그 메시지(failures), FAIL 검사 행",
+    "markdup_validation과 상세(checkSummary.notable -- 결과 문서가 없는 실패 Run은",
+    "단계 문서의 검사표를 쓴다), 그리고 steps 목록의 단계별 상태.",
+    "Tool로만 얻는 것: exit code, PASS 검사 행(read_name_mode), 단계 metrics",
+    "(percent_duplication, analysis_ready_records), nextStepReady.",
     "",
-    "expectedStepIds는 fixture가 실패를 기록한 단계 그 자체다. 임의로 고르지",
-    "않았다 -- 실패가 기록된 유일한 step이다."
+    "실패를 설명하는 데 필요한 사실은 payload에 있으므로 Tool은 필수가 아니다",
+    "(optional). 열었다면 실패가 기록된 04_processing이 핵심이고, 규칙",
+    "'실패 시 입력 검증도 본다'가 고르는 {04, 00}도 허용한다.",
+    "",
+    "mustCite는 최초 payload가 발급하는 id만 쓴다. 인용이 있다는 것은 의미가",
+    "맞다는 뜻이 아니다 -- 실패 범위와 원인 단정 여부는 humanReview가 본다."
   ],
 
-  "expectedToolUse": true,
-  "expectedStepIds": ["04_processing"],
+  "expectedToolUse": "optional",
+  "acceptableStepSets": [
+    ["04_processing"],
+    ["04_processing", "00_input_validation"]
+  ],
 
   "mustMention": [],
-  "mustCite": [],
+  "mustCite": [
+    {
+      "name": "cites-failure",
+      "ref": "fail:markdup_validation",
+      "why": "이 Run이 멈춘 이유로 기록된 유일한 실패다. 최초 payload의 failures에 있다"
+    }
+  ],
   "mustQualify": [],
 
   "humanReview": [

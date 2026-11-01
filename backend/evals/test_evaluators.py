@@ -653,7 +653,180 @@ def test_a_skipped_agent_case_reports_tool_checks_as_not_run():
     outcomes = {r.name: r.outcome for r in report.results}
     assert outcomes["tool-use"] == "not_run"
     assert outcomes["tool-step-selection"] == "not_run"
+    assert outcomes["tool-step-core"] == "not_run"
     assert report.ok is True
+
+
+# --- required / optional / forbidden ----------------------------------------
+
+
+def test_bool_values_still_mean_required_and_forbidden():
+    assert evaluators.tool_need({"expectedToolUse": True}) == "required"
+    assert evaluators.tool_need({"expectedToolUse": False}) == "forbidden"
+
+
+def test_the_string_forbidden_is_not_read_as_needing_the_tool():
+    """The trap a truth test falls into: "forbidden" is a truthy string."""
+    used = evaluators.check_tool_use({"expectedToolUse": "forbidden"}, _use("01_raw_qc"))
+    unused = evaluators.check_tool_use({"expectedToolUse": "forbidden"}, _use())
+    assert used.outcome == "fail"
+    assert unused.outcome == "pass"
+    assert evaluators.check_step_selection(
+        {"expectedToolUse": "forbidden"}, _use()
+    ).outcome == "not_run"
+
+
+def test_the_string_required_scores_like_true():
+    assert evaluators.check_tool_use(
+        {"expectedToolUse": "required"}, _use()
+    ).outcome == "fail"
+    assert evaluators.check_tool_use(
+        {"expectedToolUse": "required"}, _use("04_processing")
+    ).outcome == "pass"
+
+
+def test_an_unknown_tool_need_is_refused_not_guessed():
+    for raw in ("either", "yes", None, 1):
+        try:
+            evaluators.tool_need({"expectedToolUse": raw})
+        except ValueError:
+            continue
+        raise AssertionError(f"{raw!r} was accepted")
+
+
+def test_optional_does_not_score_whether_the_tool_was_called():
+    """Neither using nor not using it is a finding -- but it is recorded."""
+    used = evaluators.check_tool_use({"expectedToolUse": "optional"}, _use("01_raw_qc"))
+    unused = evaluators.check_tool_use({"expectedToolUse": "optional"}, _use())
+
+    assert used.outcome == unused.outcome == "not_run"
+    assert used.metrics == {"toolUsed": True}
+    assert unused.metrics == {"toolUsed": False}
+    assert "01_raw_qc" in used.detail
+
+
+def test_optional_still_scores_which_steps_were_opened():
+    """Free to skip the tool is not free to open the wrong step."""
+    expectations = {"expectedToolUse": "optional", "acceptableStepSets": [["01_raw_qc"]]}
+
+    assert evaluators.check_step_selection(expectations, _use()).outcome == "not_run"
+    assert evaluators.check_step_selection(
+        expectations, _use("01_raw_qc")
+    ).outcome == "pass"
+    wrong = evaluators.check_step_selection(expectations, _use("05_coverage_qc"))
+    assert wrong.outcome == "fail"
+    assert "05_coverage_qc" in wrong.detail
+
+
+def test_optional_still_scores_the_answer_itself():
+    """Only tool-use is exempt. An invented number and a missing citation fail."""
+    report = evaluators.run_expectations(
+        {
+            "case": "x",
+            "expectedToolUse": "optional",
+            "acceptableStepSets": [["04_processing"]],
+            "mustCite": [{"name": "cites-failure", "ref": "fail:markdup_validation"}],
+            "humanReview": [{"name": "h", "question": "q"}],
+        },
+        {"status": "failed"},
+        _ok(_synthesis(importantFindings=[_statement("값은 52,379입니다.", ["run:status"])])),
+        {},
+        tool_use=_use(),
+    )
+    outcomes = {r.name: r.outcome for r in report.results}
+
+    assert outcomes["tool-use"] == "not_run"
+    assert outcomes["numbers-preserved"] == "fail"
+    assert outcomes["cites-failure"] == "fail"
+    assert outcomes["h"] == "needs_review"
+    assert report.ok is False
+
+
+# --- acceptableStepSets, core steps, precision / recall ---------------------
+
+
+_FAILED_SETS = {
+    "expectedToolUse": "optional",
+    "acceptableStepSets": [
+        ["04_processing"],
+        ["04_processing", "00_input_validation"],
+    ],
+}
+
+
+def test_each_accepted_set_passes():
+    for opened in (("04_processing",), ("00_input_validation", "04_processing")):
+        result = evaluators.check_step_selection(_FAILED_SETS, _use(*opened))
+        assert result.outcome == "pass", opened
+
+
+def test_a_set_outside_the_accepted_list_fails():
+    result = evaluators.check_step_selection(
+        _FAILED_SETS, _use("04_processing", "05_coverage_qc")
+    )
+    assert result.outcome == "fail"
+    assert "05_coverage_qc" in result.detail
+
+
+def test_without_acceptable_sets_the_old_strict_rule_applies():
+    """expectedStepIds alone is the single accepted set -- as before."""
+    expectations = {"expectedToolUse": True, "expectedStepIds": ["04_processing"]}
+    assert evaluators.acceptable_step_sets(expectations) == [frozenset({"04_processing"})]
+    assert evaluators.check_step_selection(
+        expectations, _use("04_processing", "00_input_validation")
+    ).outcome == "fail"
+
+
+def test_precision_and_recall_ride_along_without_deciding_the_outcome():
+    """Core = in every accepted set (recall); allowed = in any (precision)."""
+    extra = evaluators.check_step_selection(
+        _FAILED_SETS, _use("04_processing", "05_coverage_qc")
+    )
+    assert extra.outcome == "fail"
+    assert extra.metrics["coreStepIds"] == ["04_processing"]
+    assert extra.metrics["allowedStepIds"] == ["00_input_validation", "04_processing"]
+    assert extra.metrics["recall"] == 1.0
+    assert extra.metrics["precision"] == 0.5
+
+    missed = evaluators.check_step_selection(_FAILED_SETS, _use("00_input_validation"))
+    assert missed.outcome == "fail"
+    assert missed.metrics["recall"] == 0.0
+    assert missed.metrics["precision"] == 1.0
+
+
+def test_a_missing_core_step_is_recorded_on_its_own():
+    """An extra step and a missed essential one both fail selection; only the
+    second fails the core check."""
+    extra = evaluators.check_step_core(_FAILED_SETS, _use("04_processing", "05_coverage_qc"))
+    missed = evaluators.check_step_core(_FAILED_SETS, _use("00_input_validation"))
+
+    assert extra.outcome == "pass"
+    assert missed.outcome == "fail"
+    assert "04_processing" in missed.detail
+
+
+def test_core_is_not_run_when_nothing_is_essential():
+    """A case that accepts the empty selection has no core step."""
+    result = evaluators.check_step_core(
+        {"expectedToolUse": "optional", "acceptableStepSets": [[], ["05_coverage_qc"]]},
+        _use("05_coverage_qc"),
+    )
+    assert result.outcome == "not_run"
+
+
+def test_selection_metrics_reach_the_json_record_only_where_they_exist():
+    report = evaluators.run_expectations(
+        {**_FAILED_SETS, "case": "x", "mustCite": [], "humanReview": []},
+        {},
+        _ok(_synthesis()),
+        {},
+        tool_use=_use("04_processing"),
+    )
+    rows = {row["name"]: row for row in report.to_json()["results"]}
+
+    assert rows["tool-step-selection"]["metrics"]["recall"] == 1.0
+    assert rows["tool-step-core"]["outcome"] == "pass"
+    assert "metrics" not in rows["runtime-guardrails"]
 
 
 def test_the_shipped_agent_expectations_name_steps_the_case_actually_plans():
@@ -665,10 +838,14 @@ def test_the_shipped_agent_expectations_name_steps_the_case_actually_plans():
             (EXPECTATIONS / f"{key}.json").read_text(encoding="utf-8")
         )
         assert expectations["case"] == key
-        for step_id in expectations["expectedStepIds"]:
-            assert step_id in case.planned, (key, step_id)
-        if not expectations["expectedToolUse"]:
-            assert expectations["expectedStepIds"] == []
+        need = evaluators.tool_need(expectations)
+        for steps in evaluators.acceptable_step_sets(expectations):
+            for step_id in steps:
+                assert step_id in case.planned, (key, step_id)
+        if need == "forbidden":
+            # Not a truth test: the string "forbidden" is truthy.
+            assert "acceptableStepSets" not in expectations, key
+            assert not expectations.get("expectedStepIds"), key
 
 
 # --- the agent cases are what their expectations claim -----------------------
@@ -691,10 +868,12 @@ def test_agent_case_evidence_anchors_the_expected_step():
                 for item in (*explanation.diagnostics, *explanation.failures)
                 if item.actualStepId
             }
-            if expectations["expectedToolUse"]:
-                # The step the case expects is the step this run recorded its
-                # problem in -- not a preference.
-                assert anchored == set(expectations["expectedStepIds"]), key
+            if evaluators.tool_need(expectations) != "forbidden":
+                # The step every accepted answer contains is the step this run
+                # recorded its problem in -- not a preference.
+                sets = evaluators.acceptable_step_sets(expectations)
+                core = frozenset.intersection(*sets)
+                assert anchored == set(core), key
             else:
                 # Nothing to investigate is why no call is expected.
                 assert not anchored, key
@@ -713,6 +892,28 @@ def test_the_agent_cases_offer_a_step_list_to_choose_from():
 
     assert [row["stepId"] for row in payload["steps"]["planned"]] == list(case.planned)
     assert "run:steps" in allowed
+
+
+def test_agent_case_citations_are_ids_the_initial_payload_mints():
+    """A required citation must be answerable without the tool.
+
+    Otherwise an `optional` case would quietly require it. Being citable is
+    all this proves -- whether a sentence citing it is right stays with the
+    human review.
+    """
+    from app.services.explanation.llm import contract
+
+    from . import agent_cases
+
+    for key, case in agent_cases.CASES.items():
+        expectations = json.loads(
+            (EXPECTATIONS / f"{key}.json").read_text(encoding="utf-8")
+        )
+        with agent_cases.materialise(case) as explanation:
+            _payload, allowed = contract.build_payload(explanation)
+        for spec in expectations.get("mustCite", []):
+            assert spec["ref"] in allowed, (key, spec["ref"])
+            assert not spec["ref"].startswith("step:"), (key, spec["ref"])
 
 
 def test_the_agent_cases_keep_the_sample_name_out_of_the_payload():
@@ -765,3 +966,189 @@ def test_the_four_frozen_cases_keep_the_fixture_as_their_fact_source():
     )
     outcomes = {r.name: r.outcome for r in report.results}
     assert outcomes["numbers-preserved"] == "fail"
+
+
+# --- V1 (tool withheld) and V3 (the agent) ----------------------------------
+#
+# The variant toggle is scored and recorded here; that the runtime withholds
+# both halves of the tool is tested in app/tests/test_tool_toggle.py. Nothing
+# below calls a model: `build_run_synthesis` is replaced wherever run_eval
+# would reach it.
+
+
+_AGENT_EXPECTATIONS = {
+    "case": "x",
+    "expectedToolUse": "forbidden",
+    "mustCite": [{"name": "cites-status", "ref": "run:status"}],
+    "humanReview": [],
+}
+
+
+def test_without_the_tool_the_tool_checks_are_not_run():
+    """A `forbidden` case must not pass for a model that never had the choice."""
+    report = evaluators.run_expectations(
+        _AGENT_EXPECTATIONS,
+        {},
+        _ok(_synthesis(importantFindings=[_statement("끝났습니다.", ["run:status"])])),
+        {},
+        tool_use=_use(),
+        tools_offered=False,
+    )
+    rows = {r.name: r for r in report.results}
+
+    for name in ("tool-use", "tool-step-selection", "tool-step-core"):
+        assert rows[name].outcome == "not_run"
+        assert rows[name].detail == "Tool 미제공 variant"
+    assert rows["cites-status"].outcome == "pass"
+    assert report.ok is True
+
+
+def test_without_the_tool_the_answer_is_still_scored():
+    report = evaluators.run_expectations(
+        _AGENT_EXPECTATIONS,
+        {"status": "completed"},
+        _ok(_synthesis(importantFindings=[_statement("값은 52,379입니다.", ["run:other"])])),
+        {},
+        tool_use=_use(),
+        tools_offered=False,
+    )
+    outcomes = {r.name: r.outcome for r in report.results}
+
+    assert outcomes["numbers-preserved"] == "fail"
+    assert outcomes["cites-status"] == "fail"
+    assert report.ok is False
+
+
+def test_with_the_tool_scoring_is_what_it_was():
+    """tools_offered defaults to True: V3 scores exactly as before."""
+    default = evaluators.run_expectations(
+        _AGENT_EXPECTATIONS, {}, _ok(_synthesis()), {}, tool_use=_use("04_processing")
+    )
+    explicit = evaluators.run_expectations(
+        _AGENT_EXPECTATIONS,
+        {},
+        _ok(_synthesis()),
+        {},
+        tool_use=_use("04_processing"),
+        tools_offered=True,
+    )
+
+    assert default.to_json() == explicit.to_json()
+    assert {r.name: r.outcome for r in default.results}["tool-use"] == "fail"
+
+
+def test_without_the_tool_frozen_cases_score_unchanged():
+    """No expectedToolUse, no tool rows -- in either variant."""
+    expectations = {"case": "x", "mustCite": [], "humanReview": []}
+    v1 = evaluators.run_expectations(
+        expectations, {}, _ok(_synthesis()), {}, tools_offered=False
+    )
+    v3 = evaluators.run_expectations(expectations, {}, _ok(_synthesis()), {})
+
+    assert v1.to_json() == v3.to_json()
+
+
+def _fake_synthesis(calls: list):
+    """Stands in for build_run_synthesis and records how it was asked."""
+    from app.services.explanation.llm import synthesis
+
+    def fake(explanation, **kwargs):
+        calls.append(kwargs)
+        return synthesis.SynthesisResult(available=False, errorCategory="timeout")
+
+    return fake
+
+
+def test_a_frozen_case_records_its_variant_and_the_prompt_it_sent(monkeypatch):
+    from app.services.explanation.llm import prompt
+
+    from . import run_eval
+
+    calls: list = []
+    monkeypatch.setattr(run_eval.synthesis, "build_run_synthesis", _fake_synthesis(calls))
+
+    v1 = run_eval.evaluate("execution_failed", variant="v1")
+    v3 = run_eval.evaluate("execution_failed")
+
+    assert [c["offer_tools"] for c in calls] == [False, True]
+    assert (v1["variant"], v1["toolsOffered"]) == ("v1", False)
+    assert (v3["variant"], v3["toolsOffered"]) == ("v3", True)
+    assert v1["promptHash"] == run_eval._hash(prompt.CONSTRAINTS_NO_TOOL)
+    assert v3["promptHash"] == run_eval._hash(prompt.CONSTRAINTS) == "110c63124b4325fc"
+
+
+def test_an_agent_case_passes_the_variant_to_both_runtime_and_scoring(monkeypatch):
+    from . import run_eval
+
+    calls: list = []
+    monkeypatch.setattr(run_eval.synthesis, "build_run_synthesis", _fake_synthesis(calls))
+
+    record = run_eval.evaluate_agent("agent_no_tool_needed", variant="v1")
+
+    assert calls[0]["offer_tools"] is False
+    assert record["variant"] == "v1"
+    rows = {r["name"]: r for r in record["evaluation"]["results"]}
+    assert rows["tool-use"]["outcome"] == "not_run"
+    assert rows["tool-use"]["detail"] == "Tool 미제공 variant"
+
+
+def test_the_variant_defaults_to_v3():
+    import inspect
+
+    from . import run_eval
+
+    assert run_eval.DEFAULT_VARIANT == "v3"
+    for fn in (run_eval.evaluate, run_eval.evaluate_agent):
+        assert inspect.signature(fn).parameters["variant"].default == "v3"
+
+
+def test_baseline_names_carry_the_variant():
+    from . import run_eval
+
+    v1 = run_eval.baseline_path("agent_failed_step", "v1", "2026-11-02")
+    v3 = run_eval.baseline_path("agent_failed_step", "v3", "2026-11-02")
+
+    assert v1 != v3
+    assert v1.name.startswith("2026-11-02_agent_failed_step_v1_")
+    assert v3.name.startswith("2026-11-02_agent_failed_step_v3_")
+    assert v1.name.endswith(f"_{run_eval._prompt_hash('v1')}.json")
+    assert v3.name.endswith("_110c63124b4325fc.json")
+
+
+def test_an_existing_baseline_is_never_overwritten(tmp_path):
+    from . import run_eval
+
+    path = tmp_path / "existing.json"
+    path.write_text("original\n", encoding="utf-8")
+
+    try:
+        run_eval.write_baseline(path, {"case": "x"})
+    except FileExistsError:
+        pass
+    else:
+        raise AssertionError("an existing baseline was replaced")
+    assert path.read_text(encoding="utf-8") == "original\n"
+
+
+def test_a_name_collision_stops_before_any_model_call(tmp_path, monkeypatch, capsys):
+    import sys
+
+    from . import run_eval
+
+    def must_not_call(*_args, **_kwargs):
+        raise AssertionError("the model would have been called")
+
+    monkeypatch.setattr(run_eval, "BASELINES", tmp_path)
+    monkeypatch.setattr(run_eval.synthesis, "build_run_synthesis", must_not_call)
+    stamp = run_eval.datetime.now(run_eval.timezone.utc).strftime("%Y-%m-%d")
+    taken = run_eval.baseline_path("agent_failed_step", "v1", stamp)
+    taken.write_text("kept\n", encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["run_eval", "--case", "agentfail", "--variant", "v1", "--record-baseline", "--yes"],
+    )
+
+    assert run_eval.main() == 2
+    assert taken.read_text(encoding="utf-8") == "kept\n"
+    assert "호출하지 않았습니다" in capsys.readouterr().out

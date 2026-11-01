@@ -3,6 +3,7 @@
     python -m evals.run_eval --case full
     python -m evals.run_eval --case all --record-baseline --yes
     python -m evals.run_eval --case agent            # tool-selection cases
+    python -m evals.run_eval --case agent --variant v1   # same, tool withheld
 
 The only code in this repository that can spend subscription usage outside a
 user's own request. `pytest` never reaches it: pytest.ini sets
@@ -70,6 +71,16 @@ AGENT_CASES = {
     "agentnotool": "agent_no_tool_needed",
 }
 
+# Variant -> whether the step detail tool is offered. Only these two exist.
+#
+#     v1   no tool: no MCP channel and no tool instructions in the prompt
+#     v3   the production agent, unchanged -- the default
+#
+# Everything else is held equal: model, initial payload, the rest of the rules,
+# output schema, runtime gates. See prompt.py and synthesis.py.
+VARIANTS = {"v1": False, "v3": True}
+DEFAULT_VARIANT = "v3"
+
 # fixture가 검체 이름 자리에 넣어 둔 값. payload에 나타나면 allowlist가 뚫린
 # 것이다 -- 단 조립 failure code 안은 예외다(privacy_check 참고).
 CANARY = "EVAL_SAMPLE_CANARY"
@@ -86,6 +97,11 @@ SKIP_MODEL = {
 
 def _hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+def _prompt_hash(variant: str) -> str:
+    """Hash of the rules this variant actually sends, not of a fixed constant."""
+    return _hash(prompt.constraints_for(offer_tools=VARIANTS[variant]))
 
 
 def _knowledge_hash() -> str:
@@ -150,14 +166,18 @@ def load_expectations(name: str) -> dict[str, Any]:
     return json.loads((EXPECTATIONS / f"{name}.json").read_text(encoding="utf-8"))
 
 
-def evaluate_agent(name: str) -> dict[str, Any]:
+def evaluate_agent(name: str, *, variant: str = DEFAULT_VARIANT) -> dict[str, Any]:
     """One agent case: build the run, call the model once, score what it did.
 
     The extra thing this path does is pass an observer. `build_run_synthesis`
     hands it what the MCP server recorded answering during the call, which is
     the only honest source for "did the agent open a step, and which one" --
     the model's own text is the thing under examination, not a witness to it.
+
+    Under v1 the observer still fires and reports that nothing was opened; the
+    tool checks are reported `not_run` rather than scored against that.
     """
+    offer_tools = VARIANTS[variant]
     case = agent_cases.CASES[name]
     expectations = load_expectations(name)
     observed: dict[str, Any] = {}
@@ -172,7 +192,7 @@ def evaluate_agent(name: str) -> dict[str, Any]:
     with agent_cases.materialise(case) as explanation:
         payload, allowed = contract.build_payload(explanation)
         result = synthesis.build_run_synthesis(
-            explanation, on_tool_use=watch
+            explanation, on_tool_use=watch, offer_tools=offer_tools
         ).model_dump()
 
     fixture = explanation.model_dump()
@@ -183,6 +203,7 @@ def evaluate_agent(name: str) -> dict[str, Any]:
         payload,
         tool_use=observed,
         fetched_facts=fetched,
+        tools_offered=offer_tools,
     )
     report.results.insert(0, privacy_check(fixture))
 
@@ -193,12 +214,14 @@ def evaluate_agent(name: str) -> dict[str, Any]:
         "case": name,
         "caseKind": "agent",
         "caseIntent": case.intent,
+        "variant": variant,
+        "toolsOffered": offer_tools,
         "recordedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "provider": provenance.get("provider"),
         "models": provenance.get("models"),
         "durationMs": provenance.get("durationMs"),
         "configuredModel": config.SYNTHESIS_MODEL,
-        "promptHash": _hash(prompt.CONSTRAINTS),
+        "promptHash": _prompt_hash(variant),
         "knowledgeHash": _knowledge_hash(),
         "schemaHash": _hash(json.dumps(contract.SYNTHESIS_JSON_SCHEMA, sort_keys=True)),
         "allowedRefCount": len(allowed),
@@ -207,6 +230,7 @@ def evaluate_agent(name: str) -> dict[str, Any]:
         "toolUse": observed,
         "expectedToolUse": expectations.get("expectedToolUse"),
         "expectedStepIds": expectations.get("expectedStepIds"),
+        "acceptableStepSets": expectations.get("acceptableStepSets"),
         "evaluation": report.to_json(),
         "humanReview": {
             "reviewedBy": None,
@@ -232,7 +256,7 @@ def load_case(name: str) -> tuple[dict[str, Any], dict[str, Any]]:
     return fixture, expectations
 
 
-def evaluate(name: str) -> dict[str, Any]:
+def evaluate(name: str, *, variant: str = DEFAULT_VARIANT) -> dict[str, Any]:
     """One case: build payload, call the model once, score the result.
 
     A case listed in SKIP_MODEL is evaluated without calling anything. Its
@@ -240,6 +264,7 @@ def evaluate(name: str) -> dict[str, Any]:
     running is not the same state as a provider failing, and a report that
     conflated them would make a decision look like an outage.
     """
+    offer_tools = VARIANTS[variant]
     fixture, expectations = load_case(name)
     explanation = RunExplanation.model_validate(fixture)
 
@@ -252,8 +277,12 @@ def evaluate(name: str) -> dict[str, Any]:
             expectations, fixture, result, payload, model_invoked=False
         )
     else:
-        result = synthesis.build_run_synthesis(explanation).model_dump()
-        report = evaluators.run_expectations(expectations, fixture, result, payload)
+        result = synthesis.build_run_synthesis(
+            explanation, offer_tools=offer_tools
+        ).model_dump()
+        report = evaluators.run_expectations(
+            expectations, fixture, result, payload, tools_offered=offer_tools
+        )
     report.results.insert(0, privacy_check(fixture))
 
     provenance = result.get("provenance") or {}
@@ -261,12 +290,14 @@ def evaluate(name: str) -> dict[str, Any]:
         "invocationStatus": "skipped" if skipped else "invoked",
         "invocationSkippedReason": skipped,
         "case": name,
+        "variant": variant,
+        "toolsOffered": offer_tools,
         "recordedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "provider": provenance.get("provider"),
         "models": provenance.get("models"),
         "durationMs": provenance.get("durationMs"),
         "configuredModel": config.SYNTHESIS_MODEL,
-        "promptHash": _hash(prompt.CONSTRAINTS),
+        "promptHash": _prompt_hash(variant),
         "knowledgeHash": _knowledge_hash(),
         "schemaHash": _hash(json.dumps(contract.SYNTHESIS_JSON_SCHEMA, sort_keys=True)),
         "allowedRefCount": len(allowed),
@@ -290,6 +321,10 @@ def evaluate(name: str) -> dict[str, Any]:
 
 def print_report(record: dict[str, Any]) -> None:
     print(f"\n=== {record['case']} ===")
+    if "variant" in record:
+        # 기록 이전의 baseline에는 이 필드가 없다. 없는 것을 v3라고 추정하지 않는다.
+        offered = "Tool 제공" if record.get("toolsOffered") else "Tool 미제공"
+        print(f"  variant    {record['variant']} ({offered})")
     if record.get("invocationStatus") == "skipped":
         # 실패가 아니라 의도적 미실행이다. 헤더에서부터 구분한다.
         print("  model      호출하지 않음 (skipped)")
@@ -373,6 +408,31 @@ def rescore(names: list[str], *, record: bool) -> int:
     return 1 if failed else 0
 
 
+def baseline_path(name: str, variant: str, stamp: str) -> Path:
+    """Where a new record for this case and variant is written.
+
+    promptHash를 파일명에 넣는다. 같은 날 같은 모델로 prompt만 바꿔 다시 돌리면
+    이전 baseline을 덮어쓰게 되는데, 그 파일이 바로 비교 기준이다. 무엇이 이
+    결과를 만들었는지가 이름에 있어야 한다. variant도 같은 이유로 들어간다 --
+    v1과 v3는 prompt hash도 다르지만, 이름만 보고 구분할 수 있어야 한다.
+
+    variant 필드가 생기기 전의 baseline 이름은 바꾸지 않는다.
+    """
+    model = (config.SYNTHESIS_MODEL or "default").replace("/", "-")
+    return BASELINES / f"{stamp}_{name}_{variant}_{model}_{_prompt_hash(variant)}.json"
+
+
+def write_baseline(path: Path, record: dict[str, Any]) -> None:
+    """Create `path`, never replace it.
+
+    Mode "x" fails if the file exists, so a stored baseline cannot be
+    overwritten even when the pre-check in main() was passed earlier -- e.g.
+    the date rolled over during a long run onto an existing name.
+    """
+    with path.open("x", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -395,6 +455,12 @@ def main() -> int:
         action="store_true",
         help="비대화형 실행. 이 플래그 없이는 확인을 요구한다",
     )
+    parser.add_argument(
+        "--variant",
+        choices=sorted(VARIANTS),
+        default=DEFAULT_VARIANT,
+        help="v1 = Tool 미제공(MCP·Tool 지시문 없음), v3 = 운영 Agent (기본값)",
+    )
     args = parser.parse_args()
 
     if args.case == "all":
@@ -411,8 +477,25 @@ def main() -> int:
         # 내 채점 버그 때문에 구독 사용량을 또 쓸 이유가 없다.
         return rescore(names, record=args.record_baseline)
 
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if args.record_baseline:
+        # 모델을 부르기 전에 확인한다. 사용량을 쓰고 나서 저장할 곳이 없다는 것을
+        # 알게 되면 안 된다. 기존 파일은 건드리지 않고 멈춘다.
+        taken = [
+            path
+            for path in (baseline_path(n, args.variant, stamp) for n in names)
+            if path.exists()
+        ]
+        if taken:
+            print("오류: 같은 이름의 baseline이 이미 있어 중단합니다. 호출하지 않았습니다.")
+            for path in taken:
+                print(f"  {path.name}")
+            print("  기존 파일은 그대로 두었습니다. 옮기거나 이름을 바꾼 뒤 다시 실행하세요.")
+            return 2
+
     calling = [n for n in names if n not in SKIP_MODEL]
     print("이 명령은 Claude Max 구독 사용량을 소비합니다.")
+    print(f"  variant: {args.variant}")
     print(
         f"  case {len(names)}개 중 {len(calling)}개 호출 · 총 {len(calling)}회"
     )
@@ -432,23 +515,22 @@ def main() -> int:
     records = []
     for name in names:
         record = (
-            evaluate_agent(name) if name in agent_cases.CASES else evaluate(name)
+            evaluate_agent(name, variant=args.variant)
+            if name in agent_cases.CASES
+            else evaluate(name, variant=args.variant)
         )
         print_report(record)
         records.append(record)
 
         if args.record_baseline:
             BASELINES.mkdir(parents=True, exist_ok=True)
-            stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-            model = (record.get("configuredModel") or "default").replace("/", "-")
-            # promptHash를 파일명에 넣는다. 같은 날 같은 모델로 prompt만 바꿔
-            # 다시 돌리면 **이전 baseline을 덮어쓰게 되는데**, 그 파일이 바로
-            # 비교 기준이다. 무엇이 이 결과를 만들었는지가 이름에 있어야 한다.
-            target = BASELINES / f"{stamp}_{name}_{model}_{record['promptHash']}.json"
-            target.write_text(
-                json.dumps(record, ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
-            )
+            target = baseline_path(name, args.variant, stamp)
+            try:
+                write_baseline(target, record)
+            except FileExistsError:
+                print(f"오류: {target.name} 이(가) 이미 있어 저장하지 않고 중단합니다.")
+                print("  기존 파일은 그대로 두었습니다.")
+                return 2
             print(f"  baseline -> {target.name}")
 
     failed = [r for r in records if not r["evaluation"]["deterministicPassed"]]
