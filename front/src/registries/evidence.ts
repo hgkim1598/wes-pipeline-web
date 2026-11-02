@@ -13,6 +13,7 @@
     lim:<code>       결정론적 범위 제한
     src:<id>         인용된 출처
     concept:<id>     해석 개념
+    term:<id>        초보자 용어 정의 (일반 지식. 이 실행의 사실이 아니다)
     run:<section>    실행 자체의 사실 (status · checkSummary · coverage 등)
 
   ── 이름을 지어내지 않는다 `[설계판단]` ─────────────────────────────────
@@ -23,6 +24,7 @@
     fail    wes_failures.json     title
     src     wes_sources.json      title
     concept wes_concepts.json     label
+    term    wes_terms.json        label
 
   `lim:`과 `run:`만 이 파일이 이름을 갖는다. 그 둘은 knowledge 파일의 항목이
   아니라 **payload의 구획 이름**이어서 canonical source가 존재하지 않는다.
@@ -39,13 +41,14 @@ import {
   diagnosticKnowledge,
   failureKnowledge,
   sourceKnowledge,
+  termKnowledge,
 } from '@/registries/knowledge'
 
 export interface EvidenceView {
   /** 사람이 읽는 이름. `known`이 false면 raw id가 그대로 들어온다. */
   label: string
   /** 어떤 종류의 근거인가. 목록에서 묶어 보여줄 때 쓴다. */
-  group: '이 실행의 기록' | '등록된 지식' | '참고 자료' | '알 수 없음'
+  group: '이 실행의 기록' | '등록된 지식' | '용어 설명' | '참고 자료' | '알 수 없음'
   known: boolean
   /** 항상 원본 id. 기술 정보에서 그대로 보여준다. */
   id: string
@@ -96,6 +99,13 @@ export function describeEvidenceRef(ref: string): EvidenceView {
       const entry = conceptKnowledge(key)
       return entry
         ? { label: entry.label, group: '등록된 지식', known: true, id: ref }
+        : unknown(ref)
+    }
+    case 'term': {
+      // 별도 group: 용어 정의는 이 실행에 대한 근거가 아니라 낱말 설명이다.
+      const entry = termKnowledge(key)
+      return entry
+        ? { label: entry.label, group: '용어 설명', known: true, id: ref }
         : unknown(ref)
     }
     case 'src': {

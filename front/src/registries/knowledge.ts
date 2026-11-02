@@ -35,6 +35,7 @@ import diagnosticsDoc from '@shared/knowledge/wes_diagnostics.json'
 import failuresDoc from '@shared/knowledge/wes_failures.json'
 import sourcesDoc from '@shared/knowledge/wes_sources.json'
 import stepsDoc from '@shared/knowledge/wes_steps.json'
+import termsDoc from '@shared/knowledge/wes_terms.json'
 
 /** 확인이 필요한 사건인가. 사건의 무게. */
 export const DiagnosticSeveritySchema = z.enum(['attention', 'info'])
@@ -171,6 +172,26 @@ const ConceptsDocSchema = z.object({
   concepts: z.array(ConceptKnowledgeSchema),
 })
 
+/*
+  초보자 용어 (`wes_terms.json`).
+
+  AI 설명이 `term:<id>`를 근거로 인용할 수 있다. 화면이 쓰는 것은 그 근거의
+  **이름(label)뿐**이라 id와 label만 모델링한다. 정의·오해·사용 조건은
+  backend가 payload에 넣는 내용이고, 여기에 옮기면 같은 정의가 두 곳에 생긴다.
+  화면 popover 문구(glossary.ts)와도 합치지 않는다 — 그쪽은 별도 작업이다.
+*/
+export const TermKnowledgeSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+})
+
+export type TermKnowledge = z.infer<typeof TermKnowledgeSchema>
+
+const TermsDocSchema = z.object({
+  schemaVersion: z.string(),
+  terms: z.array(TermKnowledgeSchema),
+})
+
 const DiagnosticsDocSchema = z.object({
   schemaVersion: z.string(),
   diagnostics: z.array(DiagnosticKnowledgeSchema),
@@ -243,6 +264,10 @@ const concepts = parseOrThrow(
   'config/knowledge/wes_concepts.json',
 )
 
+const terms = parseOrThrow(TermsDocSchema, termsDoc, 'config/knowledge/wes_terms.json')
+
+const TERM_BY_ID = indexBy(terms.terms, (row) => row.id, 'wes_terms.json')
+
 const SOURCE_BY_ID = indexBy(sources.sources, (row) => row.id, 'wes_sources.json')
 const CONCEPT_BY_ID = indexBy(
   concepts.concepts,
@@ -292,4 +317,9 @@ export function sourceKnowledge(id: string): SourceKnowledge | undefined {
 /** 해석 개념. 없으면 undefined. */
 export function conceptKnowledge(id: string): ConceptKnowledge | undefined {
   return CONCEPT_BY_ID.get(id)
+}
+
+/** 초보자 용어. 없으면 undefined — 호출부가 raw id를 그대로 보여준다. */
+export function termKnowledge(id: string): TermKnowledge | undefined {
+  return TERM_BY_ID.get(id)
 }
