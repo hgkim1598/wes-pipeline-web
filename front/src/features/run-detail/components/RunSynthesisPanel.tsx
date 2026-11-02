@@ -1,18 +1,34 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Sparkles } from 'lucide-react'
 
 import { Button } from '@/components/ui/Button'
+import { DiagnosticKindMark } from '@/components/ui/DiagnosticNote'
 import { MessageBlock } from '@/components/ui/MessageBlock'
 import { SectionHeader } from '@/components/ui/SectionHeader'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 import { createSynthesis } from '@/features/run-detail/api'
-import type { SynthesisStatement } from '@/features/run-detail/api'
+import type {
+  SynthesisProvenance,
+  SynthesisResult,
+  SynthesisStatement,
+} from '@/features/run-detail/api'
 import { humanizeLocators } from '@/features/run-detail/locators'
 import type { LocatorResolver } from '@/features/run-detail/locators'
+import {
+  groupByDiagnostic,
+  partitionByRefs,
+} from '@/features/run-detail/synthesisGroups'
+import type { DiagnosticRef } from '@/features/run-detail/synthesisGroups'
+import { describeJobStatus } from '@/features/runs/status'
+import { formatDuration, formatTimestamp } from '@/features/runs/time'
+import { describeDiagnostic, describeFailure } from '@/registries/diagnostics'
+import type { DiagnosticKind, DiagnosticView } from '@/registries/diagnostics'
 import { describeEvidenceRef } from '@/registries/evidence'
 
 /*
-  AI 종합 설명 — 첫 vertical slice.
+  AI 종합 설명.
 
   ── mutation이지 query가 아니다 ────────────────────────────────────────
 
@@ -42,8 +58,39 @@ import { describeEvidenceRef } from '@/registries/evidence'
   사용량만 소모된다. 버튼을 비활성화하고 이유를 문장으로 적는다 — 비활성
   버튼만 두면 왜 눌리지 않는지 알 수 없다.
 
-  ⚠️ 이번 단계에서 AI UI를 재설계하지 않았다. 생성 경과 시간·근거 표시·
-     locator 이름화는 2차 polish다.
+  ── 결과의 배치 `[설계판단]` ───────────────────────────────────────────
+
+  실제 Run에서 받은 설명은 문장이 20개 가까이 되고, 그대로 나열하면 상태와
+  경고가 수치 문장 사이에 묻힌다. 그래서 읽는 순서를 정한다.
+
+    1. 요약 | 실행 상태   요약과, 실행 상태를 말한 문장(run:status 등 인용).
+                          상태 배지는 AI가 아니라 backend의 runStatus다.
+    2. 진단 기록          확인 필요 · 자동 복구 · 참고. 진단마다 한 칸.
+    3. 측정값과 그 밖의 내용
+                          진단·상태와 연결되지 않은 주요 문장.
+    4. 한계 · 다음 확인 · 알 수 없는 것
+                          건수를 보이고 접어 둔다.
+
+  묶는 기준은 전부 모델이 인용한 evidenceRefs다(synthesisGroups.ts).
+
+  ── 폭 `[설계판단]` ────────────────────────────────────────────────────
+
+  실행 상세는 넓은 Shell(최대 1360px) 안에 있다. 1차에서는 문장마다
+  max-w-prose(65ch, 13px 기준 약 500px)를 걸고 모든 구역을 세로 한 줄로
+  쌓아서, 넓은 화면의 절반 이상이 비었다. 이제 줄 길이는 **칸의 폭**이
+  정한다 — 진단은 auto-fit grid의 칸, 측정값·접힘 영역은 2·3열이다. 한 칸이
+  화면 전체를 차지하는 경우(진단 한 건, 좁은 화면)에는 max-w-content(880px)로
+  줄 길이의 상한만 둔다.
+
+  ── 없앤 조작 ──────────────────────────────────────────────────────────
+
+  "AI가 쓴 순서로 보기"와 "모두 펼치기"는 1차에 있었다. 앞의 것은 묶는
+  규칙을 검증하기 위한 것이었고 그 검증은 렌더링 검사로 옮겼다. 뒤의 것은
+  접힌 영역이 세 개뿐이고 각 머리글이 건수와 함께 바로 눌리므로 버튼 하나를
+  더 둘 이유가 약했다. 응답 데이터는 그대로이며 모든 문장이 화면에 있다.
+
+  **문장은 하나도 지우거나 고치지 않는다.** 바뀌는 것은 위치와 접힘뿐이다.
+  모든 텍스트는 React text node로 들어간다. AI 문장을 HTML로 해석하지 않는다.
 */
 
 export interface RunSynthesisPanelProps {
@@ -124,15 +171,14 @@ export function RunSynthesisPanel({
         {/*
           기다리는 동안 `[설계판단]`
 
-          실제 Full Run에서 160~213초가 걸렸다. "생성 중…" 하나만 있으면
-          2분이 지난 시점에 사용자는 멈춘 것인지 알 수 없다.
+          걸리는 시간은 실행마다 크게 다르다. 기록된 것만 해도 실제 Full Run
+          160~213초, 개발용 사본의 같은 Run 약 20초다. 그래서 예상 시간을
+          적지 않는다 — 틀린 숫자는 없는 숫자보다 나쁘다.
 
           **가짜 진행률을 만들지 않는다.** backend는 모델이 어디까지 왔는지
-          모르고, 우리도 모른다. 대신 우리가 실제로 아는 두 가지를 말한다 —
-          보통 몇 분 걸린다는 것과, 지금까지 얼마나 지났는지.
-
-          경과 시간은 client timer다. 그것이 무엇을 뜻하는지 과장하지 않는다:
-          "몇 % 완료"가 아니라 "경과 1분 42초"다.
+          모르고, 우리도 모른다. 대신 실제로 아는 것 — 지금까지 얼마나
+          지났는지 — 만 말한다. 경과 시간은 client timer이며 "몇 % 완료"가
+          아니다.
         */}
         {synthesis.isPending ? (
           <div
@@ -141,7 +187,8 @@ export function RunSynthesisPanel({
             className="flex flex-col gap-1 border-t border-border pt-3"
           >
             <p className="text-small text-text">
-              AI 종합 설명을 만들고 있습니다. 완료까지 보통 2~4분 걸립니다.
+              AI 종합 설명을 만들고 있습니다. 걸리는 시간은 실행 내용과 서버
+              상태에 따라 다릅니다.
             </p>
             <p className="text-caption text-text-muted">
               경과 {formatElapsed(elapsed)} · 이 화면을 떠나도 실행 중인
@@ -167,45 +214,323 @@ export function RunSynthesisPanel({
         ) : null}
 
         {result?.available && result.synthesis ? (
-          <div className="flex flex-col gap-5 border-t border-border pt-4">
-            <p className="max-w-prose text-body whitespace-pre-wrap text-text">
-              {result.synthesis.summary}
-            </p>
-
-            <StatementList
-              title="확인할 사항"
-              items={result.synthesis.importantFindings}
-            />
-            <StatementList
-              title="이 결과가 말하지 않는 것"
-              items={result.synthesis.limitations}
-            />
-            <StatementList
-              title="다음으로 확인할 수 있는 것"
-              items={result.synthesis.nextChecks}
-              locators={locators}
-            />
-            <StatementList
-              title="알 수 없는 것"
-              items={result.synthesis.uncertainties}
-            />
-
-            {/*
-              생성물임을 본문 끝에서 다시 밝힌다. provenance는 어느 모델이
-              언제 만들었는지 추적할 수 있게 그대로 보여준다.
-            */}
-            {result.provenance ? (
-              <p className="border-t border-border pt-3 text-caption text-text-muted">
-                이 설명은 {result.provenance.provider}가 생성한 AI 결과입니다 ·
-                {' '}
-                {result.provenance.models.join(', ') || '모델 미상'} ·{' '}
-                {result.provenance.generatedAt}
-              </p>
-            ) : null}
-          </div>
+          <SynthesisResultView
+            synthesis={result.synthesis}
+            provenance={result.provenance}
+            locators={locators}
+          />
         ) : null}
       </div>
     </section>
+  )
+}
+
+/*
+  실행 상태를 말하는 근거. 진단과 연결되지 않은 문장 중 이 둘 중 하나를
+  인용한 문장은 요약 옆 "실행 상태"로 올린다. 이름은 backend build_payload의
+  구획 이름이며 registries/evidence.ts의 RUN_SECTION_LABEL과 같다.
+*/
+const STATUS_REFS: ReadonlySet<string> = new Set(['run:status', 'run:checkSummary'])
+
+/**
+ * 성공한 응답 한 건의 본문.
+ *
+ * mutation과 분리해 둔 이유는 하나다. 이 부분은 응답 값만으로 결정되므로
+ * 모델을 부르지 않고 고정된 응답으로 렌더링을 확인할 수 있다.
+ */
+export function SynthesisResultView({
+  synthesis,
+  provenance,
+  locators,
+}: {
+  synthesis: NonNullable<SynthesisResult['synthesis']>
+  provenance: SynthesisProvenance | null
+  locators: LocatorResolver
+}) {
+  const { groups, ungrouped } = groupByDiagnostic(
+    synthesis.importantFindings,
+    rankOf,
+  )
+  const { matched: statusEntries, rest: otherEntries } = partitionByRefs(
+    ungrouped,
+    STATUS_REFS,
+  )
+  const status = provenance ? describeJobStatus(provenance.runStatus) : null
+  const hasStatusColumn = status !== null || statusEntries.length > 0
+
+  return (
+    <div className="flex flex-col gap-6 border-t border-border pt-4">
+      {/* --- 1. 요약 | 실행 상태 ----------------------------------------- */}
+      <div
+        className={
+          hasStatusColumn
+            ? 'grid grid-cols-1 gap-x-8 gap-y-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]'
+            : 'grid grid-cols-1'
+        }
+      >
+        <section aria-labelledby="synthesis-summary" className="flex flex-col gap-1.5">
+          <Eyebrow id="synthesis-summary">요약</Eyebrow>
+          <p className="max-w-content text-body font-medium whitespace-pre-wrap text-text-strong">
+            {synthesis.summary}
+          </p>
+        </section>
+
+        {hasStatusColumn ? (
+          <section
+            aria-labelledby="synthesis-status"
+            className="flex flex-col gap-2 border-t border-border-subtle pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-6"
+          >
+            <Eyebrow id="synthesis-status">실행 상태</Eyebrow>
+            {status ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge tone={status.tone} size="sm">
+                  {status.label}
+                </StatusBadge>
+                <span className="text-caption text-text-muted">
+                  설명을 만들 때의 상태
+                </span>
+              </div>
+            ) : null}
+            {statusEntries.length > 0 ? (
+              <ul className="flex flex-col gap-3">
+                {statusEntries.map(({ index, item }) => (
+                  <StatementItem key={index} item={item} />
+                ))}
+              </ul>
+            ) : null}
+          </section>
+        ) : null}
+      </div>
+
+      {/* --- 2. 진단 기록 ------------------------------------------------ */}
+      {groups.length > 0 ? (
+        <section aria-labelledby="synthesis-diagnostics" className="flex flex-col gap-3">
+          <div className="flex flex-col gap-0.5">
+            <SubHeading id="synthesis-diagnostics" count={groups.length} unit="건">
+              진단 기록
+            </SubHeading>
+            <p className="text-caption text-text-muted">
+              파이프라인이 남긴 진단별로 AI 설명을 묶었습니다. 진단의 종류는
+              실행 상태와 별개입니다.
+            </p>
+          </div>
+          {/*
+            auto-fit: 칸 수는 폭이 정한다. 1360px 화면에서 3칸, 태블릿 2칸,
+            모바일 1칸. 진단이 한 건이면 한 칸이 줄 전체를 쓰고, 그때 문장
+            길이는 StatementItem의 max-w-content가 막는다.
+          */}
+          <ul className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-3">
+            {groups.map(({ diagnostic, entries }) => {
+              const view = viewOf(diagnostic)
+              return (
+                <li
+                  key={diagnostic.ref}
+                  className="flex flex-col gap-3 rounded-md border border-border p-4"
+                >
+                  <div className="flex flex-col gap-1">
+                    <DiagnosticKindMark kind={view.kind} label={view.label} />
+                    <h4 className="text-body font-medium text-text-strong">
+                      {titleOf(diagnostic)}
+                    </h4>
+                    <code className="text-caption break-all text-text-muted">
+                      {diagnostic.code}
+                    </code>
+                  </div>
+                  <ul className="flex flex-col gap-3 border-t border-border-subtle pt-3">
+                    {entries.map(({ index, item, related }) => (
+                      <StatementItem
+                        key={index}
+                        item={item}
+                        note={
+                          related.length > 0
+                            ? `함께 관련된 진단: ${related.map(titleOf).join(', ')}`
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </ul>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* --- 3. 측정값과 그 밖의 내용 ------------------------------------ */}
+      {otherEntries.length > 0 ? (
+        <section aria-labelledby="synthesis-other" className="flex flex-col gap-3">
+          <SubHeading id="synthesis-other" count={otherEntries.length} unit="개">
+            {groups.length > 0 ? '측정값과 그 밖의 내용' : '주요 내용'}
+          </SubHeading>
+          <ul className="grid grid-cols-1 gap-x-8 gap-y-3 border-t border-border-subtle pt-3 md:grid-cols-2">
+            {otherEntries.map(({ index, item }) => (
+              <StatementItem key={index} item={item} />
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* --- 4. 접힘 영역 ------------------------------------------------ */}
+      {/*
+        넓은 화면에서는 세 영역을 나란히 둔다. 접혀 있을 때 한 줄이고,
+        펼치면 각자 아래로 늘어난다(items-start). 좁은 화면에서는 세로.
+      */}
+      <div className="grid grid-cols-1 items-start gap-x-8 gap-y-3 border-t border-border-subtle pt-3 lg:grid-cols-3">
+        <FoldSection title="이 결과가 말하지 않는 것" items={synthesis.limitations} />
+        <FoldSection
+          title="다음으로 확인할 수 있는 것"
+          items={synthesis.nextChecks}
+          locators={locators}
+        />
+        <FoldSection title="알 수 없는 것" items={synthesis.uncertainties} />
+      </div>
+
+      {/*
+        생성물임을 본문 끝에서 다시 밝힌다. provenance는 어느 모델이 언제
+        만들었는지 추적할 수 있게 보여준다. 실행 시간은 backend가 보고한
+        모델 실행 시간(durationMs)이며 브라우저에서 잰 값이 아니다.
+      */}
+      {provenance ? <ProvenanceLine provenance={provenance} /> : null}
+    </div>
+  )
+}
+
+/*
+  진단의 표시 순서. DiagnosticCounts와 같은 순서(심각한 것부터)다 — 같은
+  화면 위쪽의 진단 건수 표시와 순서가 달라지면 안 된다.
+*/
+const KIND_RANK: Record<DiagnosticKind, number> = {
+  failure: 0,
+  attention: 1,
+  repaired: 2,
+  note: 3,
+}
+
+function viewOf(diagnostic: DiagnosticRef): DiagnosticView {
+  return diagnostic.prefix === 'fail'
+    ? describeFailure()
+    : describeDiagnostic(diagnostic.code)
+}
+
+function rankOf(diagnostic: DiagnosticRef): number {
+  return KIND_RANK[viewOf(diagnostic).kind]
+}
+
+/**
+ * 진단 제목. knowledge에 있으면 등록된 제목, 없으면 code 그대로.
+ * 이름을 지어내지 않는다(registries/evidence.ts와 같은 규칙).
+ */
+function titleOf(diagnostic: DiagnosticRef): string {
+  const view = describeEvidenceRef(diagnostic.ref)
+  return view.known ? view.label : diagnostic.code
+}
+
+function Eyebrow({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <h3
+      id={id}
+      className="font-cond text-eyebrow font-semibold tracking-wide text-text-muted uppercase"
+    >
+      {children}
+    </h3>
+  )
+}
+
+function SubHeading({
+  id,
+  count,
+  unit,
+  children,
+}: {
+  id: string
+  count: number
+  unit: string
+  children: ReactNode
+}) {
+  return (
+    <h3 id={id} className="text-small font-medium text-text-strong">
+      {children}{' '}
+      <span className="font-normal text-text-muted">
+        {count}
+        {unit}
+      </span>
+    </h3>
+  )
+}
+
+function FoldSection({
+  title,
+  items,
+  locators,
+}: {
+  title: string
+  items: SynthesisStatement[]
+  locators?: LocatorResolver
+}) {
+  if (items.length === 0) return null
+  return (
+    <details className="min-w-0">
+      <summary className="inline-flex min-h-6 cursor-pointer items-center gap-1 text-small font-medium text-text-strong">
+        {title}
+        <span className="font-normal text-text-muted">{items.length}개</span>
+      </summary>
+      <ul className="mt-3 flex flex-col gap-3">
+        {items.map((item, index) => (
+          <StatementItem key={index} item={item} locators={locators} />
+        ))}
+      </ul>
+    </details>
+  )
+}
+
+function StatementItem({
+  item,
+  locators,
+  note,
+}: {
+  item: SynthesisStatement
+  locators?: LocatorResolver
+  /** 문장 아래 보조 설명. 문장 자체를 바꾸지 않고 덧붙이기만 한다. */
+  note?: string
+}) {
+  const shown = locators
+    ? humanizeLocators(item.statement, locators)
+    : item.statement
+  return (
+    <li className="flex max-w-content min-w-0 flex-col gap-1">
+      <span className="text-small text-text">{shown}</span>
+      {note ? (
+        <span className="text-caption text-text-muted">{note}</span>
+      ) : null}
+      <EvidenceRefs refs={item.evidenceRefs} raw={item.statement} shown={shown} />
+    </li>
+  )
+}
+
+function ProvenanceLine({ provenance }: { provenance: SynthesisProvenance }) {
+  const generated = formatTimestamp(provenance.generatedAt)
+  return (
+    <p className="flex flex-wrap gap-x-1.5 border-t border-border pt-3 text-caption text-text-muted">
+      <span>이 설명은 {provenance.provider}가 생성한 AI 결과입니다</span>
+      <span aria-hidden="true">·</span>
+      <span>{provenance.models.join(', ') || '모델 미상'}</span>
+      <span aria-hidden="true">·</span>
+      <span>
+        생성{' '}
+        {generated ? (
+          <time dateTime={generated.machine}>{generated.full}</time>
+        ) : (
+          provenance.generatedAt
+        )}
+      </span>
+      <span aria-hidden="true">·</span>
+      <span>
+        모델 실행 시간{' '}
+        {provenance.durationMs === null
+          ? '기록 없음'
+          : formatDuration(provenance.durationMs / 1000)}
+      </span>
+    </p>
   )
 }
 
@@ -235,37 +560,6 @@ function formatElapsed(seconds: number): string {
   return rest === 0 ? `${minutes}분` : `${minutes}분 ${rest}초`
 }
 
-function StatementList({
-  title,
-  items,
-  locators,
-}: {
-  title: string
-  items: SynthesisStatement[]
-  /** 주어지면 문장 안의 내부 locator를 사람 말로 바꾼다. nextChecks만 쓴다. */
-  locators?: LocatorResolver
-}) {
-  if (items.length === 0) return null
-  return (
-    <section className="flex flex-col gap-3">
-      <h3 className="text-small font-medium text-text-strong">{title}</h3>
-      <ul className="flex flex-col gap-3">
-        {items.map((item, index) => {
-          const shown = locators
-            ? humanizeLocators(item.statement, locators)
-            : item.statement
-          return (
-            <li key={index} className="flex flex-col gap-1">
-              <span className="max-w-prose text-small text-text">{shown}</span>
-              <EvidenceRefs refs={item.evidenceRefs} raw={item.statement} shown={shown} />
-            </li>
-          )
-        })}
-      </ul>
-    </section>
-  )
-}
-
 /*
   근거 표시.
 
@@ -291,7 +585,7 @@ function EvidenceRefs({
   if (refs.length === 0) return null
   const views = refs.map(describeEvidenceRef)
   return (
-    <details className="max-w-prose">
+    <details>
       <summary className="inline-flex min-h-6 cursor-pointer items-center text-caption text-text-muted">
         근거 {refs.length}개 보기
       </summary>

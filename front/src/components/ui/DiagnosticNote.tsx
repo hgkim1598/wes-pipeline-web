@@ -136,6 +136,36 @@ export function DiagnosticCounts({
   )
 }
 
+/**
+ * 진단 종류 표식 한 개 — 아이콘 + "자동 복구 / 확인 필요 / 참고 / 실패" 라벨.
+ *
+ * DiagnosticNote 첫 줄과 같은 모양이다. 진단 본문 없이 종류만 밝혀야 하는
+ * 자리(AI 설명을 진단별로 묶은 머리글)가 아이콘·색 map을 복사하지 않고 쓰도록
+ * 여기서 내보낸다.
+ */
+export function DiagnosticKindMark({
+  kind,
+  label,
+}: {
+  kind: DiagnosticKind
+  label: string
+}) {
+  const Icon = KIND_ICON[kind]
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <Icon
+        size={14}
+        strokeWidth={1.5}
+        aria-hidden="true"
+        className={cx('flex-none', KIND_TEXT_CLASS[kind])}
+      />
+      <span className={cx('text-small font-medium', KIND_TEXT_CLASS[kind])}>
+        {label}
+      </span>
+    </span>
+  )
+}
+
 export interface DiagnosticNoteProps {
   diagnostic: RunDiagnostic
   /**
