@@ -470,6 +470,31 @@ def test_b2_terms_are_proposed_not_approved():
     assert rubric["status"] == "proposed_pending_approval"
 
 
+def test_the_v2_rubric_is_a_separate_block_tied_to_registered_terms():
+    """v2 is chosen separately; it does not replace the v1 block or its terms.
+
+    Every required term names an entry in wes_terms.json, so "explained" can be
+    judged against a sourced definition rather than the reviewer's own.
+    """
+    from app.services.explanation import knowledge
+
+    spec = _expectations()
+    v2 = spec["beginnerRubricV2"]
+    assert v2["rubric"] == "beginner_v2"
+    assert v2["status"] == "proposed_pending_approval"
+    assert spec["beginnerRubric"]["rubric"] == "beginner_v1"
+
+    registered = {term.id for term in knowledge.all_terms()}
+    required = [row["termId"] for row in v2["requiredTerms"]]
+    not_required = [row["termId"] for row in v2["notRequired"]]
+    assert set(required) <= registered
+    assert set(not_required) <= registered
+    assert not set(required) & set(not_required)
+    for row in v2["b5NextChecks"]:
+        assert row["who"] in ("사용자", "서버 관리자")
+        assert row["what"] and row["where"]
+
+
 # --- 11. the runner: preflight and a record, no model ------------------------
 
 

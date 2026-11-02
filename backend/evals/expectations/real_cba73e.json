@@ -263,5 +263,36 @@
       {"term": "필터 전 변이 후보", "why": "52,294건을 확정 변이로 읽지 않게 하려면 필요"}
     ],
     "b5NextChecks": "판정 보류 -- knowledge에 근거 있는 다음 확인이 일부 있으나, 무엇을 '반드시' 제시해야 하는지는 아직 정하지 않았다"
+  },
+  "beginnerRubricV2": {
+    "rubric": "beginner_v2",
+    "status": "proposed_pending_approval",
+    "_comment": [
+      "beginnerRubric(v1) 블록과 그 점수는 바꾸지 않는다. v2는 별도로 선택해 채점한다.",
+      "v1 점수와 v2 점수는 같은 척도로 직접 비교하지 않는다(rubric/beginner_v2.md)."
+    ],
+    "requiredTerms": [
+      {"termId": "depth", "why": "평균 target 깊이(배)를 전달하려면 필요"},
+      {"termId": "read", "why": "0× 경고와 NM/MD 경고의 사실이 read로 표현된다"},
+      {"termId": "target", "why": "0× 비율이 target 염기 기준이다"},
+      {"termId": "zero-coverage", "why": "ZERO_COVERAGE_TARGET_BASES 경고 자체"},
+      {"termId": "nm-md-tags", "why": "NM_MD_REPAIRED 경고의 범위. 쉬운 말 대체 인정"},
+      {"termId": "dbsnp-rsid", "why": "DBSNP_NOT_CONFIGURED 경고의 영향"}
+    ],
+    "notRequired": [
+      {"termId": "bam", "why": "경고 사실 전달에 필수는 아니다. 쓰고 설명하지 않아 읽기 어려우면 R1에서 본다"},
+      {"termId": "vcf", "why": "변이 후보라는 사실은 mustQualify와 B4에서 본다. 쓰고 설명하지 않아 읽기 어려우면 R1에서 본다"}
+    ],
+    "movedOutOfB2": [
+      {"concept": "coverage-measurement-levels", "judgedIn": "B4, humanReview coverage-measurement-levels"},
+      {"concept": "unfiltered-variant-output", "judgedIn": "B4, mustQualify"}
+    ],
+    "b5NextChecks": [
+      {"about": "dx:ZERO_COVERAGE_TARGET_BASES", "what": "어느 target 구간이 얼마나 덮였는지", "who": "사용자", "where": "Files 화면의 mosdepth thresholds 산출물(artifact coverage_thresholds)"},
+      {"about": "dx:DBSNP_NOT_CONFIGURED", "what": "rsID를 채우려면 dbSNP 파일 선언이 필요하다는 것", "who": "서버 관리자", "where": "서버의 resource bundle 설정"}
+    ],
+    "b5NotRequired": [
+      {"about": "dx:NM_MD_REPAIRED", "why": "보정과 재검증이 끝난 항목이라 반드시 제시할 확인 사항이 없다"}
+    ]
   }
 }
