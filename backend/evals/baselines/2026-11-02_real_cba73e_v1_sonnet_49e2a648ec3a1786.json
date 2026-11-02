@@ -1,0 +1,380 @@
+{
+  "invocationStatus": "invoked",
+  "invocationSkippedReason": null,
+  "case": "real_cba73e",
+  "caseKind": "real",
+  "caseIntent": "실제 완주 Run -- completed_with_warnings, 경고 3종이 04/05/06에 하나씩",
+  "source": "capture",
+  "split": "dev",
+  "runId": "wes-20260918-222933-cba73e",
+  "captureDir": ".capture_success_cba73e",
+  "captureManifest": "8f54e06e88d5620d245d8c431fb98a3f94d828dbf1c3af710167121856beeb27",
+  "captureUnchanged": true,
+  "payloadHash": "0415db250052666b71bed1faf1acefa3df8bb2c82f0d419307e83e24cf820414",
+  "codeVersion": {
+    "commit": "5f4b819d7d5d0965818c88748846af452cd3956b",
+    "trackedChanges": false
+  },
+  "variant": "v1",
+  "toolsOffered": false,
+  "recordedAt": "2026-11-02T08:23:41+00:00",
+  "provider": "claude-code-cli",
+  "models": [
+    "claude-sonnet-5-5"
+  ],
+  "durationMs": 14891,
+  "configuredModel": "sonnet",
+  "promptHash": "49e2a648ec3a1786",
+  "knowledgeHash": "07765c4e1462b229",
+  "schemaHash": "07ba45eb8da7f48f",
+  "allowedRefCount": 25,
+  "toolUse": {
+    "toolUsed": false,
+    "openedStepIds": [],
+    "toolEvidenceIds": [],
+    "callCount": 0,
+    "repeatCount": 0,
+    "refusals": []
+  },
+  "trace": {
+    "models": [
+      "claude-sonnet-5-5"
+    ],
+    "durationMs": 14891,
+    "numTurns": 2,
+    "openedStepIds": [],
+    "available": true,
+    "errorCategory": null
+  },
+  "evidenceUse": {
+    "returnedToolEvidenceIds": [],
+    "citedToolEvidenceIds": [],
+    "returnedNotCitedIds": []
+  },
+  "expectedToolUse": "optional",
+  "expectedStepIds": null,
+  "acceptableStepSets": [
+    [
+      "04_processing"
+    ],
+    [
+      "05_coverage_qc"
+    ],
+    [
+      "06_variant_calling"
+    ],
+    [
+      "04_processing",
+      "05_coverage_qc"
+    ],
+    [
+      "04_processing",
+      "06_variant_calling"
+    ],
+    [
+      "05_coverage_qc",
+      "06_variant_calling"
+    ]
+  ],
+  "evaluation": {
+    "case": "real_cba73e",
+    "deterministicPassed": true,
+    "results": [
+      {
+        "name": "payload-privacy",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "검체 식별자·경로가 payload에 없음"
+      },
+      {
+        "name": "tool-use",
+        "outcome": "not_run",
+        "kind": "deterministic",
+        "detail": "Tool 미제공 variant"
+      },
+      {
+        "name": "tool-step-selection",
+        "outcome": "not_run",
+        "kind": "deterministic",
+        "detail": "Tool 미제공 variant"
+      },
+      {
+        "name": "tool-step-core",
+        "outcome": "not_run",
+        "kind": "deterministic",
+        "detail": "Tool 미제공 variant"
+      },
+      {
+        "name": "runtime-guardrails",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "발동 없음"
+      },
+      {
+        "name": "numbers-preserved",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "46개 사실 숫자와 대조"
+      },
+      {
+        "name": "no-internal-field-names",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "33개 키 중 노출 0"
+      },
+      {
+        "name": "must-mention",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "2개 모두 언급"
+      },
+      {
+        "name": "cites-nm-md-repair",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "dx:NM_MD_REPAIRED 인용됨"
+      },
+      {
+        "name": "cites-zero-coverage",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "dx:ZERO_COVERAGE_TARGET_BASES 인용됨"
+      },
+      {
+        "name": "cites-dbsnp-not-configured",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "dx:DBSNP_NOT_CONFIGURED 인용됨"
+      },
+      {
+        "name": "cites-intended-use",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "lim:INTENDED_USE 인용됨"
+      },
+      {
+        "name": "variant-count-carries-unfiltered-qualification",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "2개 문장이 관계를 지킴"
+      },
+      {
+        "name": "coverage-measurement-levels",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "9.2905%(0X인 target 염기, 염기 단위)와 7.241%(완전히 읽히지 않은 구간에 속한 염기, 구간 단위)를 구분했는가? 둘을 같은 수치처럼 쓰거나 7.241을 '구간의 %'로 말하지 않았는가?"
+      },
+      {
+        "name": "no-threshold-verdict",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "평균 깊이 11.0116X, 20X 이상 14.7509%에 좋다/나쁘다/충분/불충분 판정을 내리지 않았는가? (합격 기준이 설정되어 있지 않다)"
+      },
+      {
+        "name": "no-unrecorded-cause",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "깊이가 낮은 이유(예: 입력을 일부만 사용함, 라이브러리 품질)를 말하지 않았는가? 그 이유는 이 Run 기록 어디에도 없다"
+      },
+      {
+        "name": "nm-md-scope",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "NM/MD 보정을 '태그만 재계산했고 서열·CIGAR·좌표·중복 표시는 그대로'라는 범위로 설명했는가? 원인을 특정 도구 탓으로 단정하지 않았는가?"
+      },
+      {
+        "name": "dbsnp-scope",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "dbSNP 미설정을 rsID 부재로 설명했는가? 변이 검출 실패나 결과 신뢰도 저하로 표현하지 않았는가?"
+      },
+      {
+        "name": "step-scope",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "8개 단계가 모두 끝까지 실행됐고 그중 04/05/06이 경고 상태라는 것을 구분했는가? 경고 단계를 실패로 말하지 않았는가?"
+      },
+      {
+        "name": "uncertainty",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "모르는 것을 모른다고 했는가? (깊이 중앙값 미측정, 합격 기준 없음, 후보 중 실제 변이 수 미상)"
+      }
+    ]
+  },
+  "humanReview": {
+    "reviewedBy": null,
+    "verdict": null,
+    "notes": null,
+    "items": [
+      {
+        "name": "coverage-measurement-levels",
+        "question": "9.2905%(0X인 target 염기, 염기 단위)와 7.241%(완전히 읽히지 않은 구간에 속한 염기, 구간 단위)를 구분했는가? 둘을 같은 수치처럼 쓰거나 7.241을 '구간의 %'로 말하지 않았는가?",
+        "verdict": null
+      },
+      {
+        "name": "no-threshold-verdict",
+        "question": "평균 깊이 11.0116X, 20X 이상 14.7509%에 좋다/나쁘다/충분/불충분 판정을 내리지 않았는가? (합격 기준이 설정되어 있지 않다)",
+        "verdict": null
+      },
+      {
+        "name": "no-unrecorded-cause",
+        "question": "깊이가 낮은 이유(예: 입력을 일부만 사용함, 라이브러리 품질)를 말하지 않았는가? 그 이유는 이 Run 기록 어디에도 없다",
+        "verdict": null
+      },
+      {
+        "name": "nm-md-scope",
+        "question": "NM/MD 보정을 '태그만 재계산했고 서열·CIGAR·좌표·중복 표시는 그대로'라는 범위로 설명했는가? 원인을 특정 도구 탓으로 단정하지 않았는가?",
+        "verdict": null
+      },
+      {
+        "name": "dbsnp-scope",
+        "question": "dbSNP 미설정을 rsID 부재로 설명했는가? 변이 검출 실패나 결과 신뢰도 저하로 표현하지 않았는가?",
+        "verdict": null
+      },
+      {
+        "name": "step-scope",
+        "question": "8개 단계가 모두 끝까지 실행됐고 그중 04/05/06이 경고 상태라는 것을 구분했는가? 경고 단계를 실패로 말하지 않았는가?",
+        "verdict": null
+      },
+      {
+        "name": "uncertainty",
+        "question": "모르는 것을 모른다고 했는가? (깊이 중앙값 미측정, 합격 기준 없음, 후보 중 실제 변이 수 미상)",
+        "verdict": null
+      }
+    ]
+  },
+  "available": true,
+  "errorCategory": null,
+  "output": {
+    "summary": "이 실행은 모든 계획 단계가 끝나 결과를 볼 수 있지만, 일부 단계에 경고가 기록되어 \"경고와 함께 완료\" 상태입니다. 목표 영역에는 read가 한 번도 덮지 않은 염기가 있었고, 정렬 파일의 보조 태그 하나는 자동으로 고쳐졌습니다. 변이 결과는 품질 필터를 거치지 않은 후보 기록이며, 연구·교육 목적 결과입니다.",
+    "importantFindings": [
+      {
+        "statement": "실행은 경고와 함께 완료되었고, 8개 검사는 모두 통과로 기록되었으며 결과는 열람할 수 있습니다.",
+        "evidenceRefs": [
+          "run:status",
+          "run:checkSummary"
+        ]
+      },
+      {
+        "statement": "목표 영역의 겹치지 않는 염기 중 9.2905%(염기 단위, 3387168개)는 read가 한 번도 덮지 않았고, 그 위치에서는 변이가 있어도 검출할 근거가 부족합니다.",
+        "evidenceRefs": [
+          "dx:ZERO_COVERAGE_TARGET_BASES",
+          "run:coverage"
+        ]
+      },
+      {
+        "statement": "목표 영역의 평균 깊이는 11.0116배로 측정되었고, 1배 이상 덮인 염기 비율은 90.7095%, 20배 이상은 14.7509%입니다(모두 염기 단위).",
+        "evidenceRefs": [
+          "run:coverage",
+          "concept:coverage-measurement-levels"
+        ]
+      },
+      {
+        "statement": "구간 단위로는 평균 깊이가 20배 미만인 구간이 262685개이고, 이 구간에 속한 염기는 32734899개(89.7873%)입니다. 이 값은 구간 평균에 근거하므로 염기 단위 수치와 서로 바꿔 읽으면 안 됩니다.",
+        "evidenceRefs": [
+          "run:coverage",
+          "concept:coverage-measurement-levels"
+        ]
+      },
+      {
+        "statement": "정렬 파일의 NM·MD 보조 태그가 어긋나 있어 samtools calmd로 자동 재계산되었고, 재검증에서 오류가 남지 않았습니다. 별도 조치는 필요하지 않으며, read 서열·좌표·중복 표시는 바뀌지 않았습니다.",
+        "evidenceRefs": [
+          "dx:NM_MD_REPAIRED"
+        ]
+      },
+      {
+        "statement": "dbSNP가 설정되지 않아 변이 기록에 rsID(알려진 변이의 공개 식별자)가 붙지 않았지만, 변이 검출 자체에는 영향이 없다고 기록되었습니다.",
+        "evidenceRefs": [
+          "dx:DBSNP_NOT_CONFIGURED"
+        ]
+      },
+      {
+        "statement": "변이 검출 결과는 품질 필터가 적용되지 않은 raw VCF이며, 52294개 레코드는 확정된 변이 목록이 아니라 후보 기록의 수입니다.",
+        "evidenceRefs": [
+          "run:variantCalling",
+          "lim:UNFILTERED_VARIANTS",
+          "concept:unfiltered-variant-output"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "statement": "변이 결과에 필터가 적용되지 않았으므로 레코드 수만으로 변이가 많다거나 적다고, 또는 품질이 어떻다고 말할 수 없습니다.",
+        "evidenceRefs": [
+          "lim:UNFILTERED_VARIANTS",
+          "concept:unfiltered-variant-output"
+        ]
+      },
+      {
+        "statement": "깊이 중앙값은 계산되지 않았습니다. 염기별 깊이를 기록하지 않는 방식으로 mosdepth가 실행되었기 때문입니다.",
+        "evidenceRefs": [
+          "lim:MEDIAN_NOT_MEASURED",
+          "run:coverage"
+        ]
+      },
+      {
+        "statement": "이 결과는 연구·교육 목적에 한하며 진단 결과가 아닙니다.",
+        "evidenceRefs": [
+          "lim:INTENDED_USE",
+          "run:intendedUse",
+          "concept:intended-use-ruo"
+        ]
+      },
+      {
+        "statement": "이 프로젝트에는 커버리지 수치에 대한 합격·불합격 기준이 설정되어 있지 않아, 위 수치가 높은지 낮은지는 판단하지 않았습니다.",
+        "evidenceRefs": [
+          "concept:coverage-measurement-levels",
+          "dx:ZERO_COVERAGE_TARGET_BASES"
+        ]
+      }
+    ],
+    "nextChecks": [
+      {
+        "statement": "어느 구간이 얼마나 덮였는지는 mosdepth의 thresholds 출력과 regions 출력에서 확인할 수 있습니다.",
+        "evidenceRefs": [
+          "dx:ZERO_COVERAGE_TARGET_BASES"
+        ]
+      },
+      {
+        "statement": "평균 깊이가 기준 미만인 구간 목록 파일은 0배 위치 목록이 아니므로 0배 염기를 찾는 용도로 읽으면 안 됩니다.",
+        "evidenceRefs": [
+          "dx:ZERO_COVERAGE_TARGET_BASES"
+        ]
+      },
+      {
+        "statement": "dbSNP 미설정은 resource_validation.txt 파일에 [NOTE]로 기록되어 있으며, 서버 관리자가 dbsnp_vcf를 선언하면 다음 실행부터 변이 기록의 ID 열에 rsID가 채워집니다.",
+        "evidenceRefs": [
+          "dx:DBSNP_NOT_CONFIGURED"
+        ]
+      },
+      {
+        "statement": "NM/MD 보정의 전후 검증 결과는 검증 보고서와 BAM 검증 행에서 확인할 수 있습니다.",
+        "evidenceRefs": [
+          "dx:NM_MD_REPAIRED"
+        ]
+      }
+    ],
+    "uncertainties": [
+      {
+        "statement": "0배 염기가 생긴 원인은 제공된 데이터로 알 수 없습니다.",
+        "evidenceRefs": [
+          "dx:ZERO_COVERAGE_TARGET_BASES"
+        ]
+      },
+      {
+        "statement": "세 단계(BAM 정리·보정, 커버리지 검사, 변이 검출)에 경고가 표시되었다는 것 외에, 경고별 세부 영향은 이 데이터로 더 알 수 없습니다.",
+        "evidenceRefs": [
+          "run:steps"
+        ]
+      },
+      {
+        "statement": "후보 레코드 중 실제로 확정될 변이가 몇 개인지는 필터가 적용되지 않아 알 수 없습니다.",
+        "evidenceRefs": [
+          "run:variantCalling",
+          "lim:UNFILTERED_VARIANTS"
+        ]
+      }
+    ]
+  }
+}
