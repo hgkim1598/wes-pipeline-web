@@ -316,14 +316,12 @@ def _insert_job(case: AgentCase, run_dir: Path) -> None:
 
 
 @contextmanager
-def isolated_environment() -> Iterator[Path]:
-    """Point `config` at a fresh temporary directory, and put it all back after.
+def pointed_at(work: Path, *, db_name: str = "eval.db") -> Iterator[Path]:
+    """Point `config` at `work` -- runs root, uploads, sqlite file -- then restore.
 
-    Its own runs root, its own sqlite file: the production database is never
-    opened. Shared by the synthetic cases here and the preserved real runs in
-    real_runs.py, so both are isolated the same way. Yields the work directory.
+    Creates the directories it needs and never deletes anything: what happens
+    to `work` afterwards is the caller's decision. Yields `work`.
     """
-    work = Path(tempfile.mkdtemp(prefix="wes-agent-eval-"))
     previous = (config.RUNS_ROOT, config.JOBS_ROOT, config.UPLOAD_ROOT, config.DB_PATH)
     previous_conn = db._conn
 
@@ -331,7 +329,7 @@ def isolated_environment() -> Iterator[Path]:
         config.RUNS_ROOT = work / "runs"
         config.JOBS_ROOT = config.RUNS_ROOT / "_jobs"
         config.UPLOAD_ROOT = work / "uploads"
-        config.DB_PATH = work / "eval.db"
+        config.DB_PATH = work / db_name
         for directory in (config.RUNS_ROOT, config.JOBS_ROOT, config.UPLOAD_ROOT):
             directory.mkdir(parents=True, exist_ok=True)
         db._conn = None
@@ -341,6 +339,21 @@ def isolated_environment() -> Iterator[Path]:
             db._conn.close()
         db._conn = previous_conn
         config.RUNS_ROOT, config.JOBS_ROOT, config.UPLOAD_ROOT, config.DB_PATH = previous
+
+
+@contextmanager
+def isolated_environment() -> Iterator[Path]:
+    """Point `config` at a fresh temporary directory, and remove it after.
+
+    Its own runs root, its own sqlite file: the production database is never
+    opened. Shared by the synthetic cases here and the preserved real runs in
+    real_runs.py, so both are isolated the same way. Yields the work directory.
+    """
+    work = Path(tempfile.mkdtemp(prefix="wes-agent-eval-"))
+    try:
+        with pointed_at(work):
+            yield work
+    finally:
         rmtree(work, ignore_errors=True)
 
 
@@ -368,4 +381,5 @@ __all__ = [
     "AgentCase",
     "isolated_environment",
     "materialise",
+    "pointed_at",
 ]

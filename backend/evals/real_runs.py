@@ -175,6 +175,26 @@ def _insert_job(row: dict[str, object], run_dir: Path, jobs_dir: Path) -> None:
     )
 
 
+def restore_into_current_config(run: RealRun) -> None:
+    """Copy the run under `config.RUNS_ROOT` and insert its row into `config.DB_PATH`.
+
+    The caller decides where `config` points -- a temporary directory for an
+    eval, a persistent dev directory for the web UI -- and must have pointed it
+    away from the capture and from any database it cares about.
+    """
+    if not capture_available(run):
+        raise CaptureMissing(f"{run.name}: capture not found on this machine")
+
+    row = _read_job_row(run)
+    run_dir = config.RUNS_ROOT / run.run_id
+    jobs_dir = config.JOBS_ROOT / run.run_id
+    copytree(run.capture_dir / "runs" / run.run_id, run_dir)
+    source_jobs = run.capture_dir / "runs" / "_jobs" / run.run_id
+    if source_jobs.is_dir():
+        copytree(source_jobs, jobs_dir)
+    _insert_job(row, run_dir, jobs_dir)
+
+
 @contextmanager
 def materialise(run: RealRun) -> Iterator[RunExplanation]:
     """Restore the run into a throwaway environment and explain it.
@@ -185,16 +205,8 @@ def materialise(run: RealRun) -> Iterator[RunExplanation]:
     if not capture_available(run):
         raise CaptureMissing(f"{run.name}: capture not found on this machine")
 
-    row = _read_job_row(run)
     with isolated_environment():
-        run_dir = config.RUNS_ROOT / run.run_id
-        jobs_dir = config.JOBS_ROOT / run.run_id
-        copytree(run.capture_dir / "runs" / run.run_id, run_dir)
-        source_jobs = run.capture_dir / "runs" / "_jobs" / run.run_id
-        if source_jobs.is_dir():
-            copytree(source_jobs, jobs_dir)
-        _insert_job(row, run_dir, jobs_dir)
-
+        restore_into_current_config(run)
         context = run_context.build_run_diagnostic_context(run.run_id)
         yield deterministic.build_run_explanation(context)
 
@@ -209,4 +221,5 @@ __all__ = [
     "forbidden_literals",
     "materialise",
     "payload_hash",
+    "restore_into_current_config",
 ]
