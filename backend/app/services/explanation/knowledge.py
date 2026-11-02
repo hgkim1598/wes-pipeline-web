@@ -221,6 +221,40 @@ class ConceptKnowledge(BaseModel):
     grounding: Grounding | None = None
 
 
+class TermUse(BaseModel):
+    """When a term is needed: a payload section is present or a code was raised.
+
+    Explicit lists rather than matching words in the run's text at runtime --
+    "read" is a substring of too many things, and where a term gets sent should
+    be visible in the file, not inferred.
+    """
+
+    # Payload section names (`coverage`, `variantCalling`, ...).
+    sections: list[str]
+    diagnostics: list[str]
+    failures: list[str]
+
+
+class TermKnowledge(BaseModel):
+    """A word a beginner needs defined to read the explanation.
+
+    ``plain`` is the one line shown to the reader and has no source of its own:
+    it may not say more than ``definition``, which does. There is no field for
+    a threshold or a verdict, for the same reason Grounding has none.
+    """
+
+    id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    aliases: list[str]
+    plain: str = Field(min_length=1)
+    definition: Claim
+    misreadings: list[Claim]
+    usedWhen: TermUse
+    # How knowledge text spells this term. Used by a test to check that every
+    # code whose text uses the term is listed in usedWhen; not sent anywhere.
+    mentions: list[str] = Field(min_length=1)
+
+
 class StepKnowledge(BaseModel):
     """What a pipeline step does, independent of any run."""
 
@@ -260,6 +294,11 @@ class _FailuresDoc(BaseModel):
 class _ConceptsDoc(BaseModel):
     schemaVersion: str
     concepts: list[ConceptKnowledge]
+
+
+class _TermsDoc(BaseModel):
+    schemaVersion: str
+    terms: list[TermKnowledge]
 
 
 _Doc = TypeVar("_Doc", bound=BaseModel)
@@ -375,6 +414,33 @@ def _concepts() -> dict[str, ConceptKnowledge]:
     return rows
 
 
+@lru_cache(maxsize=1)
+def _terms() -> dict[str, TermKnowledge]:
+    doc = _load(config.TERM_KNOWLEDGE, _TermsDoc)
+    rows = _index(doc.terms, "id", config.TERM_KNOWLEDGE.name)
+    known_sources = _sources()
+    known_codes = _diagnostics()
+    for term_id, row in rows.items():
+        for claim in [row.definition, *row.misreadings]:
+            for source_id in claim.sourceIds:
+                if source_id not in known_sources:
+                    raise KnowledgeError(
+                        f"{config.TERM_KNOWLEDGE.name}: {term_id} cites an unknown "
+                        f"source {source_id!r} in {claim.statement[:40]!r}. "
+                        f"Add it to {config.SOURCE_KNOWLEDGE.name} or remove the claim."
+                    )
+        # Diagnostic codes are a closed registry, so a code missing from it is
+        # a typo that would silently never send the term. Failure codes are an
+        # open set (see _failures) and are not checked here.
+        for code in row.usedWhen.diagnostics:
+            if code not in known_codes:
+                raise KnowledgeError(
+                    f"{config.TERM_KNOWLEDGE.name}: {term_id} is used for an "
+                    f"unknown diagnostic code {code!r}."
+                )
+    return rows
+
+
 def diagnostic(code: str) -> DiagnosticKnowledge | None:
     """Knowledge for one diagnostic code, or None when it is not registered.
 
@@ -420,6 +486,16 @@ def all_concepts() -> list[ConceptKnowledge]:
     return list(_concepts().values())
 
 
+def term(term_id: str) -> TermKnowledge | None:
+    """One beginner term, or None when it is not registered."""
+    return _terms().get(term_id)
+
+
+def all_terms() -> list[TermKnowledge]:
+    """In file order, which is the order they are sent in."""
+    return list(_terms().values())
+
+
 def source(source_id: str) -> Source | None:
     """One citable source, or None. Used to render provenance for a claim."""
     return _sources().get(source_id)
@@ -436,3 +512,4 @@ def reload() -> None:
     _sources.cache_clear()
     _failures.cache_clear()
     _concepts.cache_clear()
+    _terms.cache_clear()

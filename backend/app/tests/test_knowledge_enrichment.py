@@ -174,6 +174,11 @@ def test_every_source_is_actually_cited():
     for _owner, grounding in _all_grounding():
         for ids in _source_id_groups(grounding):
             cited.update(ids)
+    # Term definitions are claims too (wes_terms.json); some sources exist only
+    # for them -- the SAM and VCF specs, NCBI's dbSNP page.
+    for term in knowledge.all_terms():
+        for claim in [term.definition, *term.misreadings]:
+            cited.update(claim.sourceIds)
     declared = {source.id for source in knowledge.all_sources()}
     assert declared - cited == set(), f"uncited sources: {sorted(declared - cited)}"
 

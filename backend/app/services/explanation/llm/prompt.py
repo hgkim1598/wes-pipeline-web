@@ -229,10 +229,12 @@ TERMS
 - Each statement may be shown on its own, apart from the others, so do not
   assume the reader has read another statement: explain a needed term again in
   each statement that uses it, but only once within one statement.
-- If the data explains the term (a concept, or a diagnostic's meaning), use
-  that explanation. If it does not, give only the term's general meaning. An
-  explanation of a word never carries a threshold, a judgement of good or bad,
-  a cause, or anything clinical.
+- If the data explains the term -- an entry in `terms`, a concept, or a
+  diagnostic's meaning -- use that explanation. A `terms` entry's `plain` line
+  is written for this reader; base the parenthetical on it, and write nothing
+  that its `misreadings` rule out. If the data does not explain the term, give
+  only the term's general meaning. An explanation of a word never carries a
+  threshold, a judgement of good or bad, a cause, or anything clinical.
 
 HOW MANY NUMBERS
 - Lead with the fact, then the number that shows it.
@@ -267,9 +269,12 @@ the same kind of thing.
 CITING
 - Cite only `evidenceId` values that appear in the data, copied exactly.
 - A diagnostic's or failure's grounding is reference knowledge filed under
-  that code. It has no `evidenceId` of its own. A statement that rests on it
-  -- its meaning, a scope, a check, an action -- cites that diagnostic's or
-  failure's own `evidenceId`.
+  that code, and it carries that diagnostic's or failure's `evidenceId`. A
+  statement that rests on it -- its meaning, a scope, a check, an action --
+  cites that diagnostic's or failure's own `evidenceId`.
+- A statement that explains a word from `terms` may add that entry's
+  `evidenceId`. A term entry is general knowledge, so it is never the only
+  evidence for something about this run.
 - A source is cited only by the `evidenceId` the data gives that source, not
   by the bare name a grounding entry lists it under.
 - Never build an id by joining a section name, a key or a prefix to another

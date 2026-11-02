@@ -383,6 +383,48 @@ def _concept_entry(concept_id: str) -> dict[str, Any] | None:
     return out
 
 
+def _claim(claim: knowledge.Claim) -> dict[str, Any]:
+    return {"statement": claim.statement, "sourceIds": claim.sourceIds}
+
+
+def _terms_for(
+    sections: set[str], diagnostic_codes: set[str], failure_codes: set[str]
+) -> list[knowledge.TermKnowledge]:
+    """The beginner terms this payload needs, in registry order.
+
+    A term goes in when a section it explains is present or a code it explains
+    was raised -- never all of them. The same reason as grounding: a definition
+    of "depth" in a run with no coverage is something to talk about that did not
+    happen. Which sections and codes need which term is declared in
+    wes_terms.json, where a test checks it against the knowledge text.
+    """
+    out: list[knowledge.TermKnowledge] = []
+    for term in knowledge.all_terms():
+        use = term.usedWhen
+        if (
+            sections.intersection(use.sections)
+            or diagnostic_codes.intersection(use.diagnostics)
+            or failure_codes.intersection(use.failures)
+        ):
+            out.append(term)
+    return out
+
+
+def _term_entry(term: knowledge.TermKnowledge) -> dict[str, Any]:
+    """One term, flattened. `mentions` and `usedWhen` are selection metadata."""
+    out: dict[str, Any] = {
+        "evidenceId": f"term:{term.id}",
+        "label": term.label,
+        "plain": term.plain,
+        "definition": _claim(term.definition),
+    }
+    if term.aliases:
+        out["aliases"] = term.aliases
+    if term.misreadings:
+        out["misreadings"] = [_claim(c) for c in term.misreadings]
+    return out
+
+
 def build_payload(explanation: RunExplanation) -> tuple[dict[str, Any], set[str]]:
     """The prompt's data block, and the set of ids that may be cited.
 
@@ -445,11 +487,16 @@ def build_payload(explanation: RunExplanation) -> tuple[dict[str, Any], set[str]
     grounding: dict[str, Any] = {}
     cited_sources: set[str] = set()
 
+    # Each entry carries the evidenceId of the diagnostic or failure it belongs
+    # to -- the same id, not a new one. Grounding used to be the only payload
+    # part with no evidenceId of its own, and a real answer was discarded for
+    # citing an id it had assembled from the key ("grounding:dx:..."). With the
+    # id written in, the citable form is in the data rather than left to infer.
     for code in {item.code for item in explanation.diagnostics}:
         entry = _diagnostic_grounding(code)
         if entry is None:
             continue
-        grounding[f"dx:{code}"] = entry
+        grounding[f"dx:{code}"] = {"evidenceId": f"dx:{code}", **entry}
         for bucket in ("possibleCauses", "scope", "checks", "actions"):
             for claim in entry.get(bucket, []):
                 cited_sources.update(claim.get("sourceIds", []))
@@ -458,7 +505,7 @@ def build_payload(explanation: RunExplanation) -> tuple[dict[str, Any], set[str]
         entry = _failure_grounding(code)
         if entry is None:
             continue
-        grounding[f"fail:{code}"] = entry
+        grounding[f"fail:{code}"] = {"evidenceId": f"fail:{code}", **entry}
         for bucket in ("possibleCauses", "scope", "checks", "actions"):
             for claim in entry.get(bucket, []):
                 cited_sources.update(claim.get("sourceIds", []))
@@ -560,6 +607,26 @@ def build_payload(explanation: RunExplanation) -> tuple[dict[str, Any], set[str]
             "statement": explanation.intendedUse,
         }
 
+    def cite_sources(claims: list[dict[str, Any]]) -> None:
+        """Make every source a claim lists citable, once, as `src:<id>`."""
+        for claim in claims:
+            for source_id in claim.get("sourceIds", []):
+                source = knowledge.source(source_id)
+                if source is None:
+                    continue
+                source_ref = f"src:{source_id}"
+                if source_ref in allowed:
+                    continue
+                allowed.add(source_ref)
+                sources.append(
+                    {
+                        "evidenceId": source_ref,
+                        "id": source.id,
+                        "type": source.type,
+                        "title": source.title,
+                    }
+                )
+
     # Canonical concepts for whichever sections ended up present. Added last so
     # the membership test sees the payload as finally assembled -- coverage and
     # variantCalling are conditional above.
@@ -575,25 +642,29 @@ def build_payload(explanation: RunExplanation) -> tuple[dict[str, Any], set[str]
         entry["evidenceId"] = ref
         concepts[concept_id] = entry
         for bucket in ("possibleCauses", "scope", "checks", "actions"):
-            for claim in entry.get(bucket, []):
-                for source_id in claim.get("sourceIds", []):
-                    source = knowledge.source(source_id)
-                    if source is None:
-                        continue
-                    source_ref = f"src:{source_id}"
-                    if source_ref in allowed:
-                        continue
-                    allowed.add(source_ref)
-                    sources.append(
-                        {
-                            "evidenceId": source_ref,
-                            "id": source.id,
-                            "type": source.type,
-                            "title": source.title,
-                        }
-                    )
+            cite_sources(entry.get(bucket, []))
     if concepts:
         payload["concepts"] = concepts
+
+    # Beginner terms, after concepts for the same reason: selection reads the
+    # sections as finally assembled. A list, each entry with its own evidenceId,
+    # so there is no key for a model to build an id out of. Absent -- not an
+    # empty list -- when the run needs none, so such a payload is unchanged.
+    terms = [
+        _term_entry(term)
+        for term in _terms_for(
+            set(payload),
+            {item.code for item in explanation.diagnostics},
+            {item.code for item in explanation.failures},
+        )
+    ]
+    for entry in terms:
+        allowed.add(entry["evidenceId"])
+        cite_sources([entry["definition"], *entry.get("misreadings", [])])
+    if terms:
+        payload["terms"] = terms
+
+    if concepts or terms:
         # `sources` was already placed in the payload by reference, but re-sort
         # so the added entries are not simply appended out of order.
         payload["sources"] = sorted(sources, key=lambda row: row["id"])

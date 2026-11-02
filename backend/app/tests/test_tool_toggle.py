@@ -49,7 +49,12 @@ FULL_PLAN = [
 #                     assembled for a grounding entry
 #   d505c173885f6c9b  CITING added to _TAIL: grounding has no id of its own,
 #                     cite the code's evidenceId, never assemble an id
-V3_CONSTRAINTS_HASH = "d505c173885f6c9b"
+#   08c1f9035445420a  TERMS uses the new `terms` entries (plain line,
+#                     misreadings); CITING says grounding now carries the
+#                     code's evidenceId and a term id is never the only
+#                     evidence. Shipped together with the payload change
+#                     (terms, grounding evidenceId), so the two are confounded
+V3_CONSTRAINTS_HASH = "08c1f9035445420a"
 
 # The pieces the beginner rules did not touch, pinned on their own: the
 # evidence boundary and prohibitions (_HEAD), and the tool's instructions and
@@ -212,7 +217,7 @@ def test_both_variants_use_the_same_schema_model_and_timeout(explanation):
 
 def test_v3_prompt_text_is_pinned():
     assert _sha16(prompt.CONSTRAINTS) == V3_CONSTRAINTS_HASH
-    assert len(prompt.CONSTRAINTS) == 9083
+    assert len(prompt.CONSTRAINTS) == 9484
     assert prompt.constraints_for(offer_tools=True) is prompt.CONSTRAINTS
 
 

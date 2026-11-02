@@ -52,7 +52,7 @@ from .run_scope import RunScope
 
 
 # The prefix every step-level evidence id carries, alongside the `run:`, `dx:`,
-# `fail:`, `lim:`, `src:` and `concept:` prefixes contract.py already mints.
+# `fail:`, `lim:`, `src:`, `concept:` and `term:` prefixes contract.py already mints.
 #
 # The id is DERIVED from the step id, never supplied by a model: the server can
 # therefore recompute it and check a citation against what the tool actually

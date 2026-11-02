@@ -1068,7 +1068,8 @@ def test_both_variants_carry_the_citing_rule_without_a_wrong_example():
         assert "\nCITING\n" in raw
         text = _flat(raw)
         assert "Cite only `evidenceId` values that appear in the data, copied exactly." in text
-        assert "It has no `evidenceId` of its own." in text
+        assert "and it carries that diagnostic's or failure's `evidenceId`" in text
+        assert "a term entry is general knowledge, so it is never the only evidence" in text.lower()
         assert "cites that diagnostic's or failure's own `evidenceId`" in text
         assert "A source is cited only by the `evidenceId` the data gives that source" in text
         assert "Never build an id by joining a section name, a key or a prefix" in text

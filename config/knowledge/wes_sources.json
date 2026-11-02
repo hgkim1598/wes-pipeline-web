@@ -7,7 +7,7 @@
     "",
     "type",
     "  spec         형식 명세. 도구가 아니라 데이터 형식이 규정하는 것",
-    "  tool-doc     해당 도구의 공식 문서 또는 공식 소스",
+    "  tool-doc     해당 도구 또는 공개 데이터베이스의 공식 문서·공식 소스",
     "  pipeline     이 저장소의 script/main.sh. 파이프라인 내부 동작의 source of truth",
     "  project-doc  이 저장소의 공식 문서",
     "",
@@ -94,6 +94,36 @@
       "type": "pipeline",
       "title": "main.sh — core_summary.json의 core_endpoint와 intended_use",
       "locator": "script/main.sh#core_endpoint"
+    },
+    {
+      "id": "sam-spec",
+      "type": "spec",
+      "title": "Sequence Alignment/Map Format Specification (SAMv1) — read 정의와 정렬 기록",
+      "locator": "https://samtools.github.io/hts-specs/SAMv1.pdf"
+    },
+    {
+      "id": "hts-specs-index",
+      "type": "spec",
+      "title": "hts-specs 저장소 — SAM·BAM·VCF 명세 목록 (BAM은 SAM의 이진 형식)",
+      "locator": "https://github.com/samtools/hts-specs"
+    },
+    {
+      "id": "vcf-spec",
+      "type": "spec",
+      "title": "The Variant Call Format Specification (VCFv4.3) — 데이터 행과 ID 열 정의",
+      "locator": "https://samtools.github.io/hts-specs/VCFv4.3.pdf"
+    },
+    {
+      "id": "ncbi-dbsnp-about",
+      "type": "tool-doc",
+      "title": "NCBI — About dbSNP",
+      "locator": "https://www.ncbi.nlm.nih.gov/snp/docs/about/"
+    },
+    {
+      "id": "main-sh-capture-kit",
+      "type": "pipeline",
+      "title": "main.sh — capture kit 프로필에서 target·coverage BED를 정하는 지점",
+      "locator": "script/main.sh#resolve_capture_kit_profile"
     },
     {
       "id": "wes-setup-guide",

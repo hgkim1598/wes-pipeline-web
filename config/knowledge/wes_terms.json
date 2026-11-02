@@ -1,0 +1,246 @@
+{
+  "schemaVersion": "1.0",
+  "_comment": [
+    "AI 설명이 초보자에게 용어를 풀어 쓸 때 쓰는 정의. 일반 생물정보학 용어집이 아니다.",
+    "이 저장소의 실행 결과를 설명하는 데 실제로 등장하는 용어만 담는다.",
+    "",
+    "wes_concepts.json과의 경계",
+    "  concepts는 '숫자를 잘못 읽지 않기 위한 해석의 경계'(base 수준과 구간 수준 등)다.",
+    "  terms는 '그 문장을 읽으려면 알아야 하는 낱말'이다. 같은 내용을 양쪽에 쓰지 않는다.",
+    "  예: 0×가 무엇인지는 여기, 0× 비율이 구간 수준 값과 다르다는 것은 concepts에 있다.",
+    "",
+    "front/src/registries/glossary.ts와의 관계",
+    "  화면 popover 문구는 frontend가 따로 소유한다. BAM·VCF는 양쪽에 있으며, 작성 시",
+    "  뜻이 서로 어긋나지 않는지 사람이 대조했다(자동 검사 없음). 문구를 한쪽으로 합치는",
+    "  일은 별도 작업이다.",
+    "",
+    "필드",
+    "  label        설명에 쓰는 표기",
+    "  aliases      같은 낱말의 다른 표기. 설명에서 이 표기를 써도 같은 용어다",
+    "  plain        초보자에게 보여줄 한 줄. definition의 범위를 넘지 않는다",
+    "  definition   기술적 의미. 출처가 있는 claim",
+    "  misreadings  잘못 읽기 쉬운 점. 출처가 있는 claim",
+    "  usedWhen     이 용어를 payload에 넣는 조건. 해당 구획이 있거나 해당 code가 기록됐을 때만",
+    "               보낸다. 다른 용어의 정의가 이 용어를 쓰면, 그 용어의 조건도 여기 포함돼야 한다",
+    "  mentions     knowledge 문장에서 이 용어를 찾는 표기. usedWhen이 빠짐없는지 테스트가 쓴다",
+    "",
+    "모든 문장에 측정값·기준값 같은 숫자(0× 표기의 0은 예외), 합격·불합격 기준, 좋고 나쁨의 판단, 원인 추측, 임상적 의미를 넣지 않는다."
+  ],
+  "terms": [
+    {
+      "id": "read",
+      "label": "read",
+      "aliases": ["리드"],
+      "plain": "시퀀싱 장비가 DNA 조각에서 읽어 낸 짧은 염기 서열입니다.",
+      "definition": {
+        "statement": "SAM 명세는 read를 시퀀싱 장비에서 나온 가공 전 서열로 정의합니다.",
+        "sourceIds": ["sam-spec"]
+      },
+      "misreadings": [
+        {
+          "statement": "read 하나는 유전자 하나가 아닙니다. 짧은 조각이므로 같은 위치를 여러 read가 겹쳐 덮습니다.",
+          "sourceIds": ["sam-spec", "mosdepth-readme"]
+        }
+      ],
+      "usedWhen": {
+        "sections": ["coverage"],
+        "diagnostics": [
+          "NM_MD_REPAIRED",
+          "READ_NAME_MODE_UNKNOWN",
+          "ZERO_COVERAGE_TARGET_BASES",
+          "UNCOVERED_TARGETS",
+          "LOW_MEAN_COVERAGE",
+          "BQSR_DIAG_FAILED"
+        ],
+        "failures": []
+      },
+      "mentions": ["read", "리드"]
+    },
+    {
+      "id": "target",
+      "label": "target",
+      "aliases": ["목표 영역", "target 구간"],
+      "plain": "이번 분석에서 읽으려고 정해 둔 유전체 구간들입니다.",
+      "definition": {
+        "statement": "이 파이프라인은 선택된 capture kit 프로필에서 target 구간을 적은 BED 파일을 정하고, 커버리지는 그 프로필이 지정한 구간(따로 지정이 없으면 target 구간)을 기준으로 계산합니다.",
+        "sourceIds": ["main-sh-capture-kit", "main-sh-coverage"]
+      },
+      "misreadings": [
+        {
+          "statement": "target은 유전체 전체가 아닙니다. 커버리지 수치는 target 구간 안에서만 계산한 값입니다.",
+          "sourceIds": ["main-sh-coverage", "mosdepth-readme"]
+        },
+        {
+          "statement": "겹치는 target 구간은 합친 뒤 계산하므로, 같은 염기를 두 번 세지 않습니다.",
+          "sourceIds": ["main-sh-coverage"]
+        }
+      ],
+      "usedWhen": {
+        "sections": ["coverage"],
+        "diagnostics": [
+          "ZERO_COVERAGE_TARGET_BASES",
+          "UNCOVERED_TARGETS",
+          "LOW_MEAN_COVERAGE"
+        ],
+        "failures": ["resource_bundle"]
+      },
+      "mentions": ["target", "목표 영역"]
+    },
+    {
+      "id": "depth",
+      "label": "깊이",
+      "aliases": ["커버리지 깊이", "coverage depth", "depth"],
+      "plain": "한 염기 위치를 read가 몇 번 겹쳐 덮었는지를 나타내는 수입니다.",
+      "definition": {
+        "statement": "mosdepth는 정렬된 read로부터 깊이를 계산하며, 이 파이프라인은 target 구간마다 평균 깊이를 냅니다. 단위는 배(×)로 씁니다.",
+        "sourceIds": ["mosdepth-readme", "main-sh-coverage"]
+      },
+      "misreadings": [
+        {
+          "statement": "평균 깊이는 target 전체의 평균이라서, 평균이 0보다 커도 한 번도 읽히지 않은 위치가 있을 수 있습니다.",
+          "sourceIds": ["mosdepth-readme", "main-sh-coverage"]
+        }
+      ],
+      "usedWhen": {
+        "sections": ["coverage"],
+        "diagnostics": [
+          "ZERO_COVERAGE_TARGET_BASES",
+          "UNCOVERED_TARGETS",
+          "LOW_MEAN_COVERAGE"
+        ],
+        "failures": []
+      },
+      "mentions": ["깊이", "depth"]
+    },
+    {
+      "id": "zero-coverage",
+      "label": "0×",
+      "aliases": ["zero coverage", "0× 커버리지"],
+      "plain": "그 위치를 덮은 read가 하나도 없다는 뜻입니다. 깊이가 0인 위치입니다.",
+      "definition": {
+        "statement": "mosdepth thresholds 출력은 각 target 구간에서 임계값 이상으로 덮인 염기 수를 적고, 이 파이프라인은 그 값으로 한 번도 덮이지 않은 target 염기를 셉니다.",
+        "sourceIds": ["mosdepth-readme", "main-sh-coverage"]
+      },
+      "misreadings": [
+        {
+          "statement": "0× 위치에서 변이가 나오지 않았다는 것은 그 자리에 변이가 없다는 뜻이 아닙니다. 그 위치는 읽힌 근거가 없습니다.",
+          "sourceIds": ["main-sh-coverage"]
+        }
+      ],
+      "usedWhen": {
+        "sections": ["coverage"],
+        "diagnostics": [
+          "ZERO_COVERAGE_TARGET_BASES",
+          "UNCOVERED_TARGETS"
+        ],
+        "failures": []
+      },
+      "mentions": ["0×"]
+    },
+    {
+      "id": "bam",
+      "label": "BAM",
+      "aliases": ["BAM 파일", "정렬 파일"],
+      "plain": "읽어 낸 read를 참조 유전체의 어느 위치에 맞췄는지 기록한 파일입니다.",
+      "definition": {
+        "statement": "SAM은 read를 참조 서열에 정렬한 결과를 기록하는 형식이고, BAM은 SAM과 같은 내용을 담는 이진 형식입니다.",
+        "sourceIds": ["sam-spec", "hts-specs-index"]
+      },
+      "misreadings": [
+        {
+          "statement": "BAM은 시퀀싱 장비가 낸 원본 입력 파일도, 변이 목록도 아닙니다. 정렬 결과를 담은 중간 산출물입니다.",
+          "sourceIds": ["sam-spec"]
+        }
+      ],
+      "usedWhen": {
+        "sections": [],
+        "diagnostics": [
+          "NM_MD_REPAIRED",
+          "READ_NAME_MODE_UNKNOWN",
+          "BQSR_DIAG_FAILED"
+        ],
+        "failures": []
+      },
+      "mentions": ["BAM"]
+    },
+    {
+      "id": "vcf",
+      "label": "VCF",
+      "aliases": ["VCF 파일", "변이 기록 파일"],
+      "plain": "참조 유전체와 다른 위치를 한 줄에 하나씩 모아 기록한 파일입니다.",
+      "definition": {
+        "statement": "VCF 명세는 VCF를 텍스트 형식으로 정의하며, 각 데이터 행은 유전체의 한 위치에 대한 정보를 담습니다.",
+        "sourceIds": ["vcf-spec"]
+      },
+      "misreadings": [
+        {
+          "statement": "이 파이프라인의 core 결과 VCF에는 필터가 적용되지 않습니다. 행의 수는 변이 후보 기록의 수이지 확정된 변이의 수가 아닙니다.",
+          "sourceIds": ["main-sh-variant-calling-output", "main-sh-core-summary"]
+        }
+      ],
+      "usedWhen": {
+        "sections": ["variantCalling"],
+        "diagnostics": [
+          "BCFTOOLS_STATS_FAILED",
+          "CLINVAR_ANNOTATE_FAILED",
+          "TSV_FAILED",
+          "DBSNP_NOT_CONFIGURED",
+          "DBSNP_MISSING"
+        ],
+        "failures": ["resource_bundle"]
+      },
+      "mentions": ["VCF"]
+    },
+    {
+      "id": "dbsnp-rsid",
+      "label": "dbSNP / rsID",
+      "aliases": ["dbSNP", "rsID"],
+      "plain": "dbSNP는 이미 보고된 작은 변이를 모아 둔 공개 데이터베이스이고, rsID는 그곳에서 변이에 붙인 식별 번호입니다.",
+      "definition": {
+        "statement": "NCBI는 dbSNP를 단일 염기 변이와 짧은 삽입·결실 같은 작은 유전 변이를 모은 공개 데이터베이스로 설명하며, reference SNP ID(rsID)로 변이를 구분합니다. VCF 명세는 dbSNP 변이이면 ID 열에 rs 번호를 쓰도록 정합니다.",
+        "sourceIds": ["ncbi-dbsnp-about", "vcf-spec"]
+      },
+      "misreadings": [
+        {
+          "statement": "rsID가 비어 있다는 것은 변이가 검출되지 않았다는 뜻이 아닙니다. 이 파이프라인에서 dbSNP는 VCF의 ID 열을 채우는 데 쓰이고, 변이를 찾는 계산에는 쓰이지 않습니다.",
+          "sourceIds": ["gatk-genotypegvcfs-dbsnp", "main-sh-dbsnp"]
+        },
+        {
+          "statement": "rsID가 있다는 것은 그 변이가 dbSNP에 등록돼 있다는 뜻일 뿐, 의학적 의미를 말해 주지 않습니다.",
+          "sourceIds": ["ncbi-dbsnp-about"]
+        }
+      ],
+      "usedWhen": {
+        "sections": [],
+        "diagnostics": [
+          "DBSNP_NOT_CONFIGURED",
+          "DBSNP_MISSING"
+        ],
+        "failures": ["resource_bundle"]
+      },
+      "mentions": ["dbSNP", "rsID"]
+    },
+    {
+      "id": "nm-md-tags",
+      "label": "NM/MD 태그",
+      "aliases": ["NM 태그", "MD 태그"],
+      "plain": "BAM 안에서 read가 참조 서열과 몇 군데, 어디가 다른지를 적어 두는 보조 표시입니다.",
+      "definition": {
+        "statement": "SAM 보조 필드 명세에서 NM은 read와 참조 서열 사이의 차이 개수, MD는 어긋나거나 결실된 참조 염기를 적는 태그입니다.",
+        "sourceIds": ["sam-tags-spec"]
+      },
+      "misreadings": [
+        {
+          "statement": "이 파이프라인의 NM/MD 보정은 samtools calmd로 두 태그만 다시 계산합니다. read 서열과 정렬 위치는 바뀌지 않습니다.",
+          "sourceIds": ["samtools-calmd", "main-sh-calmd"]
+        }
+      ],
+      "usedWhen": {
+        "sections": [],
+        "diagnostics": ["NM_MD_REPAIRED"],
+        "failures": []
+      },
+      "mentions": ["NM", "MD"]
+    }
+  ]
+}

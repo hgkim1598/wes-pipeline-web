@@ -73,6 +73,10 @@ FAILURE_KNOWLEDGE = KNOWLEDGE_DIR / "wes_failures.json"
 # Interpretation concepts: the distinctions a reader needs so the numbers are not
 # misread. Not a glossary -- on-screen term help stays in the frontend.
 CONCEPT_KNOWLEDGE = KNOWLEDGE_DIR / "wes_concepts.json"
+# Words an explanation has to define for a beginner (read, depth, BAM, ...). Not
+# the concepts above, which are interpretation boundaries; each term says which
+# payload sections and codes need it, so only those are sent.
+TERM_KNOWLEDGE = KNOWLEDGE_DIR / "wes_terms.json"
 
 # Model for AI synthesis, as a config value rather than a constant in the domain
 # layer -- swapping it must not touch a schema.
