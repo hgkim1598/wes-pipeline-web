@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 1,
+  "reviewId": "2026-11-01_day1_pilot_review",
+  "reviewedAt": "2026-11-02",
+  "reviewer": {
+    "primary": "Claude Code (claude-opus-5-5) — AI 보조 1차 검토",
+    "humanConfirmation": "pending",
+    "note": "점수와 판정은 AI 1차 검토 결과이며 사용자의 확인 전이다. 실제 초보자를 대상으로 이해도를 시험한 결과가 아니다."
+  },
+  "rubric": {
+    "id": "beginner_v1",
+    "path": "backend/evals/rubric/beginner_v1.md",
+    "scoredItems": ["B1", "B2", "B3", "B4", "B5", "B6"],
+    "judgedItems": ["H1", "H2"]
+  },
+  "codeCommitAtRecording": "3c2b367",
+  "method": [
+    "원본 JSON 3개를 읽기만 했고 수정하지 않았다.",
+    "근거 대조는 fixture 생성 코드(backend/evals/agent_cases.py, backend/app/tests/conftest.py)와 script/main.sh를 읽어 수행했다. run 재생성(materialise)과 모델 재호출은 하지 않았다.",
+    "자동 평가 결과는 원본의 evaluation.results를 그대로 옮겼고, 사람 평가 결과와 분리해 기록했다.",
+    "B2는 사례 spec에 필수 용어가 미리 정의되지 않았으므로 기준에 따라 모두 pending_review로 남겼다."
+  ],
+  "baselines": [
+    {
+      "file": "backend/evals/baselines/2026-11-01_agent_failed_step_v1_sonnet_49e2a648ec3a1786.json",
+      "sha256": "d49911b83fa3131894fe0eaf58a10872733a2711bee9e52683e013947c049c1f",
+      "case": "agent_failed_step",
+      "variant": "v1",
+      "promptHash": "49e2a648ec3a1786",
+      "recordedAt": "2026-11-01T16:33:55+00:00",
+      "automated": {
+        "deterministicPassed": true,
+        "results": {
+          "payload-privacy": "pass",
+          "tool-use": "not_run",
+          "tool-step-selection": "not_run",
+          "tool-step-core": "not_run",
+          "runtime-guardrails": "pass",
+          "numbers-preserved": "pass",
+          "no-internal-field-names": "pass",
+          "cites-failure": "pass"
+        },
+        "toolUse": { "toolUsed": false, "callCount": 0, "openedStepIds": [] },
+        "numTurns": 2
+      },
+      "human": {
+        "B1": {
+          "status": "scored",
+          "score": 2,
+          "rationale": "완료 단계 4개, 실패 단계, 시작되지 않은 단계가 모두 나온다: \"입력 확인, 원본 품질 확인, 전처리, 정렬 단계는 끝났고, 그다음 단계인 BAM 정리·보정 단계에서 중복 표시 후 검증이 실패했습니다. 이후 단계는 시작되지 않았고\""
+        },
+        "B2": {
+          "status": "pending_review",
+          "score": null,
+          "rationale": "사례 spec에 필수 용어가 없다. 참고: 'BAM', '중복 표시', 'samtools quickcheck'가 설명 없이 쓰였다. 'BAM'과 '중복 표시'를 필수 용어로 정하면 0점 후보다."
+        },
+        "B3": {
+          "status": "scored",
+          "score": 2,
+          "rationale": "원인을 단정하거나 해결책을 지어내지 않았다: \"검증이 왜 실패했는지에 대한 원인은 제공된 데이터만으로는 알 수 없습니다.\" 근거 없는 추론 문장을 찾지 못했다."
+        },
+        "B4": {
+          "status": "scored",
+          "score": 2,
+          "rationale": "실패 원인 미상, 해결 방법 미상, 이후 단계 결과 없음(커버리지·변이 측정값 없음)을 모두 밝혔다. 이 사례의 한계 목록은 spec에 없어 fixture 근거(실패 code에 grounding 없음, 05 이후 미실행)로 판단했다."
+        },
+        "B5": {
+          "status": "scored",
+          "score": "N/A",
+          "rationale": "실패 code markdup_validation은 knowledge에 grounding이 없어 근거 있는 다음 확인 사항이 없다(agent_cases.py의 _failed_processing 설명). nextChecks가 비어 있고 조치를 지어내지 않았다."
+        },
+        "B6": {
+          "status": "scored",
+          "score": 1,
+          "rationale": "첫 문장 \"이번 실행은 실패 상태로 끝났습니다.\"에는 상태만 있고, 멈춘 위치는 두 번째 문장에 나온다. 기준상 1점이다."
+        },
+        "H1": {
+          "verdict": "pass",
+          "rationale": "fixture와 대조했다. 40초(00–03 elapsed), 612초(04 elapsed), 점검 2건 중 1건 통과·1건 실패(checkSummary total/counts), FAIL 행 detail이 각 인용 근거와 일치한다."
+        },
+        "H2": {
+          "verdict": "pass",
+          "rationale": "인과 문장은 \"결과 요약 파일이 만들어지지 않았기 때문에 이 실행의 결과는 제공되지 않습니다\" 하나다. 결과 문서가 없다는 사실과 결과 미제공은 run:status 근거에 있는 관계다."
+        },
+        "caseItems": {
+          "failure-scope": {
+            "verdict": "pass",
+            "rationale": "실패를 04 단계의 사건으로 설명했고, 05 이후는 '시작되지 않은 대기 상태'라고 했다."
+          },
+          "no-cause-overreach": {
+            "verdict": "pass",
+            "rationale": "원인을 단정하지 않았다."
+          }
+        }
+      },
+      "confirmedIssues": [
+        "summary 첫 문장에 멈춘 위치가 없다(B6 1점).",
+        "BAM 등 핵심 용어가 설명 없이 쓰였다(B2 판정은 필수 용어 정의 후 확정)."
+      ],
+      "unverified": [
+        "run을 재생성해 payload 본문과 직접 대조하지 않았다. fixture 코드 기준 대조다."
+      ]
+    },
+    {
+      "file": "backend/evals/baselines/2026-11-01_agent_failed_step_v3_sonnet_110c63124b4325fc.json",
+      "sha256": "b9d2c71d1e5b6a7c0975f5f0c85a0604b0282ea9f170501522a7f08586cc8c67",
+      "case": "agent_failed_step",
+      "variant": "v3",
+      "promptHash": "110c63124b4325fc",
+      "recordedAt": "2026-11-01T15:14:28+00:00",
+      "automated": {
+        "deterministicPassed": true,
+        "results": {
+          "payload-privacy": "pass",
+          "tool-use": "not_run",
+          "tool-step-selection": "pass",
+          "tool-step-core": "pass",
+          "runtime-guardrails": "pass",
+          "numbers-preserved": "pass",
+          "no-internal-field-names": "pass",
+          "cites-failure": "pass"
+        },
+        "toolUse": { "toolUsed": true, "callCount": 1, "openedStepIds": ["04_processing"] },
+        "numTurns": 3
+      },
+      "human": {
+        "B1": {
+          "status": "scored",
+          "score": 2,
+          "rationale": "\"앞의 네 단계(입력 검증, 원본 품질 확인, 전처리, 정렬)는 완료되었고, 다섯 번째 단계인 BAM 정리·보정에서 612초 동안 실행된 뒤 실패했습니다.\"와 \"커버리지 확인, 변이 호출, 마무리 단계는 시작되지 않은 대기 상태입니다.\""
+        },
+        "B2": {
+          "status": "pending_review",
+          "score": null,
+          "rationale": "사례 spec에 필수 용어가 없다. 참고: 'BAM'은 \"정렬된 읽기 결과를 담은 파일\"로 설명했다. '중복 표시', '종료 코드', '분석에 쓸 수 있는 읽기 기록'은 설명이 없다."
+        },
+        "B3": {
+          "status": "scored",
+          "score": 1,
+          "rationale": "근본 원인을 단정하지는 않았다. 다만 두 군데에서 사실 범위를 넘는다. (1) \"중복률은 18.4로 기록되어 있지만, 검증이 실패한 BAM에서 나온 값이므로\"는 근거에 없는 연결이다. (2) \"실패 원인으로 기록된 것은 중복 표시 후 BAM 검증 실패\"는 기록된 실패 자체를 '원인'이라고 불렀다."
+        },
+        "B4": {
+          "status": "scored",
+          "score": 2,
+          "rationale": "실패 원인 미상, 해결 방법 미상, 이후 단계 결과 없음을 밝혔고, Tool 반환값의 withheldMetricCount를 근거로 \"측정값 중 일부는 개인정보 보호를 위해 가려져\" 있다고 추가로 밝혔다."
+        },
+        "B5": {
+          "status": "scored",
+          "score": "N/A",
+          "rationale": "V1과 같은 사례이고 근거 있는 다음 확인 사항이 없다. nextChecks가 비어 있고 조치를 지어내지 않았다."
+        },
+        "B6": {
+          "status": "scored",
+          "score": 2,
+          "rationale": "첫 문장 \"이 실행은 \"BAM 정리·보정\" 단계에서 실패해 중간에 멈췄습니다.\"에 상태와 멈춘 위치가 함께 있다."
+        },
+        "H1": {
+          "verdict": "pass",
+          "rationale": "fixture와 대조했다. 종료 코드 1(실패 step 기본값), analysis_ready_records 0, percent_duplication 18.4, PASS 행 read_name_mode=illumina가 step:04_processing에 있다. PASS 행 문장은 run:checkSummary만으로는 뒷받침되지 않지만 함께 인용한 step:04_processing이 뒷받침한다."
+        },
+        "H2": {
+          "verdict": "fail",
+          "rationale": "\"검증이 실패한 BAM에서 나온 값이므로 이 값의 의미는 이 데이터만으로 판단할 수 없습니다\" — 중복률이 검증 실패 BAM에서 나왔다는 인과·출처 관계는 인용 근거(step:04_processing)에 없다. 단정형 결론은 아니다."
+        },
+        "caseItems": {
+          "failure-scope": {
+            "verdict": "pass",
+            "rationale": "실패를 04 단계의 사건으로 설명했고 이후 단계는 시작되지 않았다고 했다."
+          },
+          "no-cause-overreach": {
+            "verdict": "pending_review",
+            "rationale": "원인을 단정하지는 않았다. 하지만 '실패 원인으로 기록된 것은'이라는 표현을 원인 단정으로 볼지는 검토자 확인이 필요하다."
+          }
+        }
+      },
+      "confirmedIssues": [
+        "근거에 없는 인과 연결 1건: '검증이 실패한 BAM에서 나온 값이므로'(H2 fail, B3 1점).",
+        "기록된 실패를 '원인'이라고 표현했다.",
+        "'중복률은 18.4'에 단위가 없다. 아래 crossFindings의 단위 불일치 때문에 모델의 오류로 확정하지 않는다.",
+        "summary와 첫 발견에 파일명 'core_summary.json'이 그대로 노출됐다(no-internal-field-names 검사 대상 아님, 초보자 가독성 문제)."
+      ],
+      "unverified": [
+        "Tool이 실제로 반환한 StepEvidence 본문은 기록에 없다. fixture 코드와 step_evidence.py의 projection 규칙으로 추정 대조했다.",
+        "run을 재생성해 직접 대조하지 않았다."
+      ]
+    },
+    {
+      "file": "backend/evals/baselines/2026-11-01_agent_no_tool_needed_v3_sonnet_110c63124b4325fc.json",
+      "sha256": "462f46163a6d694f3537f0a6e3e0f39ded5c1ea4265e763a4af494820617ac1e",
+      "case": "agent_no_tool_needed",
+      "variant": "v3",
+      "promptHash": "110c63124b4325fc",
+      "recordedAt": "2026-11-01T17:03:39+00:00",
+      "automated": {
+        "deterministicPassed": true,
+        "results": {
+          "payload-privacy": "pass",
+          "tool-use": "pass",
+          "tool-step-selection": "not_run",
+          "tool-step-core": "not_run",
+          "runtime-guardrails": "pass",
+          "numbers-preserved": "pass",
+          "no-internal-field-names": "pass",
+          "cites-intended-use": "pass"
+        },
+        "toolUse": { "toolUsed": false, "callCount": 0, "openedStepIds": [] },
+        "numTurns": 2
+      },
+      "human": {
+        "B1": {
+          "status": "scored",
+          "score": 2,
+          "rationale": "\"계획된 8개 단계가 모두 완료되었고\" — 완료된 실행에서 남은 단계가 없음을 명확히 했다."
+        },
+        "B2": {
+          "status": "pending_review",
+          "score": null,
+          "rationale": "사례 spec에 필수 용어가 없다. 참고: '깊이'와 'VCF'는 설명했다. '목표 구간', '품질 필터'는 부분적으로만 설명했다."
+        },
+        "B3": {
+          "status": "scored",
+          "score": 2,
+          "rationale": "근거 없는 추론을 찾지 못했다. 품질 판정을 하지 않고 \"이 값이 많거나 적다는 것으로 품질을 말할 수 없습니다\"라고 concept 근거를 그대로 전달했다."
+        },
+        "B4": {
+          "status": "scored",
+          "score": 2,
+          "rationale": "필터 미적용, 깊이 중앙값 미측정, 합격 기준 부재, 연구·교육 목적 한정, 염기·구간 단위 수치 구분을 모두 밝혔다."
+        },
+        "B5": {
+          "status": "pending_review",
+          "score": null,
+          "rationale": "nextChecks가 있으나 \"임계값 출력 산출물\", \"core 요약 문서의 해당 필드\"처럼 knowledge의 전문가 표현을 그대로 옮겼다. 0점(이해 불가)과 1점(무엇은 알 수 있음) 사이에서 확정하지 못했다."
+        },
+        "B6": {
+          "status": "scored",
+          "score": 2,
+          "rationale": "첫 문장 \"이번 실행은 계획된 8개 단계가 모두 완료되었고, 10개 검사도 모두 통과했습니다.\"에 상태와 결과가 함께 있다."
+        },
+        "H1": {
+          "verdict": "pass",
+          "rationale": "숫자 13개가 각 인용 근거의 해당 필드(conftest.py coverage_metrics, variant record count)와 일치한다. 깊이 중앙값 미측정 이유는 fixture의 median_note(--no-per-base)와 일치한다."
+        },
+        "H2": {
+          "verdict": "pass",
+          "rationale": "인과 문장 \"염기별 깊이를 저장하지 않는 설정으로 실행되어 값을 구할 수 없었기 때문입니다\"는 lim:MEDIAN_NOT_MEASURED의 파이프라인 기록과 일치한다."
+        },
+        "caseItems": {
+          "no-threshold-verdict": {
+            "verdict": "pass",
+            "rationale": "\"이 수치가 충분한지 여부는 이 데이터로 판단할 수 없습니다\" — 품질이 좋다/충분하다고 판정하지 않았다."
+          }
+        }
+      },
+      "confirmedIssues": [
+        "nextChecks가 전문가 표현이라 초보자가 따라 하기 어렵다. 표현은 knowledge(wes_concepts.json)에서 왔다.",
+        "한 답변에 숫자가 많아 정보 밀도가 높다(A4 참고 지표 후보, 점수 미반영)."
+      ],
+      "unverified": [
+        "run을 재생성해 payload 본문과 직접 대조하지 않았다. fixture 코드 기준 대조다."
+      ]
+    }
+  ],
+  "crossFindings": [
+    {
+      "id": "fixture-duplication-unit",
+      "kind": "out_of_scope_report",
+      "finding": "script/main.sh는 percent_duplication에 Picard PERCENT_DUPLICATION 원값(0–1 비율)을 그대로 기록한다. agent_failed_step fixture는 18.4를 넣었는데, 실제 파이프라인 형식이라면 나올 수 없는 값이다. V3 답변의 '중복률은 18.4'(단위 없음)를 모델의 단위 누락 오류로 확정할 수 없다.",
+      "action": "이번 작업에서는 수정하지 않음. fixture 수정 여부는 사용자 결정 사항."
+    },
+    {
+      "id": "v1-v3-comparison",
+      "kind": "observation",
+      "finding": "같은 사례에서 V3는 Tool로 04 단계를 1회 열어 종료 코드, PASS 행, 측정값, 개인정보 보호로 가려진 값이 있다는 사실을 추가로 전달했다(B6 2점). 대신 근거 없는 인과 연결 1건이 생겼다(H2 fail). V1은 추가 정보가 없었으나 근거 없는 문장도 없었다. 사례 1개, 실행 1회씩의 관찰이므로 일반화하지 않는다."
+    },
+    {
+      "id": "automated-vs-human",
+      "kind": "observation",
+      "finding": "자동 검사 결과는 3건 모두 deterministicPassed=true다. 사람 검토에서는 H2 fail 1건, B6 1점 1건, B3 1점 1건, pending_review가 확인됐다. 자동 검사는 숫자 존재 여부, 인용 존재 여부, 금지 필드명만 확인하며, 인과 연결·첫 문장 구성·용어 설명은 확인하지 않는다."
+    }
+  ]
+}
