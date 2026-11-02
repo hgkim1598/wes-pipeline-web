@@ -38,9 +38,26 @@ FULL_PLAN = [
     "99_finalization",
 ]
 
-# The production prompt before the split into pieces. If this moves, V3 is no
-# longer the agent that was evaluated before the toggle existed.
-V3_CONSTRAINTS_HASH = "110c63124b4325fc"
+# What production sends. If this moves, V3 is no longer the agent whose
+# baselines carry this hash in their file names.
+#
+#   110c63124b4325fc  before the beginner rules -- the hash every baseline up
+#                     to 2026-11-02 was recorded with
+#   f1bcc4c772c6559e  beginner rules added to _TAIL (ORDER, TERMS, HOW MANY
+#                     NUMBERS, NEXT CHECKS, REPAIRED ITEMS). Its one real-run
+#                     record failed the evidence gate with an id the model
+#                     assembled for a grounding entry
+#   d505c173885f6c9b  CITING added to _TAIL: grounding has no id of its own,
+#                     cite the code's evidenceId, never assemble an id
+V3_CONSTRAINTS_HASH = "d505c173885f6c9b"
+
+# The pieces the beginner rules did not touch, pinned on their own: the
+# evidence boundary and prohibitions (_HEAD), and the tool's instructions and
+# their no-tool replacement. A change to what the model may claim, or to when
+# it may call the tool, must not ride along with a change of tone.
+HEAD_HASH = "8195bb22906aca3e"
+STEP_TOOL_HASH = "a856626d25bac345"
+STEP_NAMES_HASH = "23540799b847a7a4"
 
 
 @pytest.fixture
@@ -193,10 +210,23 @@ def test_both_variants_use_the_same_schema_model_and_timeout(explanation):
 # --- V3: the production default is untouched ---------------------------------
 
 
-def test_v3_prompt_text_is_byte_identical_to_before_the_split():
+def test_v3_prompt_text_is_pinned():
     assert _sha16(prompt.CONSTRAINTS) == V3_CONSTRAINTS_HASH
-    assert len(prompt.CONSTRAINTS) == 5976
+    assert len(prompt.CONSTRAINTS) == 9083
     assert prompt.constraints_for(offer_tools=True) is prompt.CONSTRAINTS
+
+
+def test_the_safety_rules_and_tool_instructions_did_not_move():
+    assert _sha16(prompt._HEAD) == HEAD_HASH
+    assert _sha16(prompt._STEP_TOOL) == STEP_TOOL_HASH
+    assert _sha16(prompt._STEP_NAMES) == STEP_NAMES_HASH
+
+
+def test_v1_and_v3_differ_only_in_the_tool_section():
+    assert prompt.CONSTRAINTS == prompt._HEAD + prompt._STEP_TOOL + prompt._TAIL
+    assert prompt.CONSTRAINTS_NO_TOOL == (
+        prompt._HEAD + prompt._STEP_NAMES + prompt._TAIL
+    )
 
 
 def test_v3_is_the_default_of_both_functions(explanation):
@@ -234,6 +264,40 @@ def test_v1_rejects_a_step_citation_it_could_not_have_fetched(explanation):
 
     assert result.available is False
     assert result.errorCategory == "unknownEvidenceRef"
+
+
+@pytest.mark.parametrize("offer_tools", [False, True], ids=["v1", "v3"])
+def test_an_id_assembled_for_a_grounding_entry_is_still_rejected(
+    explanation, offer_tools
+):
+    """Gate 3, unchanged by the CITING rule.
+
+    The rule asks the model to cite a grounding entry by its code's own
+    evidenceId. It does not make anything else citable: an id built from the
+    section name and the key the entry is filed under is still not minted, and
+    the whole answer is still discarded. The code's own id still passes.
+    """
+    payload, allowed = contract.build_payload(explanation)
+    assert payload["grounding"], "fixture must raise a diagnostic with grounding"
+    key = next(iter(payload["grounding"]))
+    assembled = "grounding:" + key
+    assert key in allowed
+    assert assembled not in allowed
+
+    rejected = llm_synthesis.build_run_synthesis(
+        explanation,
+        run_provider=recording_provider(_answer("확인이 필요한 항목이 있습니다.", assembled)),
+        offer_tools=offer_tools,
+    )
+    assert rejected.available is False
+    assert rejected.errorCategory == "unknownEvidenceRef"
+
+    accepted = llm_synthesis.build_run_synthesis(
+        explanation,
+        run_provider=recording_provider(_answer("확인이 필요한 항목이 있습니다.", key)),
+        offer_tools=offer_tools,
+    )
+    assert accepted.available is True
 
 
 def test_v1_still_rejects_an_invented_number(explanation):

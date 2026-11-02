@@ -1013,6 +1013,71 @@ def test_the_prompt_bans_internal_property_names_in_user_prose():
     assert "no camelCase, no key names" in text
 
 
+def _flat(text: str) -> str:
+    """Whitespace collapsed, so an assertion does not depend on line wrapping."""
+    return " ".join(text.split())
+
+
+def test_the_prompt_carries_the_beginner_rules_in_both_variants():
+    """Order, terms, number density, next checks and repaired-item scope.
+
+    Asserted on both variants: the rules are about the reader, not the tool,
+    so V1 and V3 must be judged against the same ones.
+    """
+    for raw in (prompt.CONSTRAINTS, prompt.CONSTRAINTS_NO_TOOL):
+        for heading in ("ORDER", "TERMS", "HOW MANY NUMBERS", "NEXT CHECKS", "REPAIRED ITEMS"):
+            assert f"\n{heading}\n" in raw
+        text = _flat(raw)
+        # 용어: 같은 문장 괄호 안 한 줄 설명, 항목마다 독립적으로
+        assert "in parentheses in the same sentence" in text
+        assert "do not assume the reader has read another statement" in text
+        # 용어 설명이 판정·원인·임상의 통로가 되지 않는다
+        assert "never carries a threshold, a judgement of good or bad" in text
+        # 수치: 문장당 개수, 쉼표 구분, 소수 보존, 깊이 단위
+        assert "at most two measurements in one statement" in text
+        assert "commas. That is formatting, not rounding" in text
+        assert "Keep every decimal exactly as given" in text
+        assert '"배" or "×"' in text
+        # 다음 확인: 이유 먼저, 서버 관리자 작업 구분
+        assert "Say why first" in text
+        assert "a task for the server administrator, not for the reader" in text
+        # 조치 불필요는 그 항목에만
+        assert "no action is needed for that item" in text
+        assert "never about the run as a whole" in text
+
+
+def test_the_beginner_rules_add_no_number_and_keep_the_no_rounding_rule():
+    """A digit in the instructions could be copied into an answer about a run
+    that does not contain it, and the number gate would discard the answer.
+    The rule against rounding stays in _HEAD, untouched."""
+    assert not any(ch.isdigit() for ch in prompt._TAIL)
+    text = _flat(prompt.CONSTRAINTS)
+    assert "Never round, rescale or recompute one." in text
+    assert "Never state a number that is not in the data." in text
+
+
+def test_both_variants_carry_the_citing_rule_without_a_wrong_example():
+    """The fix for the first beginner-prompt run, which was discarded for an id
+    the model assembled for a grounding entry.
+
+    The rule says how to cite grounding and sources and forbids assembling ids.
+    It shows no wrong form: an example of what to avoid is an example the model
+    can copy (see test_the_prompt_forbids_claiming_an_absent_bucket).
+    """
+    for raw in (prompt.CONSTRAINTS, prompt.CONSTRAINTS_NO_TOOL):
+        assert "\nCITING\n" in raw
+        text = _flat(raw)
+        assert "Cite only `evidenceId` values that appear in the data, copied exactly." in text
+        assert "It has no `evidenceId` of its own." in text
+        assert "cites that diagnostic's or failure's own `evidenceId`" in text
+        assert "A source is cited only by the `evidenceId` the data gives that source" in text
+        assert "Never build an id by joining a section name, a key or a prefix" in text
+        # 잘못된 형식의 예시가 없다
+        assert "grounding:" not in raw
+        assert "grounding:dx" not in raw
+    assert not any(ch.isdigit() for ch in prompt._TAIL)
+
+
 def test_the_coverage_concept_is_supplied_when_coverage_is(client, make_job, run):
     """Canonical knowledge reused, not a second explanation written into the prompt.
 

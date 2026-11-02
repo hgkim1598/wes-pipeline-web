@@ -64,8 +64,24 @@ So CONSTRAINTS is assembled from three pieces, and CONSTRAINTS_NO_TOOL swaps
 only the middle one. The swap keeps the readability rule the tool section ended
 with -- name a step in Korean, not by its id -- because that rule is about the
 reader, not the tool, and a variant without it would be judged on a different
-standard. CONSTRAINTS itself is byte-for-byte the text it was before the split;
-a test pins its hash.
+standard. A test pins the hash of CONSTRAINTS, so any change to what production
+sends is a deliberate, visible edit.
+
+Beginner rules (ORDER, TERMS, HOW MANY NUMBERS, NEXT CHECKS) `[설계판단]`
+------------------------------------------------------------------------
+
+The first real-run answers were accurate but hard for a beginner: unexplained
+terms, several large numbers per sentence, no ordering between unresolved and
+repaired items. These rules live in `_TAIL`, which both variants share, so V1
+and V3 still differ only in the tool section. `_HEAD` -- the evidence boundary,
+the no-new-numbers rule and the prohibitions -- is unchanged.
+
+Two things the rules deliberately do not do. They put no digits in their
+examples: a number written into the instructions could be copied into an
+answer about a run that does not have it, and the number gate would then
+discard the whole answer. And they do not ask the model to round: comma
+grouping keeps every digit, which the gate already accepts, while a rounded
+decimal is a number the data does not contain.
 """
 
 from __future__ import annotations
@@ -188,15 +204,76 @@ sentences, name the step in ordinary Korean.
 
 _TAIL = """\
 TONE
-Plain Korean for someone who does not know bioinformatics. Explain a term the
-first time you use it. A reader who has never seen this system's data model
-should be able to read every sentence -- no camelCase, no key names.
+Plain Korean for someone who is just starting to learn bioinformatics: they
+know what DNA is, but not what sequencing data, an alignment or a pipeline
+step produces. A reader who has never seen this system's data model should be
+able to read every sentence -- no camelCase, no key names.
 Be calm and factual. Do not congratulate, reassure, or alarm. Do not use emoji
 or marketing language.
 
+ORDER
+- `summary`: first whether the run finished and whether it ended with
+  warnings or a failure; then the warning that most affects how far the output
+  can be trusted, and what it means for the result; repaired items last and
+  briefly.
+- `importantFindings`: the run's status first, then items that still need
+  attention, then items recorded for reference, then repaired items.
+- `limitations` say what the result cannot tell; `nextChecks` say what can be
+  looked at. Do not put the same point in both.
+
+TERMS
+- Prefer plain Korean to a technical term when the plain words say the same
+  thing.
+- When a technical term is needed, add a one-line plain explanation in
+  parentheses in the same sentence the first time it appears.
+- Each statement may be shown on its own, apart from the others, so do not
+  assume the reader has read another statement: explain a needed term again in
+  each statement that uses it, but only once within one statement.
+- If the data explains the term (a concept, or a diagnostic's meaning), use
+  that explanation. If it does not, give only the term's general meaning. An
+  explanation of a word never carries a threshold, a judgement of good or bad,
+  a cause, or anything clinical.
+
+HOW MANY NUMBERS
+- Lead with the fact, then the number that shows it.
+- Give at most two measurements in one statement. Keep the figure each
+  diagnostic, failure or check is about, and the headline count of each
+  completed result section. Other measurements may be left out; this
+  explanation is shown on a screen that already lists them.
+- When a measurement supports a diagnostic, state it in that diagnostic's
+  statement and cite both.
+- Group the digits of a whole number of four or more digits in threes with
+  commas. That is formatting, not rounding: every digit stays.
+- Keep every decimal exactly as given. Do not round it, shorten it or convert
+  it into another unit.
+- A depth -- how many times a position was read -- always carries its unit,
+  "배" or "×".
+
+NEXT CHECKS
+- Say why first -- the question a check answers -- and then what to look at.
+- Say what a file or setting shows before giving its name.
+- If something can only be done by whoever runs the server, such as a server
+  setting or a reference resource, say that it is a task for the server
+  administrator, not for the reader.
+
+REPAIRED ITEMS
 If a diagnostic was automatically repaired by the pipeline, say that it was
-handled and that no action is needed. Do not present a repaired item and an
-unresolved one as if they were the same kind of thing.
+handled, what the data says the repair changed and did not change, and that
+no action is
+needed for that item. Say this about that item only, never about the run as a
+whole. Do not present a repaired item and an unresolved one as if they were
+the same kind of thing.
+
+CITING
+- Cite only `evidenceId` values that appear in the data, copied exactly.
+- A diagnostic's or failure's grounding is reference knowledge filed under
+  that code. It has no `evidenceId` of its own. A statement that rests on it
+  -- its meaning, a scope, a check, an action -- cites that diagnostic's or
+  failure's own `evidenceId`.
+- A source is cited only by the `evidenceId` the data gives that source, not
+  by the bare name a grounding entry lists it under.
+- Never build an id by joining a section name, a key or a prefix to another
+  id or name.
 """
 
 # What production sends. The concatenation is exactly the single literal this
