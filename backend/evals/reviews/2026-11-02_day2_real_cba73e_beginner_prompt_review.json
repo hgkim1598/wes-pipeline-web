@@ -1,0 +1,286 @@
+{
+  "schemaVersion": 1,
+  "reviewId": "2026-11-02_day2_real_cba73e_beginner_prompt_review",
+  "reviewedAt": "2026-11-02",
+  "reviewer": {
+    "primary": "Claude Code (claude-opus-5-5) — AI 보조 1차 검토",
+    "humanConfirmation": "pending",
+    "note": "점수와 판정은 AI 1차 검토 결과이며 사용자의 확인 전이다. 실제 초보자를 대상으로 이해도를 시험한 결과가 아니다. 사용자의 직접 피드백은 userFeedback에 따로 기록했고, AI 판단과 섞지 않았다."
+  },
+  "purpose": "초보자 설명 규칙을 프롬프트(_TAIL)에 추가하기 전후의 실제 Run(real_cba73e) V3 답변을 비교한다. 중간 실험의 근거 검사 실패와 그 수정도 함께 기록한다.",
+  "rubric": {
+    "id": "beginner_v1",
+    "path": "backend/evals/rubric/beginner_v1.md",
+    "scoredItems": ["B1", "B2", "B3", "B4", "B5", "B6"],
+    "judgedItems": ["H1", "H2"],
+    "caseSpec": "backend/evals/expectations/real_cba73e.json",
+    "caseSpecNotes": [
+      "beginnerRubric.requiredTerms는 status=proposed_pending_approval이다. 따라서 B2는 pending_review로 두고 잠정 점수만 provisionalScore에 적는다.",
+      "beginnerRubric.b5NextChecks는 '판정 보류'다. 따라서 B5도 pending_review로 두고 잠정 점수만 적는다.",
+      "평가 기준과 사례 spec은 이번 검토에서 바꾸지 않았다."
+    ]
+  },
+  "codeCommitAtRecording": "20fa4c0 (프롬프트 변경은 기록 시점에 커밋되지 않음 — promptHash로 식별)",
+  "split": "dev",
+  "splitNote": "cba73e는 프롬프트와 knowledge를 작성하는 동안 본 Run이다. 개선 결과는 다른 Run으로 일반화할 근거가 아니다.",
+  "method": [
+    "baseline 원본 JSON 3개를 읽기만 했고 수정하지 않았다. 모델 재호출과 파이프라인 실행은 하지 않았다.",
+    "세 실행의 payloadHash가 같다(0415db25…). 차이는 프롬프트뿐이다.",
+    "근거 대조는 개발용 복원 사본(runs/dev_real_cba73e/)에서 같은 코드로 payload를 다시 만들어 수행했다. payloadHash가 baseline과 같으므로 모델이 받은 데이터와 같다.",
+    "자동 평가 결과는 원본의 evaluation.results를 그대로 옮겼고, AI 1차 판단과 분리해 기록했다.",
+    "수치 지표(숫자 개수, 큰 수, 문장 수)는 summary와 네 목록의 statement 전체에서 셌다. 정규식 \\d[\\d,]*(?:\\.\\d+)? 기준이며 '0×'의 0도 하나로 센다."
+  ],
+  "promptHistory": [
+    {
+      "promptHash": "110c63124b4325fc",
+      "change": "기준 프롬프트 (초보자 규칙 추가 전)"
+    },
+    {
+      "promptHash": "f1bcc4c772c6559e",
+      "change": "_TAIL에 초보자 규칙 추가: ORDER, TERMS, HOW MANY NUMBERS, NEXT CHECKS, REPAIRED ITEMS. _HEAD와 Tool 지시는 불변."
+    },
+    {
+      "promptHash": "d505c173885f6c9b",
+      "change": "_TAIL에 CITING 추가: grounding에는 자체 evidenceId가 없으니 그 진단·실패의 evidenceId를 인용하고, 구획 이름·key·접두사를 조합해 ID를 만들지 않는다. 잘못된 형식의 예시는 넣지 않음."
+    }
+  ],
+  "baselines": [
+    {
+      "role": "before",
+      "file": "backend/evals/baselines/2026-11-02_real_cba73e_v3_sonnet_110c63124b4325fc.json",
+      "sha256": "0da79e1bc36b922b602125a3c85d14499ec476df6854f884110a119a407b9256",
+      "case": "real_cba73e",
+      "variant": "v3",
+      "promptHash": "110c63124b4325fc",
+      "payloadHash": "0415db250052666b71bed1faf1acefa3df8bb2c82f0d419307e83e24cf820414",
+      "knowledgeHash": "07765c4e1462b229",
+      "schemaHash": "07ba45eb8da7f48f",
+      "recordedAt": "2026-11-02T08:25:03+00:00",
+      "automated": {
+        "deterministicPassed": true,
+        "results": {
+          "payload-privacy": "pass",
+          "tool-use": "not_run",
+          "tool-step-selection": "not_run",
+          "tool-step-core": "not_run",
+          "runtime-guardrails": "pass",
+          "numbers-preserved": "pass",
+          "no-internal-field-names": "pass",
+          "must-mention": "pass",
+          "cites-nm-md-repair": "pass",
+          "cites-zero-coverage": "pass",
+          "cites-dbsnp-not-configured": "pass",
+          "cites-intended-use": "pass",
+          "variant-count-carries-unfiltered-qualification": "pass"
+        },
+        "toolUse": {"toolUsed": false, "callCount": 0, "repeatCount": 0, "refusals": [], "openedStepIds": []},
+        "numTurns": 2,
+        "durationMs": 18066
+      },
+      "human": {
+        "B1": {"status": "scored", "score": 2, "rationale": "\"이 실행은 모든 단계가 끝나 결과를 볼 수 있지만, 경고가 남은 채 완료된 상태입니다.\" 시작되지 않은 단계나 멈춘 단계가 없는 실행이다."},
+        "B2": {"status": "pending_review", "score": null, "provisionalScore": 1, "rationale": "제안된 필수 용어 6개 중 NM/MD, rsID, 필터 전 후보는 설명됨. '깊이'('target 평균 깊이는 11.0116')는 설명이 없고 단위도 없음. read·target·dbSNP 설명 없음."},
+        "B3": {"status": "scored", "score": 2, "rationale": "원인 단정 없음. \"0× 염기가 생긴 원인은 이 데이터만으로 알 수 없습니다.\" \"따로 조치할 필요는 없습니다\"는 프롬프트 규칙과 knowledge resolution=repaired에 근거."},
+        "B4": {"status": "scored", "score": 2, "rationale": "합격 기준 없음, 깊이 중앙값 미측정, 후보 중 신뢰할 변이 수 미상을 모두 밝힘."},
+        "B5": {"status": "pending_review", "score": null, "provisionalScore": 1, "rationale": "무엇을 볼지는 있으나 위치가 전문가 표현이다: \"mosdepth의 thresholds 출력\", \"resource_validation.txt에 [NOTE]로\", \"resource bundle에 dbsnp_vcf를 선언하면\"."},
+        "B6": {"status": "scored", "score": 2, "rationale": "summary 첫 문장에 상태와 결과가 함께 있다."},
+        "H1": {"verdict": "pass", "rationale": "수치(36458262, 3387168, 9.2905, 11.0116, 262685, 32734899, 89.7873, 54665, 2639939, 7.241, 52294)가 run:coverage·run:variantCalling의 해당 의미와 일치."},
+        "H2": {"verdict": "pass", "rationale": "근거 없는 인과 표현 없음."},
+        "caseItems": {
+          "coverage-measurement-levels": {"verdict": "pass", "rationale": "9.2905%는 '(염기 단위)', 7.241%는 '구간에 속한 염기 기준'으로 쓰고 \"염기 단위의 0× 비율과 다른 지표\"라고 구분."},
+          "no-threshold-verdict": {"verdict": "pass", "rationale": "\"합격·불합격 기준이 없어, 위 수치가 높은지 낮은지는 판단할 수 없습니다.\""},
+          "no-unrecorded-cause": {"verdict": "pass", "rationale": "깊이가 낮은 이유를 말하지 않음."},
+          "nm-md-scope": {"verdict": "pass", "rationale": "\"read 서열·좌표·중복 표시는 바뀌지 않았고\". 도구 탓 안 함(uncertainty에 명시)."},
+          "dbsnp-scope": {"verdict": "pass", "rationale": "rsID 부재와 \"변이 검출 자체에는 영향이 없다\"로 설명."},
+          "step-scope": {"verdict": "note", "rationale": "\"모든 단계가 끝나\"라고만 하고, 경고가 난 단계(04/05/06)를 전혀 언급하지 않음. 실패라고 하지는 않음."},
+          "uncertainty": {"verdict": "pass", "rationale": "깊이 중앙값, 합격 기준, \"실제로 믿을 만한 것이 몇 개인지\" 모두 명시."}
+        }
+      }
+    },
+    {
+      "role": "intermediate_failed",
+      "file": "backend/evals/baselines/2026-11-02_real_cba73e_v3_sonnet_f1bcc4c772c6559e.json",
+      "sha256": "dc4b4992bf9517288d1b7b89eb3a3f54eeb90c895717f318aae77ea4894823dd",
+      "case": "real_cba73e",
+      "variant": "v3",
+      "promptHash": "f1bcc4c772c6559e",
+      "payloadHash": "0415db250052666b71bed1faf1acefa3df8bb2c82f0d419307e83e24cf820414",
+      "knowledgeHash": "07765c4e1462b229",
+      "schemaHash": "07ba45eb8da7f48f",
+      "recordedAt": "2026-11-02T10:37:45+00:00",
+      "automated": {
+        "deterministicPassed": false,
+        "results": {
+          "payload-privacy": "pass",
+          "tool-use": "not_run",
+          "tool-step-selection": "not_run",
+          "tool-step-core": "not_run",
+          "runtime-guardrails": "fail"
+        },
+        "available": false,
+        "errorCategory": "unknownEvidenceRef",
+        "toolUse": {"toolUsed": false, "callCount": 0, "repeatCount": 0, "refusals": [], "openedStepIds": []},
+        "numTurns": 2,
+        "durationMs": 21124
+      },
+      "human": null,
+      "humanNote": "답변이 근거 검사에서 폐기되어 output이 없다. 품질은 평가할 수 없다.",
+      "failure": {
+        "gate": "근거 검사 — synthesis._unknown_refs (backend/app/services/explanation/llm/synthesis.py)",
+        "citedUnknownRef": "grounding:dx:ZERO_COVERAGE_TARGET_BASES",
+        "citedUnknownRefSource": "서버 로그(log.warning)를 사용자가 콘솔에서 확인해 보고함. baseline JSON에는 답변이 폐기되어 이 문자열이 없다.",
+        "confirmedCause": "payload에서 grounding만 자체 evidenceId가 없다. 진단 코드 문자열('dx:<code>')을 key로 쓰는 객체 안에 들어 있다(contract.py build_payload). 'grounding:dx:' 문자열은 프롬프트·payload·knowledge 어디에도 없으며 모델이 조합했다.",
+        "hypothesis": "새 규칙(데이터의 설명 사용, 다음 확인에서 파일이 보여주는 것 먼저, 관리자 작업 구분, 진단 근거 함께 인용)이 grounding 내용 인용을 늘려 이 빈틈을 건드렸을 수 있다. 1회 결과라 확정하지 않는다. 기존 baseline 11건에는 unknownEvidenceRef가 없었다.",
+        "notReached": "근거 검사가 숫자·camelCase 검사보다 앞서므로 이 답변이 그 검사들을 통과했을지는 알 수 없다.",
+        "fix": "promptHash d505c173885f6c9b — _TAIL에 CITING 추가 (A안). 근거 검사는 완화하지 않았고, 조합된 ID가 여전히 폐기되는 테스트를 추가함 (test_tool_toggle.py)."
+      }
+    },
+    {
+      "role": "after",
+      "file": "backend/evals/baselines/2026-11-02_real_cba73e_v3_sonnet_d505c173885f6c9b.json",
+      "sha256": "27350ea74352beba4fcc66df37a3541ac2955028bd498af952c6043281427ae4",
+      "case": "real_cba73e",
+      "variant": "v3",
+      "promptHash": "d505c173885f6c9b",
+      "payloadHash": "0415db250052666b71bed1faf1acefa3df8bb2c82f0d419307e83e24cf820414",
+      "knowledgeHash": "07765c4e1462b229",
+      "schemaHash": "07ba45eb8da7f48f",
+      "recordedAt": "2026-11-02T11:07:20+00:00",
+      "automated": {
+        "deterministicPassed": true,
+        "results": {
+          "payload-privacy": "pass",
+          "tool-use": "not_run",
+          "tool-step-selection": "not_run",
+          "tool-step-core": "not_run",
+          "runtime-guardrails": "pass",
+          "numbers-preserved": "pass",
+          "no-internal-field-names": "pass",
+          "must-mention": "pass",
+          "cites-nm-md-repair": "pass",
+          "cites-zero-coverage": "pass",
+          "cites-dbsnp-not-configured": "pass",
+          "cites-intended-use": "pass",
+          "variant-count-carries-unfiltered-qualification": "pass"
+        },
+        "toolUse": {"toolUsed": false, "callCount": 0, "repeatCount": 0, "refusals": [], "openedStepIds": []},
+        "numTurns": 2,
+        "durationMs": 21608
+      },
+      "human": {
+        "B1": {"status": "scored", "score": 2, "rationale": "\"이 실행은 끝까지 완료되었지만 경고가 남은 상태로 끝났습니다.\" uncertainty에서 \"경고로 기록된 세 단계\"도 언급."},
+        "B2": {"status": "pending_review", "score": null, "provisionalScore": 1, "rationale": "충족: NM/MD 태그(\"read가 참조 서열과 몇 군데 다른지 적는 보조 정보\"), 필터 전 후보, 염기 단위/구간 단위. 일부: 0×와 target 염기(read는 summary에서만 설명, 주요 내용 문장에서는 재설명 없음, '목표 영역'으로 바꿔 썼으나 무엇의 목표인지 없음), rsID/dbSNP(rsID만 설명). 미충족: 깊이(\"평균 목표 깊이는 11.0116배\" — 단위는 생겼으나 뜻 설명 없음). 기존보다 개선됐으나 점수 구간은 같음."},
+        "B3": {"status": "scored", "score": 2, "rationale": "원인 단정 없음. '때문' 두 문장은 기록된 사실: dbSNP는 파이프라인 message \"The resource bundle declares no dbsnp_vcf\", 깊이 중앙값은 lim:MEDIAN_NOT_MEASURED basis(--no-per-base)."},
+        "B4": {"status": "scored", "score": 2, "rationale": "합격 기준 없음, 깊이 중앙값 미측정, 0× 원인 미상, 경고 단계의 다른 내용 미상을 밝힘."},
+        "B5": {"status": "pending_review", "score": null, "provisionalScore": 1, "rationale": "개선: 이유를 먼저 말함(\"어느 구간이 얼마나 덮였는지 알고 싶다면\"), 관리자 작업 구분(\"서버 관리자가… 독자가 직접 할 수 있는 작업이 아닙니다\"). 남은 문제: 위치가 여전히 \"커버리지 thresholds 출력\", \"보정 전·후 검증 분류 지표\"라 초보자가 화면에서 찾기 어려움."},
+        "B6": {"status": "scored", "score": 2, "rationale": "summary 첫 문장에 상태와 결과. 가장 영향 큰 경고가 둘째 문장, 자동 보정은 마지막 문장."},
+        "H1": {"verdict": "pass", "rationale": "주장 문장 전부 payload와 대조. CIGAR는 dx:NM_MD_REPAIRED의 impactFromPipeline, '결과 지점…파이프라인의 성질'은 concept:unfiltered-variant-output, '구간 평균 깊이가 0보다 커도…'는 concept:coverage-measurement-levels, '다음 실행부터…ID 열에 rsID'는 dbSNP grounding action의 effect에 있다."},
+        "H2": {"verdict": "pass", "rationale": "인과 표현은 모두 기록된 사실에 근거(B3 참고)."},
+        "caseItems": {
+          "coverage-measurement-levels": {"verdict": "pass", "rationale": "\"이 값은 구간이 아니라 염기 하나하나를 센 값입니다.\" 7.241%는 쓰지 않아 혼동 여지 없음. limitation에 \"구간 단위 지표를 염기 단위 사실로 옮겨 말할 수 없습니다\"."},
+          "no-threshold-verdict": {"verdict": "pass", "rationale": "\"9.2905%나 11.0116배가 높은지 낮은지는 이 데이터로 판단할 수 없습니다.\""},
+          "no-unrecorded-cause": {"verdict": "pass", "rationale": "\"0× 염기가 생긴 구체적인 원인은 데이터에 나와 있지 않습니다.\""},
+          "nm-md-scope": {"verdict": "pass", "rationale": "\"바뀐 것은 이 두 태그뿐이고 read 서열, CIGAR, 좌표, 중복 표시는 그대로입니다.\" \"특정 정렬 도구의 결함이라고 말할 수 없습니다.\""},
+          "dbsnp-scope": {"verdict": "pass", "rationale": "rsID 미부여, \"변이를 찾는 계산 자체는 영향을 받지 않습니다\", \"검출되는 변이 자체는 달라지지 않습니다\"."},
+          "step-scope": {"verdict": "note", "rationale": "경고가 기록된 단계가 셋이라는 것은 말하지만 어느 단계인지 말하지 않음. 실패라고 하지는 않음. payload의 각 진단 occurredAtStep에 한국어 단계 이름('BAM 정리·보정' 등)이 이미 있으나 사용되지 않음."},
+          "uncertainty": {"verdict": "pass", "rationale": "깊이 중앙값과 합격 기준은 명시. '후보 중 실제 변이 수 미상'은 \"변이 기록 수만으로는… 품질이 어떤지 말할 수 없습니다\"로 간접적으로만 다룸(기존 답변보다 약함)."}
+        }
+      },
+      "confirmedIssues": [],
+      "notes": [
+        {"id": "N1", "kind": "clarity", "finding": "\"기록된 raw VCF라는 결과 지점은 이번 실행의 결과가 아니라 현재 파이프라인 구조의 성질입니다.\" — 정확하지만 knowledge 내부 표현('결과 지점')을 그대로 옮겼고 VCF를 설명하지 않음."},
+        {"id": "N2", "kind": "terms", "finding": "깊이·CIGAR·BAM·VCF·samtools calmd 설명 없음. read는 summary에서만 설명 — '문장마다 다시 설명' 규칙을 일부 지키지 않음."},
+        {"id": "N3", "kind": "possible_misreading", "finding": "\"8개 검증 항목은 모두 통과… 따로 눈여겨볼 항목은 없었습니다\" — 경고가 있는 실행에서 '문제 없음'으로 읽힐 수 있음. 검증표와 진단이 다르다는 설명이 없음."},
+        {"id": "N4", "kind": "length", "finding": "문장 18→22개, 글자 1,539→2,005(약 30% 증가)."},
+        {"id": "N5", "kind": "wording", "finding": "'독자가 직접 할 수 있는 작업이 아닙니다'(프롬프트의 reader 직역으로 보임), '열어 보지 않았기 때문에'(Tool 미사용이라는 내부 사정 노출)."}
+      ],
+      "omittedComparedToBefore": [
+        "구간 지표(7.241%, 89.7873%, 262,685, 54,665 등)와 target 염기 총수 — 의도한 정보량 축소. 필수 사실 아님.",
+        "20X 이상 비율(14.7509%) — 기존 답변에도 없었음."
+      ]
+    }
+  ],
+  "comparison": {
+    "metrics": {
+      "before": {"statements": 18, "byList": {"importantFindings": 7, "limitations": 4, "nextChecks": 4, "uncertainties": 3}, "characters": 1539, "distinctNumbers": 14, "numberTokens": 19, "fourPlusDigitNumbers": 7, "fourPlusDigitWithComma": 0, "maxNumbersInOneStatement": 5, "depthUnitStated": false},
+      "after": {"statements": 22, "byList": {"importantFindings": 9, "limitations": 4, "nextChecks": 5, "uncertainties": 4}, "characters": 2005, "distinctNumbers": 6, "numberTokens": 15, "fourPlusDigitNumbers": 3, "fourPlusDigitWithComma": 3, "maxNumbersInOneStatement": 3, "maxNumbersNote": "3개 중 하나는 '0×' 표기의 0", "depthUnitStated": true}
+    },
+    "parentheticalExplanations": {
+      "before": ["rsID(알려진 변이의 공개 식별자)"],
+      "after": ["read(시퀀싱으로 읽은 짧은 DNA 조각)", "NM/MD 태그(read가 참조 서열과 몇 군데 다른지 적는 보조 정보)", "상태(경고와 함께 완료)"]
+    },
+    "pairs": [
+      {
+        "topic": "평균 깊이",
+        "before": "target 평균 깊이는 11.0116이고, 평균 깊이가 20.0 미만인 구간은 262685개입니다. 이 구간들에 속한 염기는 32734899개(구간에 속한 염기 기준 89.7873%)입니다.",
+        "after": "평균 목표 깊이는 11.0116배로 기록되었습니다. 깊이 중앙값은 계산되지 않았습니다.",
+        "assessment": "수치 5개 → 1개, 단위 추가. '깊이'의 뜻은 여전히 설명 없음."
+      },
+      {
+        "topic": "0× 커버리지",
+        "before": "겹치지 않게 센 target 염기 36458262개 중 3387168개(9.2905%)는 read가 한 번도 덮지 않았습니다(염기 단위).",
+        "after": "목표 영역에서 read가 한 번도 덮지 않은(0×) 염기가 3,387,168개이며, 이는 겹치지 않게 센 목표 염기의 9.2905%입니다. 이 값은 구간이 아니라 염기 하나하나를 센 값입니다.",
+        "assessment": "쉼표, 단위를 말로 풀어 씀. '겹치지 않게 센'은 그대로 남음."
+      },
+      {
+        "topic": "요약의 경고 순서",
+        "before": "경고는 read가 전혀 덮지 못한 target 염기, 자동으로 보정된 태그, 설정되지 않은 dbSNP 세 가지입니다.",
+        "after": "가장 눈여겨볼 경고는, 목표 영역 안에 read(시퀀싱으로 읽은 짧은 DNA 조각)가 한 번도 덮지 않은 염기가 3,387,168개 있다는 점입니다. … 정렬 파일의 NM/MD 태그 문제는 자동으로 보정되어 재검증까지 끝났습니다.",
+        "assessment": "중요한 경고를 먼저, 해결된 항목을 마지막에 둠."
+      },
+      {
+        "topic": "NM/MD 보정 범위",
+        "before": "…samtools calmd로 다시 계산해 자동 보정했으며 재검증을 통과했습니다. read 서열·좌표·중복 표시는 바뀌지 않았고 따로 조치할 필요는 없습니다.",
+        "after": "정렬 파일의 NM/MD 태그(read가 참조 서열과 몇 군데 다른지 적는 보조 정보)가 어긋나 있었고 … 이 항목은 이미 처리되어 별도 조치가 필요 없습니다.",
+        "assessment": "용어 설명과 '이 항목은'이라는 범위가 생김. CIGAR, samtools calmd는 설명 없음."
+      },
+      {
+        "topic": "dbSNP 다음 확인",
+        "before": "서버 관리자가 resource bundle에 dbsnp_vcf를 선언하면 다음 실행부터 rsID가 채워집니다.",
+        "after": "rsID가 필요하다면 서버 관리자가 참조 자료 묶음에 dbSNP 파일을 선언해야 하며 … 독자가 직접 할 수 있는 작업이 아닙니다.",
+        "assessment": "설정 이름 대신 의미, 관리자 작업임을 명시. '독자'는 어색함."
+      }
+    ]
+  },
+  "userFeedback": {
+    "source": "사용자 직접 확인 — 로컬 웹 화면(개발용 복원 사본 backend + Vite), 2026-11-02",
+    "kind": "사용자 본인의 정성적 피드백. AI 평가가 아니며 초보자 집단 평가도 아니다.",
+    "items": [
+      "화면 구성은 이전보다 개선됐다.",
+      "전문용어 설명이 일부만 적용됐다.",
+      "전체 설명은 초보자에게 여전히 어렵다.",
+      "쉬운 설명을 원하지만 지나치게 가벼운 문체는 원하지 않는다.",
+      "중학교 과학 수준의 배경지식을 가정하되, 연구자도 읽을 수 있는 객관적 문체를 선호한다.",
+      "용어만 설명하는 것이 아니라 문장 전체의 이해도 개선이 필요하다."
+    ],
+    "relationToAiReview": "AI 1차 검토의 B2 잠정 1점, N1·N2와 같은 방향이다. 다만 사용자는 문장 구조 전체의 이해도를 지적했고, 이는 현재 rubric 항목(B2 필수 용어 중심)만으로는 충분히 측정되지 않는다."
+  },
+  "day2Verdict": {
+    "verdict": "NOTE",
+    "summary": "Day 2 종료. 반드시 고칠 결함(FIX)은 없다.",
+    "facts": [
+      "개선 후 V3가 자동 검사를 모두 통과했다(runtime-guardrails, numbers-preserved, no-internal-field-names, must-mention, 필수 인용 4개, 변이 수 한정).",
+      "AI 1차 검토에서 새로 생긴 부정확한 설명은 0건이다(H1·H2 pass).",
+      "사용자가 실제 웹 화면에서 결과를 확인했다.",
+      "Tool은 세 실행 모두 호출되지 않았다(callCount 0). Tool 사용은 이 case에서 선택이며 강제하지 않았다."
+    ],
+    "limits": [
+      "개선 후 결과는 1회 실행이다. 같은 날 직전 프롬프트(f1bc…)는 근거 검사에서 폐기됐으므로 안정적으로 통과한다고 말할 수 없다.",
+      "초보자 설명 품질은 부분 개선이다(숫자 밀도·순서·범위 표현은 개선, 용어와 문장 이해도는 미흡 — AI 검토와 사용자 피드백이 일치).",
+      "cba73e는 dev split이다. 다른 Run으로 일반화할 수 없다.",
+      "실제 초보자 대상 평가는 하지 않았다."
+    ],
+    "carriedToDay3": [
+      "Knowledge 용어 정의 보강(깊이, read, target/목표 영역, VCF 등)과 프롬프트 연결",
+      "입력 데이터 개선: grounding 항목에 evidenceId 표시(B안), 필요 시 steps.planned에 단계 이름 추가",
+      "프롬프트: 진단의 occurredAtStep으로 경고 단계 이름을 말하게 하기(payload 변경 없이 가능), 검증표와 진단의 구분, '독자' 표현",
+      "사용자 피드백 반영: 중학교 과학 수준 독자 + 객관적 문체 기준을 프롬프트와 평가 기준에 어떻게 반영할지 결정(rubric 변경은 사용자 승인 필요)",
+      "반복 실행으로 안정성 확인(같은 날 같은 해시는 baseline 저장이 거부되므로 반복 기록 방식 결정 필요)",
+      "B2 필수 용어 목록과 B5 판정 기준 확정(사례 spec의 proposed_pending_approval 해소)"
+    ]
+  },
+  "unverified": [
+    "웹 화면에서 생성된 답변(사용자가 본 실제 문장)은 저장되지 않았다. 이 검토는 eval baseline의 답변을 대상으로 한다.",
+    "반복 실행에 따른 변동 폭은 측정하지 않았다."
+  ]
+}
