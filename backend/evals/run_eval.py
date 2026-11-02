@@ -4,6 +4,7 @@
     python -m evals.run_eval --case all --record-baseline --yes
     python -m evals.run_eval --case agent            # tool-selection cases
     python -m evals.run_eval --case agent --variant v1   # same, tool withheld
+    python -m evals.run_eval --case real --variant v1    # preserved real run (dev)
 
 The only code in this repository that can spend subscription usage outside a
 user's own request. `pytest` never reaches it: pytest.ini sets
@@ -44,7 +45,7 @@ from app import config
 from app.services.explanation.deterministic import RunExplanation
 from app.services.explanation.llm import contract, prompt, synthesis
 
-from . import agent_cases, evaluators
+from . import agent_cases, evaluators, real_runs
 
 HERE = Path(__file__).resolve().parent
 FIXTURES = HERE / "fixtures"
@@ -70,6 +71,12 @@ AGENT_CASES = {
     "agentfail": "agent_failed_step",
     "agentwarn": "agent_warning_step",
     "agentnotool": "agent_no_tool_needed",
+}
+
+# Preserved real runs (dev), restored from a capture: see real_runs.py. Not in
+# `all` or `agent` -- `--case real` or the alias runs them, and only them.
+REAL_CASES = {
+    "realcba73e": "real_cba73e",
 }
 
 # Variant -> whether the step detail tool is offered. Only these two exist.
@@ -208,12 +215,45 @@ def evaluate_agent(name: str, *, variant: str = DEFAULT_VARIANT) -> dict[str, An
     Under v1 the observer still fires and reports that nothing was opened; the
     tool checks are reported `not_run` rather than scored against that.
     """
-    offer_tools = VARIANTS[variant]
     case = agent_cases.CASES[name]
+    record, _payload = _evaluate_run(
+        name,
+        agent_cases.materialise(case),
+        variant=variant,
+        privacy=lambda fixture, _payload: privacy_check(fixture),
+    )
+    return _after_case(record, {"caseKind": "agent", "caseIntent": case.intent})
+
+
+def _after_case(record: dict[str, Any], fields: dict[str, Any]) -> dict[str, Any]:
+    """`record` with `fields` placed right after "case", as records always were."""
+    ordered: dict[str, Any] = {}
+    for key, value in record.items():
+        ordered[key] = value
+        if key == "case":
+            ordered.update(fields)
+    return ordered
+
+
+def _evaluate_run(
+    name: str,
+    materialised,
+    *,
+    variant: str,
+    privacy,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Call the model once on a restored run and score it. Shared by agent cases.
+
+    `materialised` is the context manager that builds or restores the run;
+    `privacy(fixture, payload)` is the case's own leak check. Returns the record
+    without `caseKind`/`caseIntent`, which the caller places first, and the
+    payload the model was given.
+    """
+    offer_tools = VARIANTS[variant]
     expectations = load_expectations(name)
     seen = Observation()
 
-    with agent_cases.materialise(case) as explanation:
+    with materialised as explanation:
         payload, allowed = contract.build_payload(explanation)
         result = synthesis.build_run_synthesis(
             explanation,
@@ -232,15 +272,13 @@ def evaluate_agent(name: str, *, variant: str = DEFAULT_VARIANT) -> dict[str, An
         fetched_facts=seen.fetched,
         tools_offered=offer_tools,
     )
-    report.results.insert(0, privacy_check(fixture))
+    report.results.insert(0, privacy(fixture, payload))
 
     provenance = result.get("provenance") or {}
-    return {
+    record = {
         "invocationStatus": "invoked",
         "invocationSkippedReason": None,
         "case": name,
-        "caseKind": "agent",
-        "caseIntent": case.intent,
         "variant": variant,
         "toolsOffered": offer_tools,
         "recordedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -277,6 +315,138 @@ def evaluate_agent(name: str, *, variant: str = DEFAULT_VARIANT) -> dict[str, An
         "errorCategory": result.get("errorCategory"),
         "output": result.get("synthesis"),
     }
+    return record, payload
+
+
+# --- real runs (dev) ---------------------------------------------------------
+#
+# A preserved real run, restored into a temporary copy by real_runs.py. Kept
+# apart from the agent cases above: not part of `--case agent` or `all`, and
+# recorded with where it came from. The run is a DEV run -- it was seen while
+# the agent was developed -- so its result says nothing general on its own.
+
+_RUN_DATA_OPEN = "\n<run_data>\n"
+
+
+def real_privacy_check(run: real_runs.RealRun, payload: dict[str, Any]) -> evaluators.CheckResult:
+    """The real run's sample name, paths and capture must not reach the payload.
+
+    The synthetic check looks for a canary; a real run has a real sample name,
+    so this counts the capture's own forbidden literals instead -- and reports
+    a count, never what matched.
+    """
+    leaks = real_runs.count_leaks(json.dumps(payload, ensure_ascii=False), run)
+    if leaks:
+        return evaluators.CheckResult(
+            name="payload-privacy",
+            outcome="fail",
+            detail=f"검체 식별자·경로가 payload에 {leaks}건 유입",
+        )
+    return evaluators.CheckResult(
+        name="payload-privacy", outcome="pass", detail="검체 식별자·경로가 payload에 없음"
+    )
+
+
+def _code_version() -> dict[str, Any]:
+    """The commit the record was made from, and whether tracked files differed."""
+    import subprocess
+
+    def git(*args: str) -> str | None:
+        try:
+            done = subprocess.run(
+                ["git", *args],
+                cwd=config.ROOT,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=True,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return done.stdout.strip()
+
+    commit = git("rev-parse", "HEAD")
+    status = git("status", "--porcelain", "--untracked-files=no")
+    return {
+        "commit": commit,
+        # Tracked files only: untracked eval records must not mark every run dirty.
+        "trackedChanges": None if status is None else bool(status),
+    }
+
+
+def preflight_real(name: str) -> dict[str, Any]:
+    """Everything that can be checked about a real case without calling a model.
+
+    Restores the run twice, so the payload is shown to be a function of the
+    capture alone; builds both variants' prompts and compares their run data;
+    checks the payload for leaks; and confirms the capture is unchanged.
+    """
+    run = real_runs.REAL_RUNS[name]
+    before = real_runs.capture_manifest(run.capture_dir)
+
+    payloads = []
+    for _ in range(2):
+        with real_runs.materialise(run) as explanation:
+            payloads.append(contract.build_payload(explanation)[0])
+
+    v1, v3 = (
+        prompt.build_user_prompt(payloads[0], offer_tools=offered).split(_RUN_DATA_OPEN, 1)[1]
+        for offered in (False, True)
+    )
+    privacy = real_privacy_check(run, payloads[0])
+    after = real_runs.capture_manifest(run.capture_dir)
+
+    return {
+        "payloadHash": real_runs.payload_hash(payloads[0]),
+        "restorationsMatch": payloads[0] == payloads[1],
+        "variantRunDataMatch": v1 == v3,
+        "privacy": privacy.outcome,
+        "privacyDetail": privacy.detail,
+        "captureManifest": before,
+        "captureUnchanged": before == after,
+    }
+
+
+def preflight_ok(check: dict[str, Any]) -> bool:
+    return bool(
+        check["restorationsMatch"]
+        and check["variantRunDataMatch"]
+        and check["privacy"] == "pass"
+        and check["captureUnchanged"]
+    )
+
+
+def evaluate_real(name: str, *, variant: str = DEFAULT_VARIANT) -> dict[str, Any]:
+    """One real run: restore it, call the model once, score it, say where it came from.
+
+    The capture is hashed before and after. It is never written -- the run is a
+    temporary copy -- and the record says whether that held.
+    """
+    run = real_runs.REAL_RUNS[name]
+    before = real_runs.capture_manifest(run.capture_dir)
+    record, payload = _evaluate_run(
+        name,
+        real_runs.materialise(run),
+        variant=variant,
+        privacy=lambda _fixture, payload: real_privacy_check(run, payload),
+    )
+    after = real_runs.capture_manifest(run.capture_dir)
+    return _after_case(
+        record,
+        {
+            "caseKind": "real",
+            "caseIntent": run.intent,
+            "source": "capture",
+            "split": run.split,
+            "runId": run.run_id,
+            # The directory's name, not its path: the path says where it sits here.
+            "captureDir": run.capture_dir.name,
+            "captureManifest": before,
+            "captureUnchanged": before == after,
+            "payloadHash": real_runs.payload_hash(payload),
+            "codeVersion": _code_version(),
+        },
+    )
 
 
 def load_case(name: str) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -366,6 +536,10 @@ def print_report(record: dict[str, Any]) -> None:
         # 기록 이전의 baseline에는 이 필드가 없다. 없는 것을 v3라고 추정하지 않는다.
         offered = "Tool 제공" if record.get("toolsOffered") else "Tool 미제공"
         print(f"  variant    {record['variant']} ({offered})")
+    if record.get("caseKind") == "real":
+        print(f"  source     실제 Run capture ({record['split']}) · payload {record['payloadHash'][:16]}")
+        if not record.get("captureUnchanged"):
+            print("  경고       capture manifest가 평가 전후로 다릅니다. capture를 확인하세요.")
     if record.get("invocationStatus") == "skipped":
         # 실패가 아니라 의도적 미실행이다. 헤더에서부터 구분한다.
         print("  model      호출하지 않음 (skipped)")
@@ -407,12 +581,13 @@ def rescore(names: list[str], *, record: bool) -> int:
     """Re-evaluate stored baselines. No model call."""
     failed = 0
     for name in names:
-        if name in agent_cases.CASES:
+        if name in agent_cases.CASES or name in real_runs.REAL_RUNS:
             # An agent case has no frozen fixture: its run is built on the spot
             # and its tool-use observation only exists during the call. Scoring
             # a stored output again would answer the grounding questions and
-            # silently skip the two that case exists for.
-            print(f"{name}: agent case는 rescore를 지원하지 않습니다 (실행이 필요).")
+            # silently skip the two that case exists for. A real run is restored
+            # the same way, and is refused for the same reason.
+            print(f"{name}: agent/실제 Run case는 rescore를 지원하지 않습니다 (실행이 필요).")
             continue
         matches = sorted(BASELINES.glob(f"*_{name}_*.json"))
         if not matches:
@@ -478,7 +653,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--case",
-        choices=[*sorted(CASES), *sorted(AGENT_CASES), "all", "agent"],
+        choices=[*sorted(CASES), *sorted(AGENT_CASES), *sorted(REAL_CASES), "all", "agent", "real"],
         required=True,
     )
     parser.add_argument(
@@ -508,8 +683,12 @@ def main() -> int:
         names = list(CASES.values())
     elif args.case == "agent":
         names = list(AGENT_CASES.values())
+    elif args.case == "real":
+        names = list(REAL_CASES.values())
     elif args.case in AGENT_CASES:
         names = [AGENT_CASES[args.case]]
+    elif args.case in REAL_CASES:
+        names = [REAL_CASES[args.case]]
     else:
         names = [CASES[args.case]]
 
@@ -517,6 +696,28 @@ def main() -> int:
         # evaluator를 고쳤을 때 쓴다. 모델 출력은 그대로 두고 채점만 다시 한다 --
         # 내 채점 버그 때문에 구독 사용량을 또 쓸 이유가 없다.
         return rescore(names, record=args.record_baseline)
+
+    real = [n for n in names if n in real_runs.REAL_RUNS]
+    missing = [n for n in real if not real_runs.capture_available(real_runs.REAL_RUNS[n])]
+    if missing:
+        # capture는 git에 없다. 없는 환경에서 조용히 넘어가지 않고 멈춘다.
+        print("오류: 실제 Run capture가 이 환경에 없어 중단합니다. 호출하지 않았습니다.")
+        for n in missing:
+            print(f"  {n}: {real_runs.REAL_RUNS[n].capture_dir.name}/ 가 저장소 루트에 필요합니다")
+        return 2
+
+    for n in real:
+        # 모델을 부르기 전에 확인할 수 있는 것은 전부 확인한다.
+        check = preflight_real(n)
+        print(f"사전 검증 ({n}, 모델 호출 없음)")
+        print(f"  payload hash      {check['payloadHash'][:16]}")
+        print(f"  복원 2회 payload 일치   {check['restorationsMatch']}")
+        print(f"  V1/V3 run data 일치    {check['variantRunDataMatch']}")
+        print(f"  개인정보 검사      {check['privacy']} ({check['privacyDetail']})")
+        print(f"  capture manifest  {check['captureManifest'][:16]} · 불변 {check['captureUnchanged']}")
+        if not preflight_ok(check):
+            print("오류: 사전 검증 실패로 중단합니다. 호출하지 않았습니다.")
+            return 2
 
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     if args.record_baseline:
@@ -543,6 +744,8 @@ def main() -> int:
     for n in names:
         if n in SKIP_MODEL:
             print(f"  (skip) {n} : 모델을 호출하지 않습니다")
+        if n in real_runs.REAL_RUNS:
+            print(f"  (real) {n} : 실제 Run capture · {real_runs.REAL_RUNS[n].split} · 일반 성능 근거 아님")
     print(f"  model: {config.SYNTHESIS_MODEL or 'CLI 기본값'}")
     print("  자동 재시도 없음. 실패하면 그대로 보고합니다.")
     if not calling:
@@ -555,11 +758,12 @@ def main() -> int:
 
     records = []
     for name in names:
-        record = (
-            evaluate_agent(name, variant=args.variant)
-            if name in agent_cases.CASES
-            else evaluate(name, variant=args.variant)
-        )
+        if name in real_runs.REAL_RUNS:
+            record = evaluate_real(name, variant=args.variant)
+        elif name in agent_cases.CASES:
+            record = evaluate_agent(name, variant=args.variant)
+        else:
+            record = evaluate(name, variant=args.variant)
         print_report(record)
         records.append(record)
 

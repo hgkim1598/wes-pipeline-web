@@ -1,0 +1,267 @@
+{
+  "case": "real_cba73e",
+  "_comment": [
+    "실제 WES Run (dev). 합성 Run이 아니다 -- real_runs.py가 .capture_success_cba73e를",
+    "임시 폴더에 복원한 문서가 근거다. 이 Run은 프롬프트와 knowledge를 만드는 동안",
+    "이미 본 Run이므로 최종 test가 아니며, 1개 Run의 결과로 일반 성능을 말하지 않는다.",
+    "",
+    "facts[].source는 capture 안의 상대경로와 필드다. test_real_runs.py가 각 값을",
+    "capture 원본과 대조하므로, 이 파일의 수치가 원본과 어긋나면 테스트가 실패한다.",
+    "",
+    "Tool은 optional이다. 경고 3건과 그 grounding이 최초 payload에 이미 있어 Tool 없이도",
+    "설명할 수 있다. 연다면 경고가 기록된 04/05/06 중 예산(2개) 안의 조합만 허용한다.",
+    "모든 허용 조합에 공통인 step이 없으므로 tool-step-core는 not_run으로 보고된다.",
+    "",
+    "beginnerRubric은 rubric/beginner_v1.md와의 연결 메모다. requiredTerms는 제안 상태이며",
+    "사용자 승인 전에는 B2를 확정 채점에 쓰지 않는다."
+  ],
+
+  "source": "capture",
+  "split": "dev",
+  "runId": "wes-20260918-222933-cba73e",
+  "captureDir": ".capture_success_cba73e",
+
+  "expectedToolUse": "optional",
+  "expectedStepIds": null,
+  "acceptableStepSets": [
+    ["04_processing"],
+    ["05_coverage_qc"],
+    ["06_variant_calling"],
+    ["04_processing", "05_coverage_qc"],
+    ["04_processing", "06_variant_calling"],
+    ["05_coverage_qc", "06_variant_calling"]
+  ],
+
+  "mustMention": ["52,294", "9.2905"],
+
+  "mustCite": [
+    {
+      "name": "cites-nm-md-repair",
+      "ref": "dx:NM_MD_REPAIRED",
+      "why": "자동 보정된 사건. 빠뜨리면 미해결 오류가 있었는지 알 수 없다"
+    },
+    {
+      "name": "cites-zero-coverage",
+      "ref": "dx:ZERO_COVERAGE_TARGET_BASES",
+      "why": "target 염기의 9.2905%가 0X -- 그 위치에서는 변이를 부를 수 없다"
+    },
+    {
+      "name": "cites-dbsnp-not-configured",
+      "ref": "dx:DBSNP_NOT_CONFIGURED",
+      "why": "rsID가 붙지 않는다는 사실. 변이 호출 실패가 아니다"
+    },
+    {
+      "name": "cites-intended-use",
+      "ref": "lim:INTENDED_USE",
+      "why": "연구·교육용이며 진단 결과가 아니다"
+    }
+  ],
+
+  "mustQualify": [
+    {
+      "name": "variant-count-carries-unfiltered-qualification",
+      "whenCiting": ["run:variantCalling"],
+      "mustAlsoCite": "lim:UNFILTERED_VARIANTS",
+      "why": "52,294를 확정 변이 수로 읽히게 하지 않는다. filtering_applied=false"
+    }
+  ],
+
+  "humanReview": [
+    {
+      "name": "coverage-measurement-levels",
+      "question": "9.2905%(0X인 target 염기, 염기 단위)와 7.241%(완전히 읽히지 않은 구간에 속한 염기, 구간 단위)를 구분했는가? 둘을 같은 수치처럼 쓰거나 7.241을 '구간의 %'로 말하지 않았는가?"
+    },
+    {
+      "name": "no-threshold-verdict",
+      "question": "평균 깊이 11.0116X, 20X 이상 14.7509%에 좋다/나쁘다/충분/불충분 판정을 내리지 않았는가? (합격 기준이 설정되어 있지 않다)"
+    },
+    {
+      "name": "no-unrecorded-cause",
+      "question": "깊이가 낮은 이유(예: 입력을 일부만 사용함, 라이브러리 품질)를 말하지 않았는가? 그 이유는 이 Run 기록 어디에도 없다"
+    },
+    {
+      "name": "nm-md-scope",
+      "question": "NM/MD 보정을 '태그만 재계산했고 서열·CIGAR·좌표·중복 표시는 그대로'라는 범위로 설명했는가? 원인을 특정 도구 탓으로 단정하지 않았는가?"
+    },
+    {
+      "name": "dbsnp-scope",
+      "question": "dbSNP 미설정을 rsID 부재로 설명했는가? 변이 검출 실패나 결과 신뢰도 저하로 표현하지 않았는가?"
+    },
+    {
+      "name": "step-scope",
+      "question": "8개 단계가 모두 끝까지 실행됐고 그중 04/05/06이 경고 상태라는 것을 구분했는가? 경고 단계를 실패로 말하지 않았는가?"
+    },
+    {
+      "name": "uncertainty",
+      "question": "모르는 것을 모른다고 했는가? (깊이 중앙값 미측정, 합격 기준 없음, 후보 중 실제 변이 수 미상)"
+    }
+  ],
+
+  "facts": [
+    {
+      "id": "run-status",
+      "statement": "실행 상태는 completed_with_warnings이다",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/status/run_status.json", "field": "status"},
+      "expected": "completed_with_warnings",
+      "payloadRef": "run:status"
+    },
+    {
+      "id": "all-steps-completed",
+      "statement": "계획된 8개 단계가 모두 완료 목록에 있고 실패 단계는 없다",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/status/run_status.json", "field": "completed_steps"},
+      "expected": [
+        "00_input_validation", "01_raw_qc", "02_preprocessing", "03_alignment",
+        "04_processing", "05_coverage_qc", "06_variant_calling", "99_finalization"
+      ],
+      "payloadRef": "run:steps"
+    },
+    {
+      "id": "no-failed-steps",
+      "statement": "실패 단계 목록은 비어 있다",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/status/run_status.json", "field": "failed_steps"},
+      "expected": [],
+      "payloadRef": "run:steps"
+    },
+    {
+      "id": "warning-count",
+      "statement": "경고는 3건이다",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/core_summary.json", "field": "warning_count"},
+      "expected": 3,
+      "payloadRef": null
+    },
+    {
+      "id": "warning-04",
+      "statement": "04_processing의 경고는 NM_MD_REPAIRED이다",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/status/steps/04_processing.json", "field": "warnings.0.code"},
+      "expected": "NM_MD_REPAIRED",
+      "payloadRef": "dx:NM_MD_REPAIRED"
+    },
+    {
+      "id": "nm-md-scope",
+      "statement": "NM/MD 태그만 바뀌었고 서열·CIGAR·좌표·중복 표시는 보존됐다",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/status/steps/04_processing.json", "field": "warnings.0.impact"},
+      "expected": "Only the NM and MD tags changed; read sequence, CIGAR, coordinates and duplicate flags are preserved",
+      "payloadRef": "dx:NM_MD_REPAIRED"
+    },
+    {
+      "id": "markdup-validation-before",
+      "statement": "보정 전 BAM 검증 분류는 ONLY_NM이다 (Tool로 04를 열어야 step 근거로 확인 가능)",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/metrics/04_processing.json", "field": "metrics.markdup_validation"},
+      "expected": "ONLY_NM",
+      "payloadRef": "step:04_processing"
+    },
+    {
+      "id": "markdup-validation-after",
+      "statement": "보정 후 재검증 분류는 CLEAN이다 (Tool로 04를 열어야 step 근거로 확인 가능)",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/metrics/04_processing.json", "field": "metrics.markdup_validation_after_calmd"},
+      "expected": "CLEAN",
+      "payloadRef": "step:04_processing"
+    },
+    {
+      "id": "warning-05",
+      "statement": "05_coverage_qc의 경고는 ZERO_COVERAGE_TARGET_BASES이다",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/status/steps/05_coverage_qc.json", "field": "warnings.0.code"},
+      "expected": "ZERO_COVERAGE_TARGET_BASES",
+      "payloadRef": "dx:ZERO_COVERAGE_TARGET_BASES"
+    },
+    {
+      "id": "zero-coverage-bases-pct",
+      "statement": "target 염기의 9.2905%가 0X이다 (염기 단위)",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/05_coverage_qc/coverage_metrics.json", "field": "zero_coverage_bases_pct"},
+      "expected": 9.2905,
+      "payloadRef": "run:coverage"
+    },
+    {
+      "id": "fully-uncovered-interval-bases-pct",
+      "statement": "완전히 읽히지 않은 구간에 속한 염기는 7.241%이다 (구간 단위, 위 9.2905와 다른 측정)",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/05_coverage_qc/coverage_metrics.json", "field": "bases_in_fully_uncovered_intervals_pct"},
+      "expected": 7.241,
+      "payloadRef": "run:coverage"
+    },
+    {
+      "id": "mean-target-depth",
+      "statement": "target 평균 깊이는 11.0116X이다. 합격 기준이 없으므로 판정하지 않는다",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/05_coverage_qc/coverage_metrics.json", "field": "mean_target_depth"},
+      "expected": 11.0116,
+      "payloadRef": "run:coverage"
+    },
+    {
+      "id": "ge-20x-pct",
+      "statement": "20X 이상으로 읽힌 target 염기는 14.7509%이다",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/05_coverage_qc/coverage_metrics.json", "field": "target_bases_ge_20X_pct"},
+      "expected": 14.7509,
+      "payloadRef": "run:coverage"
+    },
+    {
+      "id": "median-not-measured",
+      "statement": "깊이 중앙값은 계산되지 않았다",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/05_coverage_qc/coverage_metrics.json", "field": "median_target_depth"},
+      "expected": null,
+      "payloadRef": "lim:MEDIAN_NOT_MEASURED"
+    },
+    {
+      "id": "warning-06",
+      "statement": "06_variant_calling의 경고는 DBSNP_NOT_CONFIGURED이다",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/status/steps/06_variant_calling.json", "field": "warnings.0.code"},
+      "expected": "DBSNP_NOT_CONFIGURED",
+      "payloadRef": "dx:DBSNP_NOT_CONFIGURED"
+    },
+    {
+      "id": "dbsnp-scope",
+      "statement": "변이 기록에 rsID가 붙지 않을 뿐 변이 호출 자체는 영향받지 않는다",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/status/steps/06_variant_calling.json", "field": "warnings.0.impact"},
+      "expected": "Variant records will carry no rsID; the calls themselves are unaffected",
+      "payloadRef": "dx:DBSNP_NOT_CONFIGURED"
+    },
+    {
+      "id": "raw-variant-records",
+      "statement": "필터 적용 전 변이 후보 기록은 52,294건이다",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/06_variant_calling/variant_calling_output.json", "field": "raw_variant_records"},
+      "expected": 52294,
+      "payloadRef": "run:variantCalling"
+    },
+    {
+      "id": "filtering-not-applied",
+      "statement": "변이 필터는 적용되지 않았다",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/06_variant_calling/variant_calling_output.json", "field": "filtering_applied"},
+      "expected": false,
+      "payloadRef": "lim:UNFILTERED_VARIANTS"
+    },
+    {
+      "id": "intended-use",
+      "statement": "연구·교육용이며 진단 결과가 아니다",
+      "source": {"file": "runs/wes-20260918-222933-cba73e/core_summary.json", "field": "intended_use"},
+      "expected": "research and education only; not a diagnostic result",
+      "payloadRef": "lim:INTENDED_USE"
+    }
+  ],
+
+  "mustAcknowledge": [
+    "깊이 중앙값은 측정되지 않았다 (median-not-measured)",
+    "커버리지 합격 기준이 설정되어 있지 않아 충분한지 판정할 수 없다",
+    "52,294건 중 실제 변이가 몇 건인지는 이 데이터로 알 수 없다",
+    "결과는 연구·교육용이며 진단 결과가 아니다"
+  ],
+
+  "notSupportedByRun": [
+    "깊이가 낮은 원인 (입력 일부 사용, 라이브러리 품질 등 -- Run 기록에 없음)",
+    "커버리지·변이 결과의 품질 판정 (좋다/나쁘다/충분/불충분)",
+    "NM/MD 불일치의 원인을 특정 정렬 도구 탓으로 단정",
+    "dbSNP 미설정이 변이 호출 결과를 바꿨다는 주장",
+    "임상적 의미 또는 진단"
+  ],
+
+  "beginnerRubric": {
+    "rubric": "beginner_v1",
+    "status": "proposed_pending_approval",
+    "requiredTerms": [
+      {"term": "깊이(depth)", "why": "평균 11.0116X와 20X 이상 비율을 전달하려면 필요"},
+      {"term": "0X / target 염기", "why": "ZERO_COVERAGE 경고(9.2905%)를 전달하려면 필요"},
+      {"term": "염기 단위와 구간 단위", "why": "9.2905%와 7.241%를 구분하려면 필요"},
+      {"term": "NM/MD 태그", "why": "NM_MD_REPAIRED 경고의 범위를 전달하려면 필요. 쉬운 말 대체 인정"},
+      {"term": "rsID / dbSNP", "why": "DBSNP_NOT_CONFIGURED 경고의 영향을 전달하려면 필요"},
+      {"term": "필터 전 변이 후보", "why": "52,294건을 확정 변이로 읽지 않게 하려면 필요"}
+    ],
+    "b5NextChecks": "판정 보류 -- knowledge에 근거 있는 다음 확인이 일부 있으나, 무엇을 '반드시' 제시해야 하는지는 아직 정하지 않았다"
+  }
+}

@@ -29,7 +29,7 @@ would be the one nobody re-read. Both are development-only code; neither ships.
 Disposable, and nowhere near production
 ---------------------------------------
 
-`materialise()` points `config` at a fresh temporary directory -- its own runs
+`materialise()` (through `isolated_environment()`) points `config` at a fresh temporary directory -- its own runs
 root, its own sqlite file -- and puts everything back afterwards. The
 production database is never opened, and no WES pipeline is run.
 """
@@ -316,12 +316,12 @@ def _insert_job(case: AgentCase, run_dir: Path) -> None:
 
 
 @contextmanager
-def materialise(case: AgentCase) -> Iterator[RunExplanation]:
-    """Build the case's run in a throwaway environment and explain it.
+def isolated_environment() -> Iterator[Path]:
+    """Point `config` at a fresh temporary directory, and put it all back after.
 
-    Inside the block the agent's MCP server can read this run -- `launch.py`
-    passes the patched database and runs root to the child process, so the
-    child resolves them the way this process does. Outside it, nothing remains.
+    Its own runs root, its own sqlite file: the production database is never
+    opened. Shared by the synthetic cases here and the preserved real runs in
+    real_runs.py, so both are isolated the same way. Yields the work directory.
     """
     work = Path(tempfile.mkdtemp(prefix="wes-agent-eval-"))
     previous = (config.RUNS_ROOT, config.JOBS_ROOT, config.UPLOAD_ROOT, config.DB_PATH)
@@ -335,13 +335,7 @@ def materialise(case: AgentCase) -> Iterator[RunExplanation]:
         for directory in (config.RUNS_ROOT, config.JOBS_ROOT, config.UPLOAD_ROOT):
             directory.mkdir(parents=True, exist_ok=True)
         db._conn = None
-
-        builder = RunBuilder(config.RUNS_ROOT, RUN_ID)
-        case.build(builder)
-        _insert_job(case, builder.run_dir)
-
-        context = run_context.build_run_diagnostic_context(RUN_ID)
-        yield deterministic.build_run_explanation(context)
+        yield work
     finally:
         if db._conn is not None:
             db._conn.close()
@@ -350,4 +344,28 @@ def materialise(case: AgentCase) -> Iterator[RunExplanation]:
         rmtree(work, ignore_errors=True)
 
 
-__all__ = ["CASES", "RUN_ID", "SAMPLE_ID", "AgentCase", "materialise"]
+@contextmanager
+def materialise(case: AgentCase) -> Iterator[RunExplanation]:
+    """Build the case's run in a throwaway environment and explain it.
+
+    Inside the block the agent's MCP server can read this run -- `launch.py`
+    passes the patched database and runs root to the child process, so the
+    child resolves them the way this process does. Outside it, nothing remains.
+    """
+    with isolated_environment():
+        builder = RunBuilder(config.RUNS_ROOT, RUN_ID)
+        case.build(builder)
+        _insert_job(case, builder.run_dir)
+
+        context = run_context.build_run_diagnostic_context(RUN_ID)
+        yield deterministic.build_run_explanation(context)
+
+
+__all__ = [
+    "CASES",
+    "RUN_ID",
+    "SAMPLE_ID",
+    "AgentCase",
+    "isolated_environment",
+    "materialise",
+]
