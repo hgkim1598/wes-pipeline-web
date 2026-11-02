@@ -1,0 +1,217 @@
+{
+  "invocationStatus": "invoked",
+  "invocationSkippedReason": null,
+  "case": "agent_failed_step",
+  "caseKind": "agent",
+  "caseIntent": "04_processing에서 멈춘 실행 -- payload로 설명 가능, 연다면 04가 핵심",
+  "variant": "v1",
+  "toolsOffered": false,
+  "recordedAt": "2026-11-01T16:33:55+00:00",
+  "provider": "claude-code-cli",
+  "models": [
+    "claude-sonnet-5-5"
+  ],
+  "durationMs": 8954,
+  "configuredModel": "sonnet",
+  "promptHash": "49e2a648ec3a1786",
+  "knowledgeHash": "07765c4e1462b229",
+  "schemaHash": "07ba45eb8da7f48f",
+  "allowedRefCount": 4,
+  "toolUse": {
+    "toolUsed": false,
+    "openedStepIds": [],
+    "toolEvidenceIds": [],
+    "callCount": 0,
+    "repeatCount": 0,
+    "refusals": []
+  },
+  "trace": {
+    "models": [
+      "claude-sonnet-5-5"
+    ],
+    "durationMs": 8954,
+    "numTurns": 2,
+    "openedStepIds": [],
+    "available": true,
+    "errorCategory": null
+  },
+  "evidenceUse": {
+    "returnedToolEvidenceIds": [],
+    "citedToolEvidenceIds": [],
+    "returnedNotCitedIds": []
+  },
+  "expectedToolUse": "optional",
+  "expectedStepIds": null,
+  "acceptableStepSets": [
+    [
+      "04_processing"
+    ],
+    [
+      "04_processing",
+      "00_input_validation"
+    ]
+  ],
+  "evaluation": {
+    "case": "agent_failed_step",
+    "deterministicPassed": true,
+    "results": [
+      {
+        "name": "payload-privacy",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "검체 식별자가 payload에 없음"
+      },
+      {
+        "name": "tool-use",
+        "outcome": "not_run",
+        "kind": "deterministic",
+        "detail": "Tool 미제공 variant"
+      },
+      {
+        "name": "tool-step-selection",
+        "outcome": "not_run",
+        "kind": "deterministic",
+        "detail": "Tool 미제공 variant"
+      },
+      {
+        "name": "tool-step-core",
+        "outcome": "not_run",
+        "kind": "deterministic",
+        "detail": "Tool 미제공 variant"
+      },
+      {
+        "name": "runtime-guardrails",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "발동 없음"
+      },
+      {
+        "name": "numbers-preserved",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "14개 사실 숫자와 대조"
+      },
+      {
+        "name": "no-internal-field-names",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "10개 키 중 노출 0"
+      },
+      {
+        "name": "cites-failure",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "fail:markdup_validation 인용됨"
+      },
+      {
+        "name": "failure-scope",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "실패를 04_processing 단계의 사건으로 설명했는가? 뒤 단계가 수행된 것처럼 말하지 않았는가?"
+      },
+      {
+        "name": "no-cause-overreach",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "grounding이 없는 code인데 원인을 단정하지 않았는가?"
+      }
+    ]
+  },
+  "humanReview": {
+    "reviewedBy": null,
+    "verdict": null,
+    "notes": null,
+    "items": [
+      {
+        "name": "failure-scope",
+        "question": "실패를 04_processing 단계의 사건으로 설명했는가? 뒤 단계가 수행된 것처럼 말하지 않았는가?",
+        "verdict": null
+      },
+      {
+        "name": "no-cause-overreach",
+        "question": "grounding이 없는 code인데 원인을 단정하지 않았는가?",
+        "verdict": null
+      }
+    ]
+  },
+  "available": true,
+  "errorCategory": null,
+  "output": {
+    "summary": "이번 실행은 실패 상태로 끝났습니다. 입력 확인, 원본 품질 확인, 전처리, 정렬 단계는 끝났고, 그다음 단계인 BAM 정리·보정 단계에서 중복 표시 후 검증이 실패했습니다. 이후 단계는 시작되지 않았고 결과 요약 파일도 만들어지지 않아, 이 실행에서 확인할 수 있는 분석 결과는 없습니다.",
+    "importantFindings": [
+      {
+        "statement": "실행 전체의 상태는 실패이며, 실행 방식은 전체 실행입니다.",
+        "evidenceRefs": [
+          "run:status"
+        ]
+      },
+      {
+        "statement": "BAM 정리·보정 단계에서 중복 표시를 한 뒤 BAM 파일을 검증하는 과정이 실패했다고 파이프라인이 기록했습니다.",
+        "evidenceRefs": [
+          "fail:markdup_validation"
+        ]
+      },
+      {
+        "statement": "두 개의 점검 중 하나는 통과했고 하나는 실패했으며, 실패한 점검은 samtools quickcheck가 중복 표시된 BAM에서 실패한 것입니다.",
+        "evidenceRefs": [
+          "run:checkSummary"
+        ]
+      },
+      {
+        "statement": "입력 확인, 원본 품질 확인, 전처리, 정렬 네 단계는 완료되었고, 각각 40초가 걸렸습니다.",
+        "evidenceRefs": [
+          "run:steps"
+        ]
+      },
+      {
+        "statement": "BAM 정리·보정 단계는 612초 동안 실행된 뒤 실패했고, 커버리지 품질 확인, 변이 호출, 마무리 단계는 시작되지 않은 대기 상태입니다.",
+        "evidenceRefs": [
+          "run:steps"
+        ]
+      },
+      {
+        "statement": "결과 요약 파일이 만들어지지 않았기 때문에 이 실행의 결과는 제공되지 않습니다.",
+        "evidenceRefs": [
+          "run:status"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "statement": "이 실행은 BAM 정리·보정 단계에서 멈췄으므로 커버리지나 변이 관련 측정값은 이 데이터에 없습니다.",
+        "evidenceRefs": [
+          "run:status",
+          "run:steps"
+        ]
+      },
+      {
+        "statement": "점검 결과는 두 건뿐이며, 실패 항목의 내용은 짧은 설명 한 줄이 전부입니다.",
+        "evidenceRefs": [
+          "run:checkSummary"
+        ]
+      }
+    ],
+    "nextChecks": [],
+    "uncertainties": [
+      {
+        "statement": "검증이 왜 실패했는지에 대한 원인은 제공된 데이터만으로는 알 수 없습니다.",
+        "evidenceRefs": [
+          "fail:markdup_validation"
+        ]
+      },
+      {
+        "statement": "실패를 해결하기 위해 무엇을 해야 하는지는 이 데이터에 나와 있지 않습니다.",
+        "evidenceRefs": [
+          "fail:markdup_validation",
+          "run:checkSummary"
+        ]
+      },
+      {
+        "statement": "뒤따르는 단계가 실행되었다면 어떤 결과가 나왔을지는 알 수 없습니다.",
+        "evidenceRefs": [
+          "run:steps"
+        ]
+      }
+    ]
+  }
+}
