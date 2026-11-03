@@ -45,7 +45,7 @@ from app import config
 from app.services.explanation.deterministic import RunExplanation
 from app.services.explanation.llm import contract, prompt, synthesis
 
-from . import agent_cases, evaluators, real_runs
+from . import agent_cases, evaluators, explanation_quality, real_runs
 
 HERE = Path(__file__).resolve().parent
 FIXTURES = HERE / "fixtures"
@@ -314,6 +314,11 @@ def _evaluate_run(
         "available": result.get("available"),
         "errorCategory": result.get("errorCategory"),
         "output": result.get("synthesis"),
+        # 개발·평가용 설명 품질 검사. evaluation과 별개이며 deterministicPassed에
+        # 영향을 주지 않는다(explanation_quality.py).
+        "explanationQuality": explanation_quality.evaluate_record(
+            expectations, payload, result.get("synthesis")
+        ),
     }
     return record, payload
 
@@ -527,6 +532,11 @@ def evaluate(name: str, *, variant: str = DEFAULT_VARIANT) -> dict[str, Any]:
         "available": result.get("available"),
         "errorCategory": result.get("errorCategory"),
         "output": result.get("synthesis"),
+        # 개발·평가용 설명 품질 검사. evaluation과 별개이며 deterministicPassed에
+        # 영향을 주지 않는다(explanation_quality.py).
+        "explanationQuality": explanation_quality.evaluate_record(
+            expectations, payload, result.get("synthesis")
+        ),
     }
 
 
@@ -575,6 +585,9 @@ def print_report(record: dict[str, Any]) -> None:
             f"{'PASSED' if record['evaluation']['deterministicPassed'] else 'FAILED'}"
             f" · human items: {len(record['humanReview']['items'])}"
         )
+    if "explanationQuality" in record:
+        # 기록 이전의 baseline에는 이 키가 없다. 없는 것을 검사하지 않는다.
+        explanation_quality.print_quality(record["case"], record["explanationQuality"])
 
 
 def rescore(names: list[str], *, record: bool) -> int:
@@ -613,6 +626,11 @@ def rescore(names: list[str], *, record: bool) -> int:
         stored["evaluation"] = report.to_json()
         stored["rescoredAt"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
         print_report(stored)
+        # 출력만 한다. --record가 baseline에 새 키를 끼워 넣지 않게 stored에는 넣지 않는다.
+        explanation_quality.print_quality(
+            name,
+            explanation_quality.evaluate_record(expectations, payload, stored.get("output")),
+        )
         if record:
             path.write_text(
                 json.dumps(stored, ensure_ascii=False, indent=2) + "\n",

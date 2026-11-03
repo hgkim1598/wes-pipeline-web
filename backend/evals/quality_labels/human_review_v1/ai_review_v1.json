@@ -1,0 +1,406 @@
+{
+  "schemaVersion": "1.0",
+  "labelSource": "ai_review",
+  "reviewer": "Claude (claude-opus-5-5). AI 검토이며 사람 정답이 아니다.",
+  "createdAt": "2026-11-03",
+  "_comment": [
+    "review_sheet.md의 HR05~HR20을 AI가 검토한 결과다. 사람 판정(responses.json)과 섞어 세지 않는다.",
+    "이 20개는 모두 개발 데이터다(합성 HR03·HR12 포함). 여기 나온 일치 건수는 검사기 정확도가 아니며, Precision·Recall·F1을 계산하지 않았다.",
+    "판정 값: 정상 | 오류 | 애매함. 질문의 뜻은 review_sheet.md '판정 방법'과 같다.",
+    "scienceChecks는 HR01~HR04 문장의 과학적 정확성에 대한 AI 의견이며, 사용자 판정을 바꾸거나 대신하지 않는다."
+  ],
+  "procedure": [
+    "1) review_sheet.md, config/knowledge/wes_terms.json(시트에 옮긴 기준 자료), case payload만 보고 판정을 먼저 정했다.",
+    "2) 그다음 answer_key.md를 열어 검사기 판정과 비교했다.",
+    "예외: HR20은 처음에 부록을 580행까지만 읽어 Day 2 답변의 uncertainties[0~3]을 보지 못한 채 '오류'로 판정했다. answer_key.md가 uncertainties[3]을 인용한 것을 보고 전문을 다시 읽어 '애매함'으로 고쳤다. 고친 판정은 검사기 판정을 본 뒤에 나온 것이므로 독립 판단이 아니다(aiVerdictInitial에 처음 값을 남김)."
+  ],
+  "cases": [
+    {
+      "id": "HR05",
+      "kind": "term",
+      "term": "BAM",
+      "location": "2026-09-10_full_completed_with_warnings_sonnet.json → output.summary",
+      "aiVerdict": {"q1": "오류", "q2": "오류"},
+      "reasons": [
+        "BAM은 단계 이름을 바꿔 쓴 'BAM 처리' 안에서만 나오고, 무엇인지(read를 참조 유전체에 맞춘 결과를 담은 파일) 설명이 없다.",
+        "같은 답변의 다른 항목에도 BAM 언급이 없어 Q2도 오류다.",
+        "같은 summary에 상태 코드 completed_with_warnings, 번역하지 않은 raw VCF, 설명 없는 VCF·깊이·target이 함께 있다(검사기도 각각 따로 잡음)."
+      ],
+      "evidence": [
+        "3개 단계(BAM 처리, 커버리지 점검, 변이 검출)에서 경고가 기록되었습니다",
+        "wes_terms plain: 읽어 낸 read를 참조 유전체의 어느 위치에 맞췄는지 기록한 파일입니다."
+      ],
+      "checker": {"verdict": "FAIL", "rule": "never_explained", "detail": "BAM: 답변 어디에서도 설명하지 않음"},
+      "agreement": "일치",
+      "checkerErrorSuspicion": "판정은 이해도 기준과 맞다. 다만 검사기는 단계 이름을 가리고 세도록 설계됐는데, 바꿔 쓴 단계 이름('BAM 처리')은 가리지 못해 이 FAIL이 나왔다. 설계 의도와 다른 경로로 나온 판정이라, 단계 이름 속 용어를 셀지 정책 결정이 필요하다.",
+      "issueTypes": ["A", "E", "G"],
+      "needsExpert": false
+    },
+    {
+      "id": "HR06",
+      "kind": "term",
+      "term": "NM/MD 태그",
+      "location": "2026-11-02_real_cba73e_v3_sonnet_110c63124b4325fc.json → output.importantFindings[4]",
+      "aiVerdict": {"q1": "정상", "q2": "정상"},
+      "reasons": [
+        "'read와 참조 서열의 차이 개수를 적는 보조 태그'는 NM의 정의(차이 개수)와 맞다.",
+        "MD는 개수가 아니라 어긋나거나 결실된 참조 염기를 적는 태그라서, '어디가 다른지'가 빠진 불완전한 설명이다. 틀린 설명은 아니라고 보았다.",
+        "같은 항목의 samtools calmd는 설명 없는 도구 이름이다(연구자에게는 필요할 수 있어 판단이 갈림)."
+      ],
+      "evidence": [
+        "read와 참조 서열의 차이 개수를 적는 보조 태그(NM·MD)가 어긋나 있었고",
+        "wes_terms 정의: NM은 read와 참조 서열 사이의 차이 개수, MD는 어긋나거나 결실된 참조 염기를 적는 태그입니다."
+      ],
+      "checker": {"verdict": "PASS", "rule": "explained", "detail": "NM/MD 설명 있음"},
+      "agreement": "일치",
+      "checkerErrorSuspicion": "없음. 다만 검사기는 MD 설명이 불완전한 것은 보지 않는다.",
+      "issueTypes": [],
+      "needsExpert": true
+    },
+    {
+      "id": "HR07",
+      "kind": "term",
+      "term": "target",
+      "location": "2026-11-02_real_cba73e_v3_sonnet_d505c173885f6c9b.json → output.summary",
+      "aiVerdict": {"q1": "애매함", "q2": "애매함"},
+      "reasons": [
+        "'목표 영역'은 target을 그대로 옮긴 쉬운 말이다. 하지만 '이번 분석에서 읽으려고 미리 정해 둔 유전체 구간'이라는 점, 유전체 전체가 아니라는 점은 드러나지 않는다.",
+        "답변 어디에도 목표 영역이 무엇인지 설명이 없다(목표 영역·목표 염기·평균 목표 깊이로만 나옴).",
+        "초보자가 '목표'라는 낱말만으로 충분히 이해하는지는 사람이 판단해야 한다."
+      ],
+      "evidence": [
+        "목표 영역 안에 read(시퀀싱으로 읽은 짧은 DNA 조각)가 한 번도 덮지 않은 염기가 3,387,168개 있다는 점입니다.",
+        "wes_terms plain: 이번 분석에서 읽으려고 정해 둔 유전체 구간들입니다."
+      ],
+      "checker": {"verdict": "REVIEW", "rule": "review_substitute", "detail": "용어 대신 쓴 말이 초보자에게 뜻을 전하는지 확인 필요"},
+      "agreement": "검사기 보류(REVIEW)",
+      "checkerErrorSuspicion": "없음. 사람에게 넘긴 것이 적절하다고 본다.",
+      "issueTypes": ["A"],
+      "needsExpert": false
+    },
+    {
+      "id": "HR08",
+      "kind": "term",
+      "term": "깊이",
+      "location": "2026-11-02_real_cba73e_v3_sonnet_08c1f9035445420a.json → output.importantFindings[4]",
+      "aiVerdict": {"q1": "오류", "q2": "오류"},
+      "reasons": [
+        "깊이가 무엇을 세는지(한 위치를 read가 몇 번 겹쳐 덮었는지)가 없다. 그래서 '11.0116배'가 무엇의 몇 배인지 알 수 없다.",
+        "뒷문장은 wes_terms의 '잘못 읽기 쉬운 점'(평균이 0보다 커도 0× 위치가 있을 수 있음)과 맞는 주의사항이지만 정의는 아니다.",
+        "같은 답변의 limitations[1], nextChecks[0], nextChecks[1]에도 정의가 없다.",
+        "'평균은 구간 전체를 합친 값'에서 '합친'은 평균을 설명하는 말로 정확하지 않다(경미).",
+        "11배가 충분한지에 대한 기준은 이 항목에 없고, uncertainties[1]에 '설정된 기준이 없어 판단할 수 없다'고 따로 적혀 있다."
+      ],
+      "evidence": [
+        "target 전체의 평균 깊이는 11.0116배로 기록되었습니다.",
+        "wes_terms plain: 한 염기 위치를 read가 몇 번 겹쳐 덮었는지를 나타내는 수입니다."
+      ],
+      "checker": {"verdict": "FAIL", "rule": "never_explained", "detail": "깊이: 답변 어디에서도 설명하지 않음"},
+      "agreement": "일치",
+      "checkerErrorSuspicion": "없음",
+      "issueTypes": ["A", "D"],
+      "needsExpert": false
+    },
+    {
+      "id": "HR09",
+      "kind": "term",
+      "term": "깊이",
+      "location": "2026-11-01_agent_no_tool_needed_v3_sonnet_110c63124b4325fc.json → output.importantFindings[4]",
+      "aiVerdict": {"q1": "정상", "q2": "정상"},
+      "reasons": [
+        "'깊이는 한 위치를 읽은 서열이 평균 몇 번 겹치는지를 뜻합니다'는 wes_terms plain과 같은 뜻이다.",
+        "정의 안에 '평균'이 섞여 깊이와 평균 깊이의 구분이 흐리지만, 바로 앞 문장이 평균 깊이를 말하고 있어 뜻이 틀리지는 않는다(경미).",
+        "85.2배는 payload의 meanTargetDepth 85.2와 같다."
+      ],
+      "evidence": [
+        "깊이는 한 위치를 읽은 서열이 평균 몇 번 겹치는지를 뜻합니다.",
+        "wes_terms plain: 한 염기 위치를 read가 몇 번 겹쳐 덮었는지를 나타내는 수입니다."
+      ],
+      "checker": {"verdict": "REVIEW", "rule": "possible_definition", "detail": "깊이를 문장 안에서 정의하는 것으로 보이나 확인 필요"},
+      "agreement": "검사기 보류(REVIEW)",
+      "checkerErrorSuspicion": "오류는 아니다. 맞는 정의를 사람에게 넘긴 보수적인 판정이다.",
+      "issueTypes": [],
+      "needsExpert": true
+    },
+    {
+      "id": "HR10",
+      "kind": "term",
+      "term": "0×",
+      "location": "2026-11-02_real_cba73e_v3_sonnet_08c1f9035445420a.json → output.summary",
+      "aiVerdict": {"q1": "정상", "q2": "애매함"},
+      "reasons": [
+        "summary는 0× 기호를 쓰지 않고 'read가 한 번도 덮지 않은 염기'로 뜻을 전했다(wes_terms plain과 같은 뜻). 다만 summary에서 read 자체는 설명되지 않는다(HR01과 같은 문제, 별도 용어).",
+        "다른 항목(importantFindings[3], limitations[2], nextChecks[1], uncertainties[0])은 '0×' 기호를 쓰는데, 답변 어디에서도 '0× = 한 번도 덮이지 않음'으로 두 표현을 이어 주지 않는다. 뜻은 전해졌지만 기호와 잇는 일은 독자에게 맡겨져 있다."
+      ],
+      "evidence": [
+        "가장 주의할 점은 target 구간 안에 read가 한 번도 덮지 않은 염기가 있다는 것이고",
+        "이 프로젝트에는 0× 염기 비율에 대한 합격·불합격 기준이 설정돼 있지 않아"
+      ],
+      "checker": {"verdict": "PASS", "rule": "conveyed_plain", "detail": "용어 없이 쉬운 말로 전달 (답변 전체 요약은 REVIEW explained_elsewhere, 설명된 항목 3/7)"},
+      "agreement": "일치",
+      "checkerErrorSuspicion": "Q1 기준으로 없음. 기호와 쉬운 말을 이어 줬는지는 검사기가 보지 않는다.",
+      "issueTypes": ["C"],
+      "needsExpert": false
+    },
+    {
+      "id": "HR11",
+      "kind": "term",
+      "term": "dbSNP / rsID",
+      "location": "2026-11-02_real_cba73e_v3_sonnet_d505c173885f6c9b.json → output.importantFindings[6]",
+      "aiVerdict": {"q1": "애매함", "q2": "애매함"},
+      "aiVerdictBySubterm": {"rsID": {"q1": "정상", "q2": "정상"}, "dbSNP": {"q1": "오류", "q2": "오류"}},
+      "reasons": [
+        "'알려진 변이에 붙는 공개 식별자인 rsID'는 기준 자료와 맞는다.",
+        "dbSNP는 'dbSNP 파일'로만 나오고 무엇인지(이미 보고된 작은 변이를 모은 공개 데이터베이스) 설명이 없다. nextChecks[2], nextChecks[3]도 같다.",
+        "rsID 설명 덕분에 맥락은 짐작할 수 있지만 dbSNP의 정의는 없다. 두 낱말을 한 용어로 묶어 판정하면 정상인지 오류인지 정하기 어렵다."
+      ],
+      "evidence": [
+        "알려진 변이에 붙는 공개 식별자인 rsID가 부여되지 않았습니다.",
+        "이 서버의 참조 자료 묶음에 dbSNP 파일이 선언되어 있지 않기 때문이며"
+      ],
+      "checker": {"verdict": "FAIL", "rule": "never_explained", "detail": "dbSNP: 답변 어디에서도 설명하지 않음"},
+      "agreement": "부분 일치",
+      "checkerErrorSuspicion": "dbSNP만 놓고 보면 일치한다. 묶음 용어 전체를 FAIL로 볼지는 정책 문제다.",
+      "issueTypes": ["A"],
+      "needsExpert": false
+    },
+    {
+      "id": "HR12",
+      "kind": "term",
+      "synthetic": true,
+      "term": "dbSNP / rsID",
+      "location": "explanation_quality_labels_v1.json syntheticAnswers syn_rsid_detect",
+      "aiVerdict": {"q1": "오류"},
+      "reasons": [
+        "괄호 설명 '변이가 검출되었는지 표시하는 값'은 wes_terms가 '잘못 읽기 쉬운 점'으로 적어 둔 오해와 같다. rsID는 dbSNP에 등록된 변이의 식별 번호이고, 비어 있어도 변이가 검출되지 않았다는 뜻이 아니다."
+      ],
+      "evidence": [
+        "rsID(변이가 검출되었는지 표시하는 값)가 비어 있습니다.",
+        "wes_terms 잘못 읽기 쉬운 점: rsID가 비어 있다는 것은 변이가 검출되지 않았다는 뜻이 아닙니다."
+      ],
+      "checker": {"verdict": "FAIL", "rule": "inaccurate_gloss", "detail": "rsID 설명이 부정확"},
+      "agreement": "일치",
+      "checkerErrorSuspicion": "없음. 다만 합성 문장이라 실제 답변에서도 이렇게 잡을지는 알 수 없다.",
+      "issueTypes": ["B"],
+      "needsExpert": true
+    },
+    {
+      "id": "HR13",
+      "kind": "term",
+      "term": "dbSNP / rsID",
+      "location": "2026-09-10_full_completed_with_warnings_sonnet_b72d23897664f9d4.json → output.importantFindings[9]",
+      "aiVerdict": {"q1": "애매함", "q2": "애매함"},
+      "reasons": [
+        "'공개 변이 식별자 데이터베이스'는 dbSNP를 대략 맞게 설명하지만 초점이 식별자에 있다. dbSNP는 변이를 모은 데이터베이스이고 식별자(rsID)는 그 변이에 붙인 번호다. 틀렸다고도, 충분하다고도 하기 어렵다.",
+        "rsID는 이 항목에서도 같은 답변의 관련 항목(nextChecks[4], uncertainties[2])에서도 설명되지 않는다. 앞의 '식별자 데이터베이스'로 짐작할 수는 있다."
+      ],
+      "evidence": [
+        "dbSNP(공개 변이 식별자 데이터베이스)가 설정되지 않아 변이 기록에 rsID가 부여되지 않았으며",
+        "wes_terms plain: dbSNP는 이미 보고된 작은 변이를 모아 둔 공개 데이터베이스이고, rsID는 그곳에서 변이에 붙인 식별 번호입니다."
+      ],
+      "checker": {"verdict": "REVIEW", "rule": "gloss_unverified", "detail": "dbSNP 괄호 설명이 알려진 표현과 맞지 않아 정확성 확인 필요"},
+      "agreement": "검사기 보류(REVIEW)",
+      "checkerErrorSuspicion": "확정 아님. dbSNP와 rsID를 한 용어로 묶어 판정하므로, rsID가 설명되지 않은 것이 따로 드러나지 않는다.",
+      "issueTypes": ["A"],
+      "needsExpert": true
+    },
+    {
+      "id": "HR14",
+      "kind": "term",
+      "term": "dbSNP / rsID",
+      "location": "2026-11-02_real_cba73e_v3_sonnet_08c1f9035445420a.json → output.nextChecks[3]",
+      "aiVerdict": {"q1": "오류", "q2": "정상"},
+      "reasons": [
+        "이 항목에는 rsID 설명이 없다.",
+        "같은 답변의 importantFindings[6]이 dbSNP와 rsID를 기준 자료와 맞게 설명한다."
+      ],
+      "evidence": [
+        "rsID를 채우고 싶다면 서버 관리자가 resource bundle에 dbsnp_vcf를 선언해야 합니다.",
+        "dbSNP(이미 알려진 변이를 모아 둔 공개 데이터베이스)가 설정되지 않아 변이 기록에 rsID(그 데이터베이스의 식별 번호)가 붙지 않았습니다."
+      ],
+      "checker": {"verdict": "REVIEW", "rule": "explained_elsewhere", "detail": "rsID: 이 항목에서는 설명 없음, 다른 항목에서 설명함"},
+      "agreement": "검사기 보류(REVIEW)",
+      "checkerErrorSuspicion": "없음. AI 판정(Q1 오류, Q2 정상)은 answer_key 대응표의 explained_elsewhere와 맞는다.",
+      "issueTypes": ["A"],
+      "needsExpert": false
+    },
+    {
+      "id": "HR15",
+      "kind": "internal",
+      "location": "2026-11-02_real_cba73e_v3_sonnet_08c1f9035445420a.json → output.nextChecks[3]",
+      "aiVerdict": {"q": "오류"},
+      "expressions": ["resource bundle", "dbsnp_vcf", "ID column"],
+      "reasons": [
+        "서버 설정 이름(resource bundle), 설정 키(dbsnp_vcf), 영어 원문 표기(ID column)가 설명 없이 나온다.",
+        "Day 2 답변은 같은 내용을 '참조 자료 묶음', 'dbSNP 파일', 'ID 열'로 썼다. 쉬운 표현이 있다는 뜻이다."
+      ],
+      "evidence": [
+        "rsID를 채우고 싶다면 서버 관리자가 resource bundle에 dbsnp_vcf를 선언해야 합니다.",
+        "그러면 다음 실행부터 변이 기록의 ID column에 rsID가 채워지고"
+      ],
+      "checker": {"verdict": "FAIL ×3", "rule": "config-key:dbsnp_vcf, internal-config:resource bundle, internal-config:ID column", "detail": ""},
+      "agreement": "일치",
+      "checkerErrorSuspicion": "없음",
+      "issueTypes": ["E"],
+      "needsExpert": false
+    },
+    {
+      "id": "HR16",
+      "kind": "internal",
+      "location": "2026-11-02_real_cba73e_v3_sonnet_08c1f9035445420a.json → output.importantFindings[1]",
+      "aiVerdict": {"q": "오류"},
+      "expressions": ["겹치지 않는 염기"],
+      "reasons": [
+        "'겹치지 않는 염기'는 payload 필드 targetNonoverlapBases와 파이프라인 메시지 'non-overlapping target bases'를 그대로 옮긴 말이다.",
+        "뜻(겹치는 target 구간을 합쳐 같은 염기를 한 번만 셈, wes_terms target의 '잘못 읽기 쉬운 점')이 설명되지 않는다.",
+        "관련 사용자 메모(HR01, 같은 문장): '\"겹치지 않는 염기\"를 이해하기 어려움'. 다만 HR01 질문은 read에 관한 것이었으므로 이 메모를 HR16의 사람 판정으로 세지 않는다."
+      ],
+      "evidence": [
+        "target(이번 분석에서 읽으려고 정해 둔 구간) 중 겹치지 않는 염기의 9.2905%인 3,387,168개가",
+        "payload coverage.targetNonoverlapBases = 36458262; diagnostics messageFromPipeline: 9.2905% of non-overlapping target bases are at 0X coverage",
+        "wes_terms target 잘못 읽기 쉬운 점: 겹치는 target 구간은 합친 뒤 계산하므로, 같은 염기를 두 번 세지 않습니다."
+      ],
+      "checker": {"verdict": "판정 없음", "rule": "", "detail": "내부 표현을 찾지 못함"},
+      "agreement": "불일치",
+      "checkerErrorSuspicion": "미탐 의심. 필드 이름이나 영어 메시지를 한국어로 직역한 표현은 현재 규칙에 없다.",
+      "issueTypes": ["C", "E", "G"],
+      "needsExpert": false
+    },
+    {
+      "id": "HR17",
+      "kind": "internal",
+      "location": "2026-11-02_real_cba73e_v3_sonnet_d505c173885f6c9b.json → output.nextChecks[2]",
+      "aiVerdict": {"q": "애매함"},
+      "expressions": ["[NOTE]", "resource_validation.txt"],
+      "reasons": [
+        "파일 이름 앞에 '입력 검증 단계의 참조 자료 검증 보고서'라는 한국어 설명이 있어, 무엇인지는 알 수 있다.",
+        "[NOTE]는 보고서 원문 표시인데 설명이 없다('참고 항목' 정도로 짐작할 수는 있음).",
+        "더 큰 문제는 표현보다 실행 가능성이다. 이 파일은 현재 artifact로 등록되지 않아 웹이나 API로 열 수 없다(docs/WES_DESIGN_PLAN.md 18-3 #6). beginner_v2는 서버 파일 경로만 주는 것을 '어디서'로 인정하지 않는다(B5). 이 문제는 내부 표현 질문의 범위 밖이다."
+      ],
+      "evidence": [
+        "rsID가 비어 있는 이유를 확인하려면 입력 검증 단계의 참조 자료 검증 보고서(resource_validation.txt)를 보세요.",
+        "docs/WES_DESIGN_PLAN.md 18-3 #6: 00_input_validation/resource_validation.txt를 artifact로 등록 — 실패 원인 상세가 이 파일들에 있는데 API로 못 가져옵니다.",
+        "rubric/beginner_v2.md: 사용자는 서버 파일을 직접 열 수 없다."
+      ],
+      "checker": {"verdict": "REVIEW ×2", "rule": "file-name:resource_validation.txt, log-marker:[NOTE]", "detail": ""},
+      "agreement": "검사기 보류(REVIEW)",
+      "checkerErrorSuspicion": "없음. REVIEW가 적절하다. 사용자가 열 수 없는 파일을 가리킨다는 점은 이 검사의 대상이 아니다.",
+      "issueTypes": ["E"],
+      "needsExpert": false
+    },
+    {
+      "id": "HR18",
+      "kind": "internal",
+      "location": "2026-09-10_full_completed_with_warnings_sonnet_b72d23897664f9d4.json → output.importantFindings[0]",
+      "aiVerdict": {"q": "오류"},
+      "expressions": ["step_04_processing", "step_05_coverage_qc", "step_06_variant_calling"],
+      "reasons": [
+        "같은 문장에 한국어 단계 이름이 이미 있는데, 괄호 안에 내부 단계 ID를 그대로 덧붙였다.",
+        "'11개 검사 중 8개 통과, 3개 단계 경고'는 payload checkSummary(총 11, PASS 8, WARN 3)와 맞다."
+      ],
+      "evidence": [
+        "BAM 정리·보정(step_04_processing), 커버리지 검사(step_05_coverage_qc), 변이 검출(step_06_variant_calling) 3개 단계에서 경고 상태로 기록되었습니다."
+      ],
+      "checker": {"verdict": "FAIL ×3", "rule": "step-id", "detail": ""},
+      "agreement": "일치",
+      "checkerErrorSuspicion": "없음",
+      "issueTypes": ["E"],
+      "needsExpert": false
+    },
+    {
+      "id": "HR19",
+      "kind": "fact",
+      "location": "2026-11-02_real_cba73e_v3_sonnet_08c1f9035445420a.json → output 전체",
+      "aiVerdict": {"q": "오류"},
+      "reasons": [
+        "답변은 '경고가 있는 상태로 완료'(summary, importantFindings[0])라고만 쓴다. 경고가 3건이라는 것도, 경고가 난 단계(BAM 정리·보정, 커버리지 검사, 변이 검출)도 어디에도 없다.",
+        "경고와 관련된 내용(0× 염기, 필터 미적용 VCF, NM/MD 보정, dbSNP)은 있지만, 어느 것이 어느 경고 단계에 해당하는지 이어 주지 않는다."
+      ],
+      "evidence": [
+        "실행은 모든 계획 단계를 마쳤고, 경고가 있는 상태로 완료되었으며 결과를 볼 수 있습니다.",
+        "payload steps: 04_processing, 05_coverage_qc, 06_variant_calling = warning"
+      ],
+      "checker": {"verdict": "REVIEW", "rule": "not_found", "detail": "경고가 3건이라는 것이나 경고 단계 이름을 찾지 못함"},
+      "agreement": "검사기 보류(REVIEW)",
+      "checkerErrorSuspicion": "오탐·미탐은 아니다. AI는 누락으로 보지만, 검사기는 문구를 찾지 못하면 FAIL 대신 REVIEW를 내도록 설계됐다.",
+      "issueTypes": ["F"],
+      "needsExpert": false
+    },
+    {
+      "id": "HR20",
+      "kind": "fact",
+      "location": "2026-11-02_real_cba73e_v3_sonnet_d505c173885f6c9b.json → output 전체",
+      "aiVerdictInitial": {"q": "오류", "why": "부록 580행까지만 읽어 uncertainties를 보지 못한 상태의 판단. 불완전한 읽기였다."},
+      "aiVerdict": {"q": "애매함"},
+      "aiVerdictIndependent": false,
+      "reasons": [
+        "uncertainties[3]의 '경고로 기록된 세 단계'로 경고 단계의 수(3)는 알 수 있다.",
+        "경고 단계의 이름은 답변 어디에도 없다.",
+        "그 수도 '불확실성' 항목의 단서 문장 안에만 있어 눈에 잘 띄지 않는다.",
+        "importantFindings[1]의 '8개 검증 항목은 모두 통과'는 payload(checkSummary 8 PASS)와 맞다. 하지만 경고 3단계와 나란히 읽으면 초보자가 헷갈릴 수 있다(관찰일 뿐 확정된 문제는 아님)."
+      ],
+      "evidence": [
+        "경고로 기록된 세 단계의 세부 내용은 열어 보지 않았기 때문에, 위에 적은 진단 외에 다른 경고 내용이 있는지는 이 설명으로 알 수 없습니다.",
+        "8개 검증 항목은 모두 통과로 기록되었고, 따로 눈여겨볼 항목은 없었습니다."
+      ],
+      "checker": {"verdict": "PASS", "rule": "count_stated", "detail": "경고 3건(또는 경고 단계 수)을 씀"},
+      "agreement": "부분 일치",
+      "checkerErrorSuspicion": "질문 기준으로는 너무 너그러운 PASS로 의심된다. 규칙이 '경고 수 또는 경고 단계'를 요구해서, 단계 이름이 없어도, 수가 단서 문장 안에만 있어도 통과한다.",
+      "issueTypes": ["F", "G"],
+      "needsExpert": false
+    }
+  ],
+  "scienceChecks": [
+    {
+      "id": "HR03",
+      "synthetic": true,
+      "question": "괄호 정의 '평균 깊이(target 염기 중 read에 덮인 비율)'가 실제 깊이의 정의와 맞는가",
+      "aiOpinion": "과학적으로 틀림",
+      "reasons": [
+        "깊이는 한 위치를 read가 몇 번 겹쳐 덮었는지(횟수)이고 단위는 배(×)다. 평균 깊이는 그 횟수를 target 전체에 대해 평균한 값이다.",
+        "'target 염기 중 read에 덮인 비율'은 깊이가 아니라 '1× 이상으로 덮인 염기의 비율'(breadth)에 해당하는 다른 지표다. real_cba73e payload에도 breadth 1X = 90.7095%로 따로 있다.",
+        "한 문장 안에서 '비율'과 '11.0116배'가 서로 맞지 않는다."
+      ],
+      "relationToHumanVerdict": "사용자 Q1 '정상'은 이해도 판단이며 과학적 정확성 검증이 아니라고 사용자가 직접 밝혔다. 이 의견은 사용자 판정을 바꾸지 않는다. 그럴듯하게 읽히는 틀린 설명은 초보자 이해도 검토로 걸러지지 않는다는 사례다."
+    },
+    {
+      "id": "HR01",
+      "question": "문장의 수치와 개념이 실행 기록과 맞는가",
+      "aiOpinion": "맞음(표현은 어려움)",
+      "reasons": [
+        "3,387,168 ÷ 36,458,262 = 9.2905%로, payload의 zeroCoverageBases·targetNonoverlapBases·zeroCoverageBasesPct와 맞는다.",
+        "'겹치지 않는 염기'는 겹치는 target 구간을 합쳐 같은 염기를 한 번만 센 수라는 뜻으로, 개념은 맞다. 다만 설명이 없다(HR16).",
+        "'염기 단위'는 염기 위치 하나하나를 센 단위라는 뜻이다. 사용자 메모처럼 A/T/G/C 종류로 읽힐 수 있다."
+      ],
+      "relationToHumanVerdict": "사용자 판정과 메모는 그대로 둔다."
+    },
+    {
+      "id": "HR02",
+      "question": "dbSNP·rsID 괄호 설명과 '계산에 영향 없음'이 기준과 맞는가",
+      "aiOpinion": "맞음",
+      "reasons": [
+        "두 괄호 설명 모두 wes_terms plain과 같은 뜻이다.",
+        "'변이를 찾는 계산 자체에는 영향이 없다'는 payload 진단의 impactFromPipeline 'the calls themselves are unaffected'와 맞는다."
+      ],
+      "relationToHumanVerdict": "사용자 판정과 메모는 그대로 둔다."
+    },
+    {
+      "id": "HR04",
+      "question": "문장의 수치와 개념이 실행 기록과 맞는가",
+      "aiOpinion": "맞음(표현은 어려움)",
+      "reasons": [
+        "3,387,168개, 9.2905%는 payload와 맞고, '구간이 아니라 염기 하나하나를 센 값'도 맞다.",
+        "'겹치지 않게 센 목표 염기'는 HR01·HR16과 같은 표현 문제다(사용자 메모에도 있음)."
+      ],
+      "relationToHumanVerdict": "사용자 판정과 메모는 그대로 둔다."
+    }
+  ],
+  "referenceCounts": {
+    "_note": "참고용 건수다. 개발 데이터 16개, AI 판단 기준이므로 검사기 정확도가 아니다. 사용자 판단 HR01~HR04와 합산하지 않는다.",
+    "scope": "HR05~HR20 (AI 검토 16개)",
+    "일치": ["HR05", "HR06", "HR08", "HR10", "HR12", "HR15", "HR18"],
+    "부분 일치": ["HR11", "HR20"],
+    "불일치": ["HR16"],
+    "검사기 보류(REVIEW)": ["HR07", "HR09", "HR13", "HR14", "HR17", "HR19"]
+  }
+}

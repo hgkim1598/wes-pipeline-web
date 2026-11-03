@@ -624,6 +624,8 @@ def test_an_agent_record_keeps_its_key_order(monkeypatch):
         "schemaHash", "allowedRefCount", "toolUse", "trace", "evidenceUse",
         "expectedToolUse", "expectedStepIds", "acceptableStepSets", "evaluation",
         "humanReview", "available", "errorCategory", "output",
+        # Appended, not inserted: evaluation-only, see explanation_quality.py.
+        "explanationQuality",
     ]
 
 

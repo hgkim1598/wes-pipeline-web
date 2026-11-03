@@ -1,0 +1,331 @@
+{
+  "schemaVersion": "1.0",
+  "rulesVersion": "2",
+  "_commentV2": [
+    "v2는 v1(explanation_checks_v1.json, 그대로 보존)을 복사한 뒤 아래만 바꿨다. 바꾼 근거와 v2 정책은",
+    "explanation_checks_v2.md에 있다. v1 라벨 세트(quality_labels/explanation_quality_labels_v1.json)는 v1로만 채점한다.",
+    "",
+    "1. hardPhrases 추가. 사용자 직접 검토(human_review_v1 HR01·HR04 메모)에서 이해하기 어렵다고 확인된 표현과",
+    "   데이터 필드 이름을 직역한 표현. 설명이 같은 항목에 없으면 REVIEW, 있으면 판정하지 않는다. FAIL은 내지 않는다.",
+    "2. stepNameVariants 추가. 단계 이름을 바꿔 쓴 표현('BAM 처리') 안의 용어는 개념 설명이 필요한 사용과 구분해",
+    "   REVIEW(step_name_variant)로 둔다. v1은 이것을 never_explained FAIL로 셌다(HR05).",
+    "3. plainSubstitutes 추가. 용어 없이 같은 뜻을 쉬운 말로 쓴 표현(예: 'DNA를 읽은 기록이 한 번도 없')을 인정한다.",
+    "   depth accept에 '몇 번 겹치는'을 추가했다. 근거는 AI 검토(human_review_v1/ai_review_v1.json HR09)이며 사람 판정이 아니다.",
+    "4. rulesVersion 2: 경고 사실 규칙을 '경고 단계 수'와 '경고 단계 이름' 두 검사로 나누고, 요약·주요 발견에 있는지를",
+    "   본다(코드: explanation_quality.check_facts). 수치의 뜻·해석 범위 검사를 추가한다(measurement-meaning).",
+    "",
+    "아래 _comment는 v1의 기록을 그대로 둔 것이다."
+  ],
+  "_comment": [
+    "설명 품질 검사기(evals/explanation_quality.py)의 문자열 규칙. 개발·평가용이며 실제 응답을 막지 않는다.",
+    "Knowledge가 아니다. 용어의 뜻은 config/knowledge/wes_terms.json이 소유하고, 여기에는 '모델 답변에서",
+    "그 뜻이 전달됐는지 문자열로 알아보는 단서'만 둔다. 뜻을 새로 정의하지 않는다.",
+    "",
+    "terms[].groups[].surfaces  답변에서 용어를 찾는 표기. wes_terms의 label·aliases·mentions가 모두",
+    "                           surfaces나 substitutes 중 하나에 걸리는지 테스트가 확인한다",
+    "terms[].groups[].accept    이 단서가 같은 항목에 있으면 '설명됨'. wes_terms의 plain·definition 문구에서",
+    "                           뽑은 표현이다(basis 참고)",
+    "terms[].groups[].reject    괄호 설명이 이 단서를 담으면 '부정확'. wes_terms의 misreadings가 막는 뜻이다.",
+    "                           unless가 같은 괄호 안에 있으면(부정문) 적용하지 않는다",
+    "plainSubstitutes           용어 없이 쉬운 말로 같은 뜻을 전달한 표현. 그 항목은 설명된 것으로 본다",
+    "reviewSubstitutes          용어 대신 쓴 말이지만 초보자에게 뜻이 전달되는지 문자열로 알 수 없는 표현",
+    "",
+    "internalPatterns/Phrases   설명 없이 드러나면 안 되는 내부 구현 정보(FAIL)와, 필요할 수 있으나 사람이",
+    "                           봐야 하는 기술 용어(REVIEW). downgradeWhenGlossed는 한국어 설명이 붙어 있으면",
+    "                           FAIL을 REVIEW로 낮춘다는 뜻이다. 서버 경로와 단계 ID는 낮추지 않는다",
+    "",
+    "단서 목록은 Day 2(d505c173885f6c9b)·Day 3(08c1f9035445420a) 답변에서 관찰한 표현에서 출발했다.",
+    "그래서 이 두 답변에 대한 일치도는 개발 데이터 위의 수치이며, 새 답변에서의 성능을 보여주지 않는다.",
+    "",
+    "첫 작성 뒤 다른 baseline 세 개(real_cba73e 49e2a648·110c6312, full_completed_with_warnings b72d2389)에",
+    "적용해 보고 세 가지를 고쳤다: 단계 이름('BAM 정리·보정')의 BAM을 용어로 세던 오탐(단계 이름은",
+    "wes_steps.json label로 가린다), 0×의 plain 문구 '깊이가 0인'을 쉬운 말 대체로 인정, NM/MD 설명",
+    "'참조 서열의 차이'(wes_terms definition의 '사이의 차이')를 인정. 따라서 이 세 답변도 개발 데이터다.",
+    "",
+    "그 뒤 손대지 않은 baseline 다섯 개(agent 세 개, 2026-09-10 full·precheck)로 한 번 더 확인했다. 거기서",
+    "본 문제로 세 가지를 더 고쳤다: 다른 항목에 확인 안 된 정의가 있으면 '어디에서도 설명 안 함'(FAIL)을",
+    "확정하지 않음(검사기 논리), 한 항목 안의 같은 표현은 한 번만 셈, 진단 코드(UPPER_SNAKE) 패턴 추가.",
+    "이제 저장된 baseline 중 이 규칙을 만드는 데 쓰이지 않은 답변은 없다. 새 성능 확인에는 새 답변이 필요하다."
+  ],
+  "terms": [
+    {
+      "termId": "read",
+      "basis": "wes_terms read.plain '시퀀싱 장비가 DNA 조각에서 읽어 낸 짧은 염기 서열', misreadings 'read 하나는 유전자 하나가 아닙니다'",
+      "groups": [
+        {
+          "name": "read",
+          "surfaces": ["read", "리드"],
+          "accept": ["짧은 (DNA )?(조각|염기 ?서열|서열)", "DNA 조각", "읽어 ?낸 ", "읽은 짧은"],
+          "reject": [
+            {"pattern": "유전자", "unless": "조각|서열|아니|아닙|아님|않", "why": "read 하나는 유전자 하나가 아니다(wes_terms misreadings)"}
+          ]
+        }
+      ],
+      "plainSubstitutes": ["DNA(를)? 읽(어 낸|은) (기록|조각|짧은 (조각|서열))"],
+      "reviewSubstitutes": []
+    },
+    {
+      "termId": "target",
+      "basis": "wes_terms target.plain '이번 분석에서 읽으려고 정해 둔 유전체 구간들', misreadings 'target은 유전체 전체가 아닙니다'",
+      "groups": [
+        {
+          "name": "target",
+          "surfaces": ["target"],
+          "accept": ["읽으려고 정해", "(분석|확인)(하려고|할|대상으로) 정(해|한)", "정해 ?둔 (유전체 )?구간", "분석 대상(인|으로 정한)? 구간"],
+          "reject": [
+            {"pattern": "유전체 전체|전체 유전체", "unless": "아니|아닙|아님|않", "why": "target은 유전체 전체가 아니다(wes_terms misreadings)"}
+          ]
+        }
+      ],
+      "plainSubstitutes": ["(분석|확인)(하려고|할) 정(해 둔|한) (DNA |유전체 )?(위치|구간)"],
+      "reviewSubstitutes": ["목표 (영역|염기|구간|깊이)"]
+    },
+    {
+      "termId": "depth",
+      "basis": "wes_terms depth.plain '한 염기 위치를 read가 몇 번 겹쳐 덮었는지를 나타내는 수', definition '단위는 배(×)'",
+      "groups": [
+        {
+          "name": "깊이",
+          "surfaces": ["깊이", "depth"],
+          "accept": ["몇 번 (겹쳐 )?(읽|덮)", "겹쳐 (읽|덮)", "(읽힌|덮인|덮은) 횟수", "몇 번 겹치(는|는지)"],
+          "reject": [
+            {"pattern": "비율|퍼센트|%", "unless": null, "why": "깊이는 겹쳐 덮인 횟수(배)이지 비율이 아니다(wes_terms definition)"},
+            {"pattern": "품질", "unless": "아니|아닙|아님|않", "why": "깊이는 품질 점수가 아니다(wes_terms definition)"}
+          ]
+        }
+      ],
+      "plainSubstitutes": ["몇 번 겹쳐 (읽|덮)"],
+      "reviewSubstitutes": []
+    },
+    {
+      "termId": "zero-coverage",
+      "basis": "wes_terms zero-coverage.plain '그 위치를 덮은 read가 하나도 없다는 뜻. 깊이가 0인 위치', misreadings '변이가 없다는 뜻이 아닙니다'",
+      "groups": [
+        {
+          "name": "0×",
+          "surfaces": ["0×", "0X", "0배", "zero coverage"],
+          "accept": ["한 번도 (덮|읽)", "(덮은|덮인) read가 (하나도 )?없", "read가 하나도", "(깊이|depth)가 0인"],
+          "reject": [
+            {"pattern": "변이가 없", "unless": "아니|아닙|아님|않", "why": "0×는 그 자리에 변이가 없다는 뜻이 아니다(wes_terms misreadings)"}
+          ]
+        }
+      ],
+      "plainSubstitutes": ["한 번도 (덮(이)?지|읽(히)?지) 않", "(깊이|depth)가 0인 (염기|위치)", "읽(은|힌) 기록이 (한 번도 |하나도 )?없"],
+      "reviewSubstitutes": []
+    },
+    {
+      "termId": "bam",
+      "basis": "wes_terms bam.plain '읽어 낸 read를 참조 유전체의 어느 위치에 맞췄는지 기록한 파일', aliases '정렬 파일', misreadings '원본 입력 파일도, 변이 목록도 아닙니다'",
+      "groups": [
+        {
+          "name": "BAM",
+          "surfaces": ["BAM"],
+          "accept": ["정렬 (결과|파일)", "어느 위치에 맞"],
+          "reject": [
+            {"pattern": "원본|변이 목록", "unless": "아니|아닙|아님|않", "why": "BAM은 원본 입력도 변이 목록도 아니다(wes_terms misreadings)"}
+          ]
+        }
+      ],
+      "plainSubstitutes": ["정렬 (결과 )?파일"],
+      "reviewSubstitutes": []
+    },
+    {
+      "termId": "vcf",
+      "basis": "wes_terms vcf.plain '참조 유전체와 다른 위치를 한 줄에 하나씩 모아 기록한 파일', aliases '변이 기록 파일', misreadings '확정된 변이의 수가 아닙니다'",
+      "groups": [
+        {
+          "name": "VCF",
+          "surfaces": ["VCF"],
+          "accept": ["변이 (후보 )?기록", "참조 유전체와 다른 위치"],
+          "reject": [
+            {"pattern": "확정(된)? 변이", "unless": "아니|아닙|아님|않", "why": "필터 전 VCF의 행은 확정된 변이가 아니다(wes_terms misreadings)"}
+          ]
+        }
+      ],
+      "plainSubstitutes": ["변이 기록 파일"],
+      "reviewSubstitutes": []
+    },
+    {
+      "termId": "dbsnp-rsid",
+      "basis": "wes_terms dbsnp-rsid.plain 'dbSNP는 이미 보고된 작은 변이를 모아 둔 공개 데이터베이스이고, rsID는 그곳에서 변이에 붙인 식별 번호', misreadings 'rsID가 비어 있다는 것은 변이가 검출되지 않았다는 뜻이 아닙니다', '의학적 의미를 말해 주지 않습니다'",
+      "groups": [
+        {
+          "name": "dbSNP",
+          "surfaces": ["dbSNP"],
+          "accept": ["(알려진|보고된) (작은 )?변이(를|들을)? (모아|모은)", "공개 (변이 )?(데이터베이스|DB)"],
+          "reject": [
+            {"pattern": "임상|병원성|의학", "unless": "아니|아닙|아님|않", "why": "dbSNP 등록은 의학적 의미를 말해 주지 않는다(wes_terms misreadings)"}
+          ]
+        },
+        {
+          "name": "rsID",
+          "surfaces": ["rsID"],
+          "accept": ["식별 ?번호", "식별자", "등록 번호"],
+          "reject": [
+            {"pattern": "검출|임상|병원성|의학", "unless": "아니|아닙|아님|않", "why": "rsID 유무는 검출 여부도 의학적 의미도 아니다(wes_terms misreadings)"}
+          ]
+        }
+      ],
+      "plainSubstitutes": [],
+      "reviewSubstitutes": []
+    },
+    {
+      "termId": "nm-md-tags",
+      "basis": "wes_terms nm-md-tags.plain 'BAM 안에서 read가 참조 서열과 몇 군데, 어디가 다른지를 적어 두는 보조 표시'",
+      "groups": [
+        {
+          "name": "NM/MD",
+          "surfaces": ["NM/MD 태그", "NM·MD 보조 태그", "NM·MD 태그", "NM 태그", "MD 태그", "NM/MD", "NM·MD", "NM", "MD"],
+          "accept": ["참조 (서열|유전체)(과|와|의|사이의) ?.{0,20}(다른|다르|차이|어긋)"],
+          "reject": [
+            {"pattern": "품질", "unless": "아니|아닙|아님|않", "why": "NM/MD는 참조와의 차이 표시이지 품질 점수가 아니다(wes_terms definition)"}
+          ]
+        }
+      ],
+      "plainSubstitutes": [],
+      "reviewSubstitutes": []
+    }
+  ],
+  "definitionMarkers": [
+    "^\\s?(이)?란 ",
+    "^(은|는) .{0,40}(뜻|말)(합니다|입니다)",
+    "^(이)?라고 (하며|합니다|부르)"
+  ],
+  "internalPatterns": [
+    {
+      "id": "server-path",
+      "regex": "(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+\\.(?:txt|json|tsv|bed|csv|log|html|bam|vcf|gz)(?![A-Za-z0-9])",
+      "verdict": "FAIL",
+      "downgradeWhenGlossed": false,
+      "why": "서버 안의 파일 경로다. 사용자는 서버 파일을 직접 열 수 없다(beginner_v2 B5)"
+    },
+    {
+      "id": "step-id",
+      "regex": "(?<![A-Za-z0-9_])(?:step_)?\\d{2}_[a-z]+(?:_[a-z]+)*(?![A-Za-z0-9_])",
+      "verdict": "FAIL",
+      "downgradeWhenGlossed": false,
+      "why": "내부 단계 ID다. 화면은 단계 이름으로 보여 준다"
+    },
+    {
+      "id": "file-name",
+      "regex": "(?<![A-Za-z0-9_./-])[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9]+)*\\.(?:txt|json|tsv|bed|csv|log|html)(?![A-Za-z0-9])",
+      "verdict": "REVIEW",
+      "downgradeWhenGlossed": false,
+      "why": "파일 이름이다. 웹 화면에서 찾을 수 있는 이름인지는 사람이 확인한다"
+    },
+    {
+      "id": "config-key",
+      "regex": "(?<![A-Za-z0-9_./-])[a-z][a-z0-9]*(?:_[a-z0-9]+)+(?![A-Za-z0-9_./-])",
+      "verdict": "FAIL",
+      "downgradeWhenGlossed": true,
+      "why": "snake_case 설정 키·내부 값이다. 한국어 설명 없이 쓰면 초보자가 읽을 수 없다"
+    },
+    {
+      "id": "diagnostic-code",
+      "regex": "(?<![A-Za-z0-9_])[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+(?![A-Za-z0-9_])",
+      "verdict": "FAIL",
+      "downgradeWhenGlossed": false,
+      "why": "진단 코드·내부 값(UPPER_SNAKE)이다. 화면은 진단 제목으로 보여 준다"
+    },
+    {
+      "id": "cli-flag",
+      "regex": "(?<![A-Za-z0-9-])--[a-z][a-z0-9-]+",
+      "verdict": "FAIL",
+      "downgradeWhenGlossed": false,
+      "why": "명령행 옵션이다. 실행 방식의 구현 세부다"
+    },
+    {
+      "id": "log-marker",
+      "regex": "\\[(?:NOTE|ERROR|WARN|INFO)\\]",
+      "verdict": "REVIEW",
+      "downgradeWhenGlossed": false,
+      "why": "보고서 원문의 표시다. 사용자가 그 보고서를 볼 수 있는지는 사람이 확인한다"
+    }
+  ],
+  "internalPhrases": [
+    {
+      "phrase": "resource bundle",
+      "kind": "internal-config",
+      "verdict": "FAIL",
+      "downgradeWhenGlossed": true,
+      "plainKorean": "참조 자료 묶음",
+      "why": "서버 설정의 내부 이름이다. Day 2 답변은 같은 내용을 '참조 자료 묶음'으로 썼다"
+    },
+    {
+      "phrase": "ID column",
+      "kind": "internal-config",
+      "verdict": "FAIL",
+      "downgradeWhenGlossed": true,
+      "plainKorean": "ID 열",
+      "why": "영어 원문 표기다. Day 2 답변은 같은 내용을 'ID 열'로 썼다"
+    },
+    {
+      "phrase": "samtools calmd",
+      "kind": "tool",
+      "verdict": "REVIEW",
+      "downgradeWhenGlossed": false,
+      "plainKorean": null,
+      "why": "도구 이름이다. 연구자에게는 필요할 수 있어 금지하지 않고 사람이 본다(beginner_v2 R1)"
+    },
+    {
+      "phrase": "CIGAR",
+      "kind": "format-field",
+      "verdict": "REVIEW",
+      "downgradeWhenGlossed": false,
+      "plainKorean": null,
+      "why": "BAM 형식의 필드 이름이다. 필요성은 사람이 본다(beginner_v2 R1)"
+    },
+    {
+      "phrase": "ValidateSamFile",
+      "kind": "tool",
+      "verdict": "REVIEW",
+      "downgradeWhenGlossed": false,
+      "plainKorean": null,
+      "why": "도구 이름이다. 필요성은 사람이 본다(beginner_v2 R1)"
+    },
+    {
+      "phrase": "raw VCF",
+      "kind": "pipeline-wording",
+      "verdict": "REVIEW",
+      "downgradeWhenGlossed": false,
+      "plainKorean": null,
+      "why": "파이프라인 원문 표기다. 쉬운 말로 풀었는지는 사람이 본다"
+    }
+  ],
+  "stepNameVariants": [
+    {
+      "pattern": "BAM (처리|정리)",
+      "termId": "bam",
+      "basis": "2026-09-10_full_completed_with_warnings_sonnet.json summary '3개 단계(BAM 처리, 커버리지 점검, 변이 검출)' (human_review_v1 HR05). wes_steps label 'BAM 정리·보정'을 바꿔 쓴 단계 이름"
+    }
+  ],
+  "hardPhrases": [
+    {
+      "id": "nonoverlap-bases",
+      "kind": "field-translation",
+      "regex": "겹치지 않(는|게 센)\\s?(target |목표 )?(염기|위치)",
+      "explainedBy": ["(겹치는|겹친) (target )?구간[^.]{0,20}(합|한 번만|한 번씩)", "두 번 세지 않", "중복(해서|으로)? 세지 않", "한 번만 (센|셌|세어)"],
+      "plainKorean": "겹치는 target 구간을 합쳐 같은 위치를 한 번만 센 target 염기",
+      "basis": "payload coverage.targetNonoverlapBases와 파이프라인 메시지 'non-overlapping target bases'의 직역. 사용자 직접 검토 HR01·HR04 메모: '겹치지 않는 염기', '겹치지 않게 센 목표 염기'를 이해하기 어려움",
+      "why": "데이터 필드 이름을 옮긴 말이다. 무엇을 셌는지(겹치는 구간을 합쳐 한 번만 셈)를 같은 항목에서 풀었는지 사람이 본다"
+    },
+    {
+      "id": "covered-by-read-passive",
+      "kind": "hard-wording",
+      "regex": "read에 (한 번도 |모두 )?덮(이|인)",
+      "explainedBy": ["짧은 (DNA )?(조각|염기 ?서열|서열)", "DNA 조각", "읽어 ?낸 ", "읽은 짧은"],
+      "plainKorean": "DNA를 읽은 기록이 한 번도 없는",
+      "basis": "사용자 직접 검토 HR01 메모: 'read에 한 번도 덮이지 않았다'는 표현이 이해하기 어려움. 같은 메모는 능동형 'read가 한 번도 덮지 않은'을 상대적으로 쉽다고 했으므로 능동형은 대상이 아니다",
+      "why": "read를 모르는 독자에게 'read에 덮이다'는 뜻이 잡히지 않는다. 같은 항목에서 read를 풀었는지 사람이 본다"
+    },
+    {
+      "id": "per-base-level",
+      "kind": "hard-wording",
+      "regex": "염기 단위",
+      "explainedBy": ["(염기|위치|자리) 하나하나", "한 (염기|위치)씩", "(염기|위치)마다", "하나씩 센"],
+      "plainKorean": "위치 하나하나를 센 값",
+      "basis": "사용자 직접 검토 HR01 메모: '염기 단위'가 A/T/G/C 각각을 뜻하는지 궁금함. prompt._HEAD가 이 표기로 측정 수준을 밝히라고 지시한다",
+      "why": "측정 수준을 밝히는 말이지만, 무엇을 하나씩 셌는지 풀지 않으면 염기의 종류로 읽힐 수 있다"
+    }
+  ]
+}
