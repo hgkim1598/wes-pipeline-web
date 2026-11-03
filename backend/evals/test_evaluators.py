@@ -1074,7 +1074,7 @@ def test_a_frozen_case_records_its_variant_and_the_prompt_it_sent(monkeypatch):
     assert (v1["variant"], v1["toolsOffered"]) == ("v1", False)
     assert (v3["variant"], v3["toolsOffered"]) == ("v3", True)
     assert v1["promptHash"] == run_eval._hash(prompt.CONSTRAINTS_NO_TOOL)
-    assert v3["promptHash"] == run_eval._hash(prompt.CONSTRAINTS) == "08c1f9035445420a"
+    assert v3["promptHash"] == run_eval._hash(prompt.CONSTRAINTS) == "4a4f2d9ddf604ce8"  # app/tests/test_tool_toggle.py history
 
 
 def test_an_agent_case_passes_the_variant_to_both_runtime_and_scoring(monkeypatch):
@@ -1112,7 +1112,7 @@ def test_baseline_names_carry_the_variant():
     assert v1.name.startswith("2026-11-02_agent_failed_step_v1_")
     assert v3.name.startswith("2026-11-02_agent_failed_step_v3_")
     assert v1.name.endswith(f"_{run_eval._prompt_hash('v1')}.json")
-    assert v3.name.endswith("_08c1f9035445420a.json")
+    assert v3.name.endswith("_4a4f2d9ddf604ce8.json")
 
 
 def test_an_existing_baseline_is_never_overwritten(tmp_path):

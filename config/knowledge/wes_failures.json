@@ -106,7 +106,7 @@
         ],
         "checks": [
           {
-            "statement": "검증 보고서에 실패한 항목이 [ERROR] 줄로 하나씩 적힙니다. 어떤 파일의 무엇이 맞지 않았는지는 여기에 있습니다.",
+            "statement": "검증 보고서에 실패한 항목이 [ERROR] 줄로 하나씩 적힙니다. 어떤 파일의 무엇이 맞지 않았는지는 여기에 있습니다. 검증이 실패한 실행에서는 이 보고서가 산출물로 등록되지 않으므로, 서버 관리자가 서버에서 확인해야 합니다.",
             "locator": {
               "kind": "stepFile",
               "id": "00_input_validation/resource_validation.txt"

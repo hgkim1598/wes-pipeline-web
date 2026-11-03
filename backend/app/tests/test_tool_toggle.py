@@ -54,7 +54,15 @@ FULL_PLAN = [
 #                     code's evidenceId and a term id is never the only
 #                     evidence. Shipped together with the payload change
 #                     (terms, grounding evidenceId), so the two are confounded
-V3_CONSTRAINTS_HASH = "08c1f9035445420a"
+#   4a4f2d9ddf604ce8  second beginner revision, _TAIL only: WARNINGS (step
+#                     count and names, steps are not warnings), TERMS (no
+#                     translated labels, active "read" wording, unpack "염기
+#                     단위"), a measurement says what it measures and whether
+#                     it can be judged, NEXT CHECKS (no server path, no
+#                     internal setting names). Shipped with knowledge wording
+#                     edits for DBSNP_NOT_CONFIGURED and resource_bundle, so
+#                     the two are again confounded. _HEAD unchanged
+V3_CONSTRAINTS_HASH = "4a4f2d9ddf604ce8"
 
 # The pieces the beginner rules did not touch, pinned on their own: the
 # evidence boundary and prohibitions (_HEAD), and the tool's instructions and
@@ -217,7 +225,8 @@ def test_both_variants_use_the_same_schema_model_and_timeout(explanation):
 
 def test_v3_prompt_text_is_pinned():
     assert _sha16(prompt.CONSTRAINTS) == V3_CONSTRAINTS_HASH
-    assert len(prompt.CONSTRAINTS) == 9484
+    # 9484 before the second beginner revision.
+    assert len(prompt.CONSTRAINTS) == 11825
     assert prompt.constraints_for(offer_tools=True) is prompt.CONSTRAINTS
 
 

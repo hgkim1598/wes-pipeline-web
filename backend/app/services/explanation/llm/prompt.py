@@ -82,6 +82,26 @@ answer about a run that does not have it, and the number gate would then
 discard the whole answer. And they do not ask the model to round: comma
 grouping keeps every digit, which the gate already accepts, while a rounded
 decimal is a number the data does not contain.
+
+Second beginner revision (WARNINGS, and additions to TERMS, HOW MANY NUMBERS,
+NEXT CHECKS) `[설계판단]`
+--------------------------------------------------------------------------
+
+From the human review of the Day 2·Day 3 answers (evals/quality_labels/
+human_review_v1): a reader could not follow translated data labels ("겹치지
+않는 염기"), the passive "read에 덮이다" or a bare "염기 단위"; a depth figure
+came without what it measures or whether it can be judged; neither answer said
+how many steps warned and which; and the grounding's internal names (a setting
+key, a server path) were copied into what the reader sees. All of it is again
+in `_TAIL`. `_HEAD` still asks for "염기 단위" -- the new TERMS line asks for
+that phrase to be unpacked, not dropped, so the two do not conflict and `_HEAD`
+stays pinned.
+
+The `stepFile:` rule rests on how the pipeline registers files: a step file is
+offered on screen only when main.sh also registers it as an artifact, and the
+payload carries no artifact list. So the rule defers to the check's own
+statement, which is where knowledge records the on-screen name when there is
+one, and otherwise sends the reader to the server administrator.
 """
 
 from __future__ import annotations
@@ -221,6 +241,17 @@ ORDER
 - `limitations` say what the result cannot tell; `nextChecks` say what can be
   looked at. Do not put the same point in both.
 
+WARNINGS
+- If any step ended with a warning, say in `importantFindings` how many steps
+  ended with a warning and name each of those steps in Korean. Saying it only
+  in `uncertainties` is not enough.
+- A number of steps is not a number of warnings: one step can record more than
+  one diagnostic. Count steps as steps ("단계") and diagnostics as diagnostics;
+  never call the number of warning steps a number of warnings.
+- Keep apart what the pipeline repaired automatically and what still needs to
+  be looked at, and say which step each was recorded in when the data says so.
+- Do not give a warning a cause or a remedy that the data does not supply.
+
 TERMS
 - Prefer plain Korean to a technical term when the plain words say the same
   thing.
@@ -235,6 +266,18 @@ TERMS
   that its `misreadings` rule out. If the data does not explain the term, give
   only the term's general meaning. An explanation of a word never carries a
   threshold, a judgement of good or bad, a cause, or anything clinical.
+- Do not turn a data label into Korean word for word. "겹치지 않는 염기" is a
+  translated label, not an explanation. Say what was counted in plain words --
+  the DNA positions this analysis set out to check -- and add that positions
+  shared by overlapping target intervals were counted once only where that
+  changes how the number reads. Keep the number and what it is a share of
+  exactly as the data gives them.
+- Say what reads did in active, concrete words: that no read covered a
+  position, or that the position was never read ("DNA를 읽은 기록이 한 번도
+  없다"). Do not write that a position was "covered by a read" ("read에
+  덮이다").
+- When you name the counting level as "염기 단위", say in the same statement
+  what it means: each position counted one by one, not each interval.
 
 HOW MANY NUMBERS
 - Lead with the fact, then the number that shows it.
@@ -250,6 +293,11 @@ HOW MANY NUMBERS
   it into another unit.
 - A depth -- how many times a position was read -- always carries its unit,
   "배" or "×".
+- When a statement gives a measurement, say in that statement what it measures
+  in plain words -- for a mean depth, how many times on average each position
+  was read -- and whether the data gives a standard to judge it by. If it gives
+  none, say what cannot be judged from it, such as whether it is enough,
+  instead of calling it high or low.
 
 NEXT CHECKS
 - Say why first -- the question a check answers -- and then what to look at.
@@ -257,6 +305,15 @@ NEXT CHECKS
 - If something can only be done by whoever runs the server, such as a server
   setting or a reference resource, say that it is a task for the server
   administrator, not for the reader.
+- A `look_at` that begins with `stepFile:` is where a file sits on the server.
+  The reader cannot browse the server, so do not write that path. If the
+  check's statement says under what name the file appears in the run's file
+  list, point the reader there by that name. Otherwise say that the file is
+  kept on the server and that looking at it is a task for the server
+  administrator.
+- Do not write a setting's internal key, a configuration's internal name or a
+  command-line option, even where a grounding statement uses one. Say in
+  Korean what the setting is.
 
 REPAIRED ITEMS
 If a diagnostic was automatically repaired by the pipeline, say that it was
