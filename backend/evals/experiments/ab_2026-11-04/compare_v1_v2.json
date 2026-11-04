@@ -1,0 +1,912 @@
+{
+  "note": "공통 기준(rules v1·v2 모두)으로 다시 채점한 결과. 어느 쪽이 낫다는 판정이 아니다.",
+  "sides": {
+    "A": {
+      "summary": {
+        "records": 3,
+        "withOutput": 2,
+        "promptKnowledgeHashes": [
+          [
+            "08c1f9035445420a",
+            "448e9866a674441d"
+          ]
+        ],
+        "mixedVersions": false,
+        "cases": [
+          "real_cba73e"
+        ],
+        "deterministicPassed": 2,
+        "durationMs": [
+          15375,
+          null,
+          14049
+        ],
+        "characters": [
+          1602,
+          1647
+        ],
+        "statementTotal": [
+          20,
+          18
+        ],
+        "qualityCounts_v1": {
+          "term": {
+            "PASS": 14,
+            "FAIL": 19,
+            "REVIEW": 14
+          },
+          "internal": {
+            "PASS": 0,
+            "FAIL": 5,
+            "REVIEW": 5
+          },
+          "fact": {
+            "PASS": 12,
+            "FAIL": 0,
+            "REVIEW": 2
+          }
+        },
+        "qualityCounts_v2": {
+          "term": {
+            "PASS": 14,
+            "FAIL": 19,
+            "REVIEW": 14
+          },
+          "internal": {
+            "PASS": 0,
+            "FAIL": 5,
+            "REVIEW": 9
+          },
+          "fact": {
+            "PASS": 12,
+            "FAIL": 0,
+            "REVIEW": 8
+          }
+        }
+      },
+      "records": [
+        {
+          "file": "A_r1_real_cba73e_v3_sonnet_ed12c18_08c1f9035445420a.json",
+          "case": "real_cba73e",
+          "variant": "v3",
+          "promptHash": "08c1f9035445420a",
+          "knowledgeHash": "448e9866a674441d",
+          "models": [
+            "claude-haiku-5-5",
+            "claude-sonnet-5-5"
+          ],
+          "durationMs": 15375,
+          "numTurns": 2,
+          "usage": "not recorded",
+          "deterministic": {
+            "passed": true,
+            "outcomes": {
+              "payload-privacy": "pass",
+              "tool-use": "not_run",
+              "tool-step-selection": "not_run",
+              "tool-step-core": "not_run",
+              "runtime-guardrails": "pass",
+              "numbers-preserved": "pass",
+              "no-internal-field-names": "pass",
+              "must-mention": "pass",
+              "cites-nm-md-repair": "pass",
+              "cites-zero-coverage": "pass",
+              "cites-dbsnp-not-configured": "pass",
+              "cites-intended-use": "pass",
+              "variant-count-carries-unfiltered-qualification": "pass",
+              "coverage-measurement-levels": "needs_review",
+              "no-threshold-verdict": "needs_review",
+              "no-unrecorded-cause": "needs_review",
+              "nm-md-scope": "needs_review",
+              "dbsnp-scope": "needs_review",
+              "step-scope": "needs_review",
+              "uncertainty": "needs_review"
+            }
+          },
+          "hasOutput": true,
+          "length": {
+            "characters": 1602,
+            "statements": {
+              "summary": 1,
+              "importantFindings": 8,
+              "limitations": 4,
+              "nextChecks": 4,
+              "uncertainties": 3
+            },
+            "statementTotal": 20
+          },
+          "payloadAvailable": true,
+          "quality": {
+            "v1": {
+              "counts": {
+                "term": {
+                  "PASS": 7,
+                  "FAIL": 8,
+                  "REVIEW": 8
+                },
+                "internal": {
+                  "PASS": 0,
+                  "FAIL": 2,
+                  "REVIEW": 3
+                },
+                "fact": {
+                  "PASS": 6,
+                  "FAIL": 0,
+                  "REVIEW": 1
+                }
+              },
+              "watched": [
+                {
+                  "verdict": "REVIEW",
+                  "rule": "not_found",
+                  "unit": null,
+                  "subject": "warning-count-or-steps"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "no_claim",
+                  "unit": null,
+                  "subject": "warning-not-failure"
+                }
+              ]
+            },
+            "v2": {
+              "counts": {
+                "term": {
+                  "PASS": 7,
+                  "FAIL": 8,
+                  "REVIEW": 8
+                },
+                "internal": {
+                  "PASS": 0,
+                  "FAIL": 2,
+                  "REVIEW": 5
+                },
+                "fact": {
+                  "PASS": 6,
+                  "FAIL": 0,
+                  "REVIEW": 4
+                }
+              },
+              "watched": [
+                {
+                  "verdict": "REVIEW",
+                  "rule": "hard-wording:per-base-level",
+                  "unit": "importantFindings[1]",
+                  "subject": "hard-wording:염기 단위"
+                },
+                {
+                  "verdict": "REVIEW",
+                  "rule": "hard-wording:per-base-level",
+                  "unit": "limitations[1]",
+                  "subject": "hard-wording:염기 단위"
+                },
+                {
+                  "verdict": "REVIEW",
+                  "rule": "not_found",
+                  "unit": null,
+                  "subject": "warning-step-count"
+                },
+                {
+                  "verdict": "REVIEW",
+                  "rule": "not_named",
+                  "unit": null,
+                  "subject": "warning-steps-named"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "no_claim",
+                  "unit": null,
+                  "subject": "warning-not-failure"
+                },
+                {
+                  "verdict": "REVIEW",
+                  "rule": "no_meaning_no_scope",
+                  "unit": null,
+                  "subject": "measurement-meaning:meanTargetDepth"
+                },
+                {
+                  "verdict": "REVIEW",
+                  "rule": "no_scope",
+                  "unit": null,
+                  "subject": "measurement-meaning:zeroCoverageBasesPct"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "file": "A_r2_real_cba73e_v3_sonnet_ed12c18_08c1f9035445420a.json",
+          "case": "real_cba73e",
+          "variant": "v3",
+          "promptHash": "08c1f9035445420a",
+          "knowledgeHash": "448e9866a674441d",
+          "models": null,
+          "durationMs": null,
+          "numTurns": 2,
+          "usage": "not recorded",
+          "deterministic": {
+            "passed": false,
+            "outcomes": {
+              "payload-privacy": "pass",
+              "tool-use": "not_run",
+              "tool-step-selection": "not_run",
+              "tool-step-core": "not_run",
+              "runtime-guardrails": "fail",
+              "coverage-measurement-levels": "needs_review",
+              "no-threshold-verdict": "needs_review",
+              "no-unrecorded-cause": "needs_review",
+              "nm-md-scope": "needs_review",
+              "dbsnp-scope": "needs_review",
+              "step-scope": "needs_review",
+              "uncertainty": "needs_review"
+            }
+          },
+          "hasOutput": false
+        },
+        {
+          "file": "A_r3_real_cba73e_v3_sonnet_ed12c18_08c1f9035445420a.json",
+          "case": "real_cba73e",
+          "variant": "v3",
+          "promptHash": "08c1f9035445420a",
+          "knowledgeHash": "448e9866a674441d",
+          "models": [
+            "claude-haiku-5-5",
+            "claude-sonnet-5-5"
+          ],
+          "durationMs": 14049,
+          "numTurns": 2,
+          "usage": "not recorded",
+          "deterministic": {
+            "passed": true,
+            "outcomes": {
+              "payload-privacy": "pass",
+              "tool-use": "not_run",
+              "tool-step-selection": "not_run",
+              "tool-step-core": "not_run",
+              "runtime-guardrails": "pass",
+              "numbers-preserved": "pass",
+              "no-internal-field-names": "pass",
+              "must-mention": "pass",
+              "cites-nm-md-repair": "pass",
+              "cites-zero-coverage": "pass",
+              "cites-dbsnp-not-configured": "pass",
+              "cites-intended-use": "pass",
+              "variant-count-carries-unfiltered-qualification": "pass",
+              "coverage-measurement-levels": "needs_review",
+              "no-threshold-verdict": "needs_review",
+              "no-unrecorded-cause": "needs_review",
+              "nm-md-scope": "needs_review",
+              "dbsnp-scope": "needs_review",
+              "step-scope": "needs_review",
+              "uncertainty": "needs_review"
+            }
+          },
+          "hasOutput": true,
+          "length": {
+            "characters": 1647,
+            "statements": {
+              "summary": 1,
+              "importantFindings": 7,
+              "limitations": 4,
+              "nextChecks": 3,
+              "uncertainties": 3
+            },
+            "statementTotal": 18
+          },
+          "payloadAvailable": true,
+          "quality": {
+            "v1": {
+              "counts": {
+                "term": {
+                  "PASS": 7,
+                  "FAIL": 11,
+                  "REVIEW": 6
+                },
+                "internal": {
+                  "PASS": 0,
+                  "FAIL": 3,
+                  "REVIEW": 2
+                },
+                "fact": {
+                  "PASS": 6,
+                  "FAIL": 0,
+                  "REVIEW": 1
+                }
+              },
+              "watched": [
+                {
+                  "verdict": "REVIEW",
+                  "rule": "not_found",
+                  "unit": null,
+                  "subject": "warning-count-or-steps"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "no_claim",
+                  "unit": null,
+                  "subject": "warning-not-failure"
+                }
+              ]
+            },
+            "v2": {
+              "counts": {
+                "term": {
+                  "PASS": 7,
+                  "FAIL": 11,
+                  "REVIEW": 6
+                },
+                "internal": {
+                  "PASS": 0,
+                  "FAIL": 3,
+                  "REVIEW": 4
+                },
+                "fact": {
+                  "PASS": 6,
+                  "FAIL": 0,
+                  "REVIEW": 4
+                }
+              },
+              "watched": [
+                {
+                  "verdict": "REVIEW",
+                  "rule": "hard-wording:per-base-level",
+                  "unit": "importantFindings[1]",
+                  "subject": "hard-wording:염기 단위"
+                },
+                {
+                  "verdict": "REVIEW",
+                  "rule": "hard-wording:per-base-level",
+                  "unit": "limitations[2]",
+                  "subject": "hard-wording:염기 단위"
+                },
+                {
+                  "verdict": "REVIEW",
+                  "rule": "not_found",
+                  "unit": null,
+                  "subject": "warning-step-count"
+                },
+                {
+                  "verdict": "REVIEW",
+                  "rule": "not_named",
+                  "unit": null,
+                  "subject": "warning-steps-named"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "no_claim",
+                  "unit": null,
+                  "subject": "warning-not-failure"
+                },
+                {
+                  "verdict": "REVIEW",
+                  "rule": "no_meaning_no_scope",
+                  "unit": null,
+                  "subject": "measurement-meaning:meanTargetDepth"
+                },
+                {
+                  "verdict": "REVIEW",
+                  "rule": "split",
+                  "unit": null,
+                  "subject": "measurement-meaning:zeroCoverageBasesPct"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "B": {
+      "summary": {
+        "records": 3,
+        "withOutput": 3,
+        "promptKnowledgeHashes": [
+          [
+            "4a4f2d9ddf604ce8",
+            "1ab94103bca81358"
+          ]
+        ],
+        "mixedVersions": false,
+        "cases": [
+          "real_cba73e"
+        ],
+        "deterministicPassed": 2,
+        "durationMs": [
+          13619,
+          14560,
+          19353
+        ],
+        "characters": [
+          1387,
+          1636,
+          1724
+        ],
+        "statementTotal": [
+          17,
+          19,
+          21
+        ],
+        "qualityCounts_v1": {
+          "term": {
+            "PASS": 15,
+            "FAIL": 4,
+            "REVIEW": 34
+          },
+          "internal": {
+            "PASS": 0,
+            "FAIL": 0,
+            "REVIEW": 3
+          },
+          "fact": {
+            "PASS": 22,
+            "FAIL": 0,
+            "REVIEW": 0
+          }
+        },
+        "qualityCounts_v2": {
+          "term": {
+            "PASS": 26,
+            "FAIL": 2,
+            "REVIEW": 36
+          },
+          "internal": {
+            "PASS": 0,
+            "FAIL": 0,
+            "REVIEW": 8
+          },
+          "fact": {
+            "PASS": 29,
+            "FAIL": 0,
+            "REVIEW": 2
+          }
+        }
+      },
+      "records": [
+        {
+          "file": "B_r1_real_cba73e_v3_sonnet_600cca4_4a4f2d9ddf604ce8.json",
+          "case": "real_cba73e",
+          "variant": "v3",
+          "promptHash": "4a4f2d9ddf604ce8",
+          "knowledgeHash": "1ab94103bca81358",
+          "models": [
+            "claude-haiku-5-5",
+            "claude-sonnet-5-5"
+          ],
+          "durationMs": 13619,
+          "numTurns": 2,
+          "usage": "not recorded",
+          "deterministic": {
+            "passed": true,
+            "outcomes": {
+              "payload-privacy": "pass",
+              "tool-use": "not_run",
+              "tool-step-selection": "not_run",
+              "tool-step-core": "not_run",
+              "runtime-guardrails": "pass",
+              "numbers-preserved": "pass",
+              "no-internal-field-names": "pass",
+              "must-mention": "pass",
+              "cites-nm-md-repair": "pass",
+              "cites-zero-coverage": "pass",
+              "cites-dbsnp-not-configured": "pass",
+              "cites-intended-use": "pass",
+              "variant-count-carries-unfiltered-qualification": "pass",
+              "coverage-measurement-levels": "needs_review",
+              "no-threshold-verdict": "needs_review",
+              "no-unrecorded-cause": "needs_review",
+              "nm-md-scope": "needs_review",
+              "dbsnp-scope": "needs_review",
+              "step-scope": "needs_review",
+              "uncertainty": "needs_review"
+            }
+          },
+          "hasOutput": true,
+          "length": {
+            "characters": 1387,
+            "statements": {
+              "summary": 1,
+              "importantFindings": 7,
+              "limitations": 4,
+              "nextChecks": 3,
+              "uncertainties": 2
+            },
+            "statementTotal": 17
+          },
+          "payloadAvailable": true,
+          "quality": {
+            "v1": {
+              "counts": {
+                "term": {
+                  "PASS": 5,
+                  "FAIL": 3,
+                  "REVIEW": 7
+                },
+                "internal": {
+                  "PASS": 0,
+                  "FAIL": 0,
+                  "REVIEW": 2
+                },
+                "fact": {
+                  "PASS": 7,
+                  "FAIL": 0,
+                  "REVIEW": 0
+                }
+              },
+              "watched": [
+                {
+                  "verdict": "PASS",
+                  "rule": "count_stated",
+                  "unit": null,
+                  "subject": "warning-count-or-steps"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "no_claim",
+                  "unit": null,
+                  "subject": "warning-not-failure"
+                }
+              ]
+            },
+            "v2": {
+              "counts": {
+                "term": {
+                  "PASS": 9,
+                  "FAIL": 2,
+                  "REVIEW": 8
+                },
+                "internal": {
+                  "PASS": 0,
+                  "FAIL": 0,
+                  "REVIEW": 3
+                },
+                "fact": {
+                  "PASS": 9,
+                  "FAIL": 0,
+                  "REVIEW": 1
+                }
+              },
+              "watched": [
+                {
+                  "verdict": "REVIEW",
+                  "rule": "hard-wording:per-base-level",
+                  "unit": "limitations[3]",
+                  "subject": "hard-wording:염기 단위"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "stated",
+                  "unit": "summary",
+                  "subject": "warning-step-count"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "all_named",
+                  "unit": null,
+                  "subject": "warning-steps-named"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "no_claim",
+                  "unit": null,
+                  "subject": "warning-not-failure"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "meaning_and_scope",
+                  "unit": null,
+                  "subject": "measurement-meaning:meanTargetDepth"
+                },
+                {
+                  "verdict": "REVIEW",
+                  "rule": "no_scope",
+                  "unit": null,
+                  "subject": "measurement-meaning:zeroCoverageBasesPct"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "file": "B_r2_real_cba73e_v3_sonnet_600cca4_4a4f2d9ddf604ce8.json",
+          "case": "real_cba73e",
+          "variant": "v3",
+          "promptHash": "4a4f2d9ddf604ce8",
+          "knowledgeHash": "1ab94103bca81358",
+          "models": [
+            "claude-haiku-5-5",
+            "claude-sonnet-5-5"
+          ],
+          "durationMs": 14560,
+          "numTurns": 2,
+          "usage": "not recorded",
+          "deterministic": {
+            "passed": false,
+            "outcomes": {
+              "payload-privacy": "pass",
+              "tool-use": "not_run",
+              "tool-step-selection": "not_run",
+              "tool-step-core": "not_run",
+              "runtime-guardrails": "pass",
+              "numbers-preserved": "pass",
+              "no-internal-field-names": "pass",
+              "must-mention": "pass",
+              "cites-nm-md-repair": "pass",
+              "cites-zero-coverage": "pass",
+              "cites-dbsnp-not-configured": "pass",
+              "cites-intended-use": "pass",
+              "variant-count-carries-unfiltered-qualification": "fail",
+              "coverage-measurement-levels": "needs_review",
+              "no-threshold-verdict": "needs_review",
+              "no-unrecorded-cause": "needs_review",
+              "nm-md-scope": "needs_review",
+              "dbsnp-scope": "needs_review",
+              "step-scope": "needs_review",
+              "uncertainty": "needs_review"
+            }
+          },
+          "hasOutput": true,
+          "length": {
+            "characters": 1636,
+            "statements": {
+              "summary": 1,
+              "importantFindings": 7,
+              "limitations": 4,
+              "nextChecks": 4,
+              "uncertainties": 3
+            },
+            "statementTotal": 19
+          },
+          "payloadAvailable": true,
+          "quality": {
+            "v1": {
+              "counts": {
+                "term": {
+                  "PASS": 4,
+                  "FAIL": 1,
+                  "REVIEW": 15
+                },
+                "internal": {
+                  "PASS": 0,
+                  "FAIL": 0,
+                  "REVIEW": 1
+                },
+                "fact": {
+                  "PASS": 8,
+                  "FAIL": 0,
+                  "REVIEW": 0
+                }
+              },
+              "watched": [
+                {
+                  "verdict": "PASS",
+                  "rule": "count_stated",
+                  "unit": null,
+                  "subject": "warning-count-or-steps"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "no_claim",
+                  "unit": null,
+                  "subject": "warning-not-failure"
+                }
+              ]
+            },
+            "v2": {
+              "counts": {
+                "term": {
+                  "PASS": 7,
+                  "FAIL": 0,
+                  "REVIEW": 16
+                },
+                "internal": {
+                  "PASS": 0,
+                  "FAIL": 0,
+                  "REVIEW": 4
+                },
+                "fact": {
+                  "PASS": 11,
+                  "FAIL": 0,
+                  "REVIEW": 0
+                }
+              },
+              "watched": [
+                {
+                  "verdict": "REVIEW",
+                  "rule": "hard-wording:per-base-level",
+                  "unit": "summary",
+                  "subject": "hard-wording:염기 단위"
+                },
+                {
+                  "verdict": "REVIEW",
+                  "rule": "hard-wording:per-base-level",
+                  "unit": "importantFindings[2]",
+                  "subject": "hard-wording:염기 단위"
+                },
+                {
+                  "verdict": "REVIEW",
+                  "rule": "hard-wording:per-base-level",
+                  "unit": "limitations[3]",
+                  "subject": "hard-wording:염기 단위"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "stated",
+                  "unit": "summary",
+                  "subject": "warning-step-count"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "all_named",
+                  "unit": null,
+                  "subject": "warning-steps-named"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "no_claim",
+                  "unit": null,
+                  "subject": "warning-not-failure"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "meaning_and_scope",
+                  "unit": null,
+                  "subject": "measurement-meaning:meanTargetDepth"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "meaning_and_scope",
+                  "unit": null,
+                  "subject": "measurement-meaning:zeroCoverageBasesPct"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "file": "B_r3_real_cba73e_v3_sonnet_600cca4_4a4f2d9ddf604ce8.json",
+          "case": "real_cba73e",
+          "variant": "v3",
+          "promptHash": "4a4f2d9ddf604ce8",
+          "knowledgeHash": "1ab94103bca81358",
+          "models": [
+            "claude-haiku-5-5",
+            "claude-sonnet-5-5"
+          ],
+          "durationMs": 19353,
+          "numTurns": 2,
+          "usage": "not recorded",
+          "deterministic": {
+            "passed": true,
+            "outcomes": {
+              "payload-privacy": "pass",
+              "tool-use": "not_run",
+              "tool-step-selection": "not_run",
+              "tool-step-core": "not_run",
+              "runtime-guardrails": "pass",
+              "numbers-preserved": "pass",
+              "no-internal-field-names": "pass",
+              "must-mention": "pass",
+              "cites-nm-md-repair": "pass",
+              "cites-zero-coverage": "pass",
+              "cites-dbsnp-not-configured": "pass",
+              "cites-intended-use": "pass",
+              "variant-count-carries-unfiltered-qualification": "pass",
+              "coverage-measurement-levels": "needs_review",
+              "no-threshold-verdict": "needs_review",
+              "no-unrecorded-cause": "needs_review",
+              "nm-md-scope": "needs_review",
+              "dbsnp-scope": "needs_review",
+              "step-scope": "needs_review",
+              "uncertainty": "needs_review"
+            }
+          },
+          "hasOutput": true,
+          "length": {
+            "characters": 1724,
+            "statements": {
+              "summary": 1,
+              "importantFindings": 9,
+              "limitations": 4,
+              "nextChecks": 4,
+              "uncertainties": 3
+            },
+            "statementTotal": 21
+          },
+          "payloadAvailable": true,
+          "quality": {
+            "v1": {
+              "counts": {
+                "term": {
+                  "PASS": 6,
+                  "FAIL": 0,
+                  "REVIEW": 12
+                },
+                "internal": {
+                  "PASS": 0,
+                  "FAIL": 0,
+                  "REVIEW": 0
+                },
+                "fact": {
+                  "PASS": 7,
+                  "FAIL": 0,
+                  "REVIEW": 0
+                }
+              },
+              "watched": [
+                {
+                  "verdict": "PASS",
+                  "rule": "count_stated",
+                  "unit": null,
+                  "subject": "warning-count-or-steps"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "no_claim",
+                  "unit": null,
+                  "subject": "warning-not-failure"
+                }
+              ]
+            },
+            "v2": {
+              "counts": {
+                "term": {
+                  "PASS": 10,
+                  "FAIL": 0,
+                  "REVIEW": 12
+                },
+                "internal": {
+                  "PASS": 0,
+                  "FAIL": 0,
+                  "REVIEW": 1
+                },
+                "fact": {
+                  "PASS": 9,
+                  "FAIL": 0,
+                  "REVIEW": 1
+                }
+              },
+              "watched": [
+                {
+                  "verdict": "REVIEW",
+                  "rule": "field-translation:nonoverlap-bases",
+                  "unit": "importantFindings[2]",
+                  "subject": "field-translation:겹치지 않는 염기"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "stated",
+                  "unit": "summary",
+                  "subject": "warning-step-count"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "all_named",
+                  "unit": null,
+                  "subject": "warning-steps-named"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "no_claim",
+                  "unit": null,
+                  "subject": "warning-not-failure"
+                },
+                {
+                  "verdict": "PASS",
+                  "rule": "meaning_and_scope",
+                  "unit": null,
+                  "subject": "measurement-meaning:meanTargetDepth"
+                },
+                {
+                  "verdict": "REVIEW",
+                  "rule": "no_scope",
+                  "unit": null,
+                  "subject": "measurement-meaning:zeroCoverageBasesPct"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

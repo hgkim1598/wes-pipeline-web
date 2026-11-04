@@ -186,14 +186,21 @@ ConfigError: Invalid WES_RUN_MODE: 'chek_only'. Expected one of: check_only, ful
 
 | Method | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/health` | 서버가 살아 있는지, 파이프라인 스크립트와 설정이 제자리에 있는지 확인 |
+| GET | `/api/health` | 서버가 살아 있는지, 파이프라인 스크립트와 설정이 제자리에 있는지 확인. 서버 절대경로는 보내지 않음(`pipelineScript`는 저장소 기준 상대경로, `release`는 배포 디렉터리 이름) |
 | POST | `/api/uploads` | 파일 업로드를 시작하고 업로드 ID와 조각 크기를 받아옴 |
 | GET | `/api/uploads/{id}` | 이미 받은 조각 번호 목록 (중간에 끊겼을 때 이어받기용) |
 | PUT | `/api/uploads/{id}/{index}` | 파일 조각 하나를 전송 |
 | POST | `/api/uploads/{id}/complete` | 조각들을 합쳐 하나의 파일로 만들고 식별용 토큰을 반환 |
 | POST | `/api/jobs` | 분석 요청 접수. 설정 파일을 만들고 대기열에 넣은 뒤 즉시 `jobId` 반환 |
 | GET | `/api/jobs/{id}` | Job의 현재 상태·단계별 진행·실패 사유·최근 로그 조회 (Frontend가 3초마다 호출) |
+| GET | `/api/jobs` | 이 backend의 DB에 있는 실행 목록 |
 | POST | `/api/jobs/{id}/cancel` | 실행 중인 분석 중단 요청 |
+| GET | `/api/jobs/{id}/results` | 분석 결과 요약. 결과 문서가 아직 없으면 409 |
+| GET | `/api/jobs/{id}/artifacts` | 산출물 목록 |
+| GET | `/api/jobs/{id}/artifacts/{fileId}/download` | 산출물 다운로드 |
+| GET | `/api/jobs/{id}/steps/{stepId}` | 단계별 상세 |
+| GET | `/api/jobs/{id}/explanation` | 모델 없이 만든 실행 설명(결정론). 실패한 실행도 설명함 |
+| POST | `/api/jobs/{id}/synthesis` | AI 종합 설명(Claude Code CLI, 구독 로그인 전용). 버튼을 눌렀을 때만 실행. 아직 끝나지 않은 실행(`queued`·`running`)은 모델을 부르지 않고 409 |
 | GET | `/api/jobs/{id}/stream` | **의도적으로 404를 반환합니다.** 실시간 스트리밍(SSE)은 아직 만들지 않았고, Frontend가 이 404를 보고 자동으로 polling(주기적 재조회)으로 전환합니다 |
 
 ### 업로드 경로를 노출하지 않는 이유
@@ -249,14 +256,43 @@ Frontend → Backend → 실제 script/main.sh --check-only
 참조 유전체가 설치되어 있지 않기 때문이며, **현재 환경에서는 정상적인 결과입니다.**
 중요한 것은 그 실패 사유가 조작 없이 파이프라인에서 화면까지 그대로 전달된다는 점입니다.
 
-전체 WES 분석(`full` 모드)은 아직 실행해 보지 않았습니다.
+전체 WES 분석(`full` 모드)은 **Ubuntu VM**에서 실제 도구와 GRCh38로 `00 → 99`까지
+완주했습니다(루트 `README.md` "WES Validation"). 그 실행 하나(`real_cba73e`,
+`completed_with_warnings`)의 상태 문서와 DB 행을 보존해 두었고(`evals/real_runs.py`),
+Windows에서는 이 사본을 `python -m evals.dev_restore`로 복원해 웹 화면과 AI 설명을
+확인합니다. 이 사본은 원본 VM과 연결되어 있지 않습니다.
+
+### 운영체제별 지원 범위
+
+| | Windows (개발) | Ubuntu (VM) |
+|---|---|---|
+| Frontend · Backend 실행 | ✅ | ✅ (`docs/DEPLOYMENT.md`) |
+| `check_only` 실행 | ✅ (도구가 없어 검증 실패로 끝나는 것이 정상) | ✅ |
+| `full` 실행 | ❌ 도구·참조 유전체 없음 | ✅ 1회 완주 기록 |
+| 실행 중 취소 | 부분적 (아래 "현재 제한") | ✅ |
+| 실제 Run 보기 | 보존 사본 복원(`evals/dev_restore.py`) | 그 backend가 만든 실행 |
+
+Windows의 backend와 VM의 backend는 DB와 실행 폴더를 공유하지 않습니다. 한 backend는
+자기 DB에 행이 있는 실행만 보여 줍니다.
 
 ## 현재 제한
 
 - **한 번에 한 샘플만 제출할 수 있습니다.** 파이프라인이 실행 1건당 생물학적 샘플 1개를 요구합니다. 여러 개를 보내면 400 오류와 이유를 반환하며, 조용히 버리지 않습니다.
 - **동시에 한 건만 실행합니다.** Worker 스레드가 1개입니다.
-- **분석 결과 조회 API가 없습니다.** 상태와 로그만 제공하며, 변이 목록·커버리지 같은 결과 데이터 API는 아직 만들지 않았습니다.
+- **결과 API는 요약과 산출물까지입니다.** `/results`·`/artifacts`·`/explanation`이 있으며, 변이 목록을 행 단위로 돌려주는 API는 없습니다.
 - **취소는 Linux에서만 온전히 동작합니다.** Windows에서는 `main.sh`가 종료 신호를 받아 처리할 방법이 없어, 실행 중 취소하면 상태 파일과 잠금 폴더가 정리되지 않고 남을 수 있습니다.
-- **Backend를 재시작하면 실행 중이던 Job을 다시 이어받지 않습니다.** 상태 조회는 디스크의 상태 파일을 읽으므로 정상 표시되지만, 데이터베이스의 Job 상태는 `RUNNING`으로 남습니다.
+- **재시작 시 정리(`worker.recover_orphans`)는 DB 행만 맞춥니다.** 시작할 때 `RUNNING`·`CANCELLING` 행을 보고, 파이프라인 프로세스가 살아 있으면 그대로 둡니다(Linux는 `setsid`로 띄우므로 backend 재시작에도 분석이 계속됨). 프로세스가 사라졌으면 `run_status.json`이 있을 때 `DONE`, 없을 때 `EXEC_FAILED`로 닫고, `QUEUED` 행은 다시 대기열에 넣습니다. 살아 있던 분석이 끝난 뒤에도 DB 행은 다음 재시작 전까지 `RUNNING`일 수 있지만, 화면의 상태는 디스크의 상태 파일을 읽으므로 정확합니다.
 - **업로드 조각 크기에 상한이 없고 로그인/인증도 없습니다.** 로컬 개발 환경(127.0.0.1)에서만 사용하세요.
-- **자동 테스트가 없습니다.**
+- **AI 설명은 선택 기능입니다.** 모델 응답은 화면에 나가기 전에 근거 ID · 수치 · 내부 필드 이름 검사를 통과해야 하며, 하나라도 걸리면 응답 전체를 버리고 이유를 표시합니다(`services/explanation/llm/synthesis.py`). 초보자용 설명 품질 검사기(`evals/explanation_quality.py`)는 **평가 전용**이며 실제 응답 경로에서는 실행되지 않습니다.
+
+## 테스트
+
+```bash
+cd backend
+.venv/Scripts/python.exe -m pytest -o addopts=""          # app/tests (모델 호출 없음)
+.venv/Scripts/python.exe -m pytest evals -o addopts=""    # 평가 도구 테스트 (모델 호출 없음)
+```
+
+2026-11-04 Windows에서 실행: app 585 passed · 1 skipped(일반 계정에 file symlink 권한이 없어 건너뜀),
+evals 238 passed. capture가 없는 PC에서는 실제 Run을 쓰는 evals 테스트가 skip됩니다.
+모델을 실제로 호출하는 것은 `python -m evals.run_eval`뿐이며 pytest는 이를 실행하지 않습니다.

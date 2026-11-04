@@ -295,7 +295,7 @@ Tool 호출은 있지만 범위가 좁습니다. **1회 CLI 호출 안에서 읽
 | 코드 경로 테스트 | fake provider와 in-process MCP client로 호출 경로 검사. **실제 모델 · subprocess 호출 없음** | 기본 `pytest` 범위에 포함 ([Validation](#validation)) |
 | 실제 CLI → stdio MCP → Tool | 2026-09-22 **수동 1회**. VM의 Run JSON을 read-only GET으로 받아 로컬 임시 DB · runs에 복원해 실행 | `cba73e`(완주 · 경고 3): Tool 미사용 · guardrail 통과 / `68aa20`(`03_alignment` 실패): `03_alignment` 조회 · guardrail 통과. **자동 테스트 없음** |
 | Tool 선택 평가 | 합성 case 3개(실패 단계 · 경고 단계 · 조회 불필요)와 채점 함수 | case와 채점 함수는 구현. **실제 모델로 실행한 결과 없음** |
-| 설명 품질 | 2026-09-10 단발 synthesis baseline(Agent 연결 이전) 사람 판정 | **Agent 구조의 정량 품질 평가는 아직 없음** |
+| 설명 품질 | 2026-09-10 단발 synthesis baseline 사람 판정 · 2026-11-04 A/B 비교(기존·개선 prompt+Knowledge, 같은 실제 Run, 각 3회) | A 답변 2개 · B 답변 3개를 문자열 규칙 검사기(`evals/explanation_quality.py`, v1·v2)로 채점. 경고 단계 명시 0/2 → 3/3, 내부 설정 이름 노출 2/2 → 0/3. **표본이 작고 사람 평가 전이라 개선 효과가 입증된 것은 아님** ([`backend/evals/experiments/ab_2026-11-04/RESULTS.md`](backend/evals/experiments/ab_2026-11-04/RESULTS.md)) |
 
 평가 설계와 남은 과제는 [`docs/AGENT_PLAN.md`](docs/AGENT_PLAN.md)에 정리했습니다.
 
@@ -324,9 +324,9 @@ Tool 호출은 있지만 범위가 좁습니다. **1회 CLI 호출 안에서 읽
 | Sample | GIAB **HG002 / SRR2962669** 5M paired-end subset |
 | Fatal error / failures | **0** / `[]` |
 | Core artifacts | analysis-ready BAM · gVCF · **raw VCF** ✅ |
-| Backend tests | ✅ **489 passed · 1 skipped** — `cd backend && .venv/Scripts/python.exe -m pytest` (기본 범위 `app/tests`, 2026-10-28 실행) |
-| Eval scorer tests | ✅ **50 passed** — backend에서 `.venv/Scripts/python.exe -m pytest evals/test_evaluators.py` (채점 함수 테스트 · 모델 호출 없음, 2026-10-28 실행) |
-| Frontend typecheck / build | ✅ `tsc -b` strict · `vite build` (2026-10-28 실행) |
+| Backend tests | ✅ **585 passed · 1 skipped** — `cd backend && .venv/Scripts/python.exe -m pytest` (기본 범위 `app/tests`, 2026-11-04 Windows 실행. skip 1건은 file symlink 권한) |
+| Eval tests | ✅ **238 passed** — backend에서 `.venv/Scripts/python.exe -m pytest evals` (채점 함수 · 설명 품질 검사기 · 비교 도구 테스트 · 모델 호출 없음, 2026-11-04 실행) |
+| Frontend typecheck / lint / build | ✅ `tsc -b` strict · `oxlint` · `vite build` (2026-11-04 실행). frontend 단위 테스트는 아직 없음 |
 
 backend 테스트의 Agent 관련 부분은 fake provider와 in-process MCP client를 쓰며, **실제 LLM 응답 품질을 측정한 결과가 아닙니다.**
 
@@ -360,7 +360,7 @@ raw variant records는 **필터링 전 후보 기록**이며 확인된 변이나
 | **Backend** | Python 3.12 · FastAPI · SQLite(stdlib) · threading + queue · subprocess/setsid | API · job 저장 · single worker · 재시작해도 분석이 죽지 않음 |
 | **Bioinformatics** | FastQC · MultiQC · fastp · BWA-MEM · SAMtools · GATK · mosdepth · bcftools · (InterVar) | `main.sh`가 호출. 파이프라인은 소프트웨어를 설치하지 않음 |
 | **Explanation / AI** | Pydantic contract · shared JSON knowledge · Claude Code CLI (subprocess + JSON schema) · MCP Python SDK (stdio) | deterministic 계층 + 구독 전용 LLM synthesis + 읽기 전용 Tool 1개 |
-| **Testing** | pytest (489 passed · 1 skipped, 2026-10-28) · offline eval harness · oxlint · tsc strict | eval은 `testpaths` 밖 — 맨 `pytest`는 0건 수집 |
+| **Testing** | pytest (app 585 passed · 1 skipped, evals 238 passed, 2026-11-04) · offline eval harness · oxlint · tsc strict | eval은 `testpaths` 밖 — `pytest evals`로 따로 실행 |
 
 **Dev env** — Windows에서 frontend/backend 개발, **Ubuntu VM(VirtualBox)** 에서 실제 WES 실행 (conda env 2개: `wes-dev` = FastAPI, `wes-tools` = 분석 도구)
 
@@ -410,6 +410,8 @@ cd backend && .venv/Scripts/python.exe -m pytest
 # Frontend
 cd front && npm install
 npm run dev          # http://localhost:5173  (/api → 127.0.0.1:8000 proxy)
+# Ubuntu VM backend를 쓸 때: front/.env.local에 WES_API_PROXY_TARGET=http://127.0.0.1:<포워딩 포트>
+#   (docs/DEPLOYMENT.md 3-9)
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -463,7 +465,8 @@ bash script/main.sh --config <run_config.json> --check-only  # preflight만
 - **local reference resources 필요** — 파이프라인이 reference를 내려받지 않음
 - **LLM explanation은 분석 사실의 출처가 아니며 medical advice가 아님**
 - **Diagnostic Agent는 실험 단계** — Tool 1개 · 실제 CLI→MCP 경로는 수동 1회 확인 · Agent 응답 품질의 정량 평가 없음 · 상주 배포된 서비스 아님
-- **synthesis API는 미완료 Run 요청을 막지 않음** — 현재는 UI에서만 버튼을 비활성화
+- **설명 품질 검사기는 평가 전용** — 실제 응답 경로에서 도는 것은 근거 ID · 수치 · 내부 필드 이름 검사뿐이고, 초보자용 설명 품질 규칙(`evals/explanation_quality.py`)은 기록된 답변을 채점할 때만 쓴다
+- **Windows와 Ubuntu VM은 데이터를 공유하지 않음** — 각 backend는 자기 DB의 실행만 보여 준다. Windows에서 보는 실제 Run은 VM 실행의 보존 사본이다
 
 ---
 

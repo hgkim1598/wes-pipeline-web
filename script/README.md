@@ -208,10 +208,12 @@ Backend는 `main.sh`를 **수정하지 않습니다.** 다음 규칙을 지킵�
 |---|---|
 | 문법 검사 (`bash -n`), `--help`, 코드↔문서 정합성 | **완료** |
 | 웹 연동에서 `--check-only` 실행 (Windows + Git Bash) | **확인됨** — 실제 실행되어 `run_status.json`과 `00_input_validation` 결과 생성 |
-| 실제 리소스로 `--check-only` 통과 | **미완료** — GRCh38 참조 유전체·known-sites가 아직 준비되지 않음 |
-| 부분/전체 WES 실행 (`full` 모드) | **미완료** |
+| 실제 리소스로 입력·참조 자료 검증 통과 | **확인됨 (Ubuntu VM)** — full 실행의 `00_input_validation`이 GRCh38·known-sites로 통과 |
+| 전체 WES 실행 (`full` 모드, core `00 → 99`) | **확인됨 (Ubuntu VM, 5M read subset)** — 1회 완주, `completed_with_warnings`. 보존 사본: `backend/evals/real_runs.py`의 `real_cba73e` |
+| optional step (filtering · annotation · InterVar) | **미확인** — 구현되어 있으나 실행 검증 안 함 |
 
-위 표의 아래 두 줄은 `docs/MAIN_SH_COMPLETE_GUIDE.md`의 "28. 현재 한계" 장에 기록된 내용과 같습니다.
+`docs/MAIN_SH_COMPLETE_GUIDE.md`의 "28. 현재 한계" 장은 full 실행 전에 쓴 기록이라
+위 표의 확인됨 두 줄과 다릅니다. 현재 상태는 이 표와 루트 `README.md`를 기준으로 봅니다.
 
 Windows 개발 PC에는 WES 분석 도구와 참조 유전체가 없기 때문에
 `--check-only`를 돌리면 다음과 같은 실패가 나오며, 이는 **현재 환경에서 정상**입니다.

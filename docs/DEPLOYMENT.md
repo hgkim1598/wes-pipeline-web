@@ -102,8 +102,10 @@ release 밖에 있는 것:
 ```
 
 release 이름은 `<날짜>_<순번>_<commit>` 형식입니다. commit 해시가 들어 있어서
-`/api/health`의 `pipelineScript` 경로만 봐도 **지금 도는 코드가 어느 commit인지**
-알 수 있습니다.
+`/api/health`의 `release` 값만 봐도 **지금 도는 코드가 어느 commit인지**
+알 수 있습니다. (예전에는 `pipelineScript`의 절대경로로 확인했습니다. 지금
+`pipelineScript`는 서버 디렉터리 구조를 드러내지 않도록 저장소 기준 상대경로
+`script/main.sh`만 보냅니다.)
 
 > **왜 `runs`/`uploads`/DB를 shared에 두는가**
 > release 디렉터리 안에 두면 release를 교체할 때 과거 run과 job 이력이
@@ -329,7 +331,7 @@ curl -s http://127.0.0.1:8000/api/health
 ```
 
 ```json
-{"status":"ok","runMode":"full","pipelineScript":".../releases/20260918_01_88e7230/script/main.sh",
+{"status":"ok","runMode":"full","release":"20260918_01_88e7230","pipelineScript":"script/main.sh",
  "pipelineScriptPresent":true,"captureKitRegistryPresent":true,"referenceConfigured":true}
 ```
 
@@ -341,6 +343,63 @@ curl -s http://127.0.0.1:8000/api/health
 
 여기까지 왔으면 서버는 동작합니다. 다만 **재부팅하면 backend는 다시 뜨지
 않습니다** — 그것이 4장입니다.
+
+### 3-9. Windows 브라우저에서 이 backend 쓰기
+
+backend는 frontend 빌드를 서빙하지 않습니다. 화면은 **Windows에서 띄운 Vite
+dev server**가 그리고, `/api` 요청만 VM backend로 넘깁니다(같은 origin이라
+CORS 설정이 필요 없습니다). Run 목록·상태·결과·설명은 모두 VM의 DB와 run
+디렉터리에서 옵니다. Windows의 backend와 데이터를 공유하지 않습니다.
+
+1. VirtualBox 포트 포워딩: host `127.0.0.1:<host 포트>` → guest `8000`.
+   Windows backend가 8000을 쓰고 있다면 host 포트는 다른 번호로 둡니다.
+2. Windows에서 연결 확인:
+
+   ```powershell
+   curl.exe -s http://127.0.0.1:<host 포트>/api/health
+   ```
+
+   `release`가 VM에 배포한 release 이름과 같아야 합니다. 다르면 다른
+   backend(예: Windows 로컬)에 붙은 것입니다.
+3. proxy 대상을 지정하고 dev server를 띄웁니다. 값은 `front/.env.local`
+   (`*.local`은 git에 들어가지 않음)이나 셸 변수로 줍니다.
+
+   ```powershell
+   # front/.env.local
+   WES_API_PROXY_TARGET=http://127.0.0.1:<host 포트>
+   ```
+
+   ```powershell
+   cd front; npm run dev     # http://localhost:5173
+   ```
+
+   경로가 붙은 값(`.../api`)이나 URL이 아닌 값은 dev server가 시작을
+   거부합니다. 지정하지 않으면 기존대로 `http://127.0.0.1:8000`입니다.
+4. 화면의 health 페이지에서 `release`를 한 번 더 확인합니다.
+
+주의: 화면이 쓰는 공용 용어 사전(`config/`)은 **Windows checkout**의
+파일입니다. VM release와 commit이 다르면 용어 설명이 어긋날 수 있으니,
+`release` 이름의 commit과 Windows의 `git rev-parse --short HEAD`를 맞춥니다.
+
+AI 설명(`POST /api/jobs/{id}/synthesis`)은 **VM의 backend가** Claude Code
+CLI를 호출합니다. VM에 로그인된 CLI가 없으면 화면에는 "AI 설명을 사용할 수
+없습니다"가 나오고, 결정적 설명은 그대로 보입니다.
+
+systemd로 띄운 backend는 로그인 셸의 PATH를 받지 않습니다. CLI가
+`~/.local/bin` 같은 곳에 있으면 backend는 찾지 못합니다(`providerUnavailable`).
+확인되지 않은 부분이라 절차만 적습니다(미검증):
+
+```bash
+# unit의 User로 실행
+command -v claude && claude auth status      # authMethod가 claude.ai 계열인지
+# 찾았다면 그 디렉터리를 shared/backend.env의 PATH에 넣는다.
+# systemd EnvironmentFile은 $PATH를 펼치지 않으므로 전체 값을 적는다.
+#   PATH=<claude가 있는 디렉터리>:/usr/local/bin:/usr/bin:/bin
+sudo systemctl restart wes-backend
+```
+
+`ANTHROPIC_API_KEY` 같은 종량제 인증 변수가 backend 환경에 있으면 synthesis는
+호출 전에 거부됩니다(`meteredAuthPresent`). 의도된 동작입니다.
 
 ---
 

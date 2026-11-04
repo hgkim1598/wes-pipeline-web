@@ -1,0 +1,204 @@
+{
+  "invocationStatus": "invoked",
+  "invocationSkippedReason": null,
+  "case": "real_cba73e",
+  "caseKind": "real",
+  "caseIntent": "실제 완주 Run -- completed_with_warnings, 경고 3종이 04/05/06에 하나씩",
+  "source": "capture",
+  "split": "dev",
+  "runId": "wes-20260918-222933-cba73e",
+  "captureDir": ".capture_success_cba73e",
+  "captureManifest": "8f54e06e88d5620d245d8c431fb98a3f94d828dbf1c3af710167121856beeb27",
+  "captureUnchanged": true,
+  "payloadHash": "dac9464530c8dc221c8f059c6aa8db29c4f243a92a47cf6f37a333c78a3c5c0a",
+  "codeVersion": {
+    "commit": "ed12c187ee22ae94aea7710f899bbc994135782e",
+    "trackedChanges": false
+  },
+  "variant": "v3",
+  "toolsOffered": true,
+  "recordedAt": "2026-11-04T03:00:47+00:00",
+  "provider": null,
+  "models": null,
+  "durationMs": null,
+  "configuredModel": "sonnet",
+  "promptHash": "08c1f9035445420a",
+  "knowledgeHash": "448e9866a674441d",
+  "schemaHash": "07ba45eb8da7f48f",
+  "allowedRefCount": 38,
+  "toolUse": {
+    "toolUsed": false,
+    "openedStepIds": [],
+    "toolEvidenceIds": [],
+    "callCount": 0,
+    "repeatCount": 0,
+    "refusals": []
+  },
+  "trace": {
+    "models": [
+      "claude-haiku-5-5",
+      "claude-sonnet-5-5"
+    ],
+    "durationMs": 13130,
+    "numTurns": 2,
+    "openedStepIds": [],
+    "available": false,
+    "errorCategory": "unknownEvidenceRef"
+  },
+  "evidenceUse": {
+    "returnedToolEvidenceIds": [],
+    "citedToolEvidenceIds": null,
+    "returnedNotCitedIds": null
+  },
+  "expectedToolUse": "optional",
+  "expectedStepIds": null,
+  "acceptableStepSets": [
+    [
+      "04_processing"
+    ],
+    [
+      "05_coverage_qc"
+    ],
+    [
+      "06_variant_calling"
+    ],
+    [
+      "04_processing",
+      "05_coverage_qc"
+    ],
+    [
+      "04_processing",
+      "06_variant_calling"
+    ],
+    [
+      "05_coverage_qc",
+      "06_variant_calling"
+    ]
+  ],
+  "evaluation": {
+    "case": "real_cba73e",
+    "deterministicPassed": false,
+    "results": [
+      {
+        "name": "payload-privacy",
+        "outcome": "pass",
+        "kind": "deterministic",
+        "detail": "검체 식별자·경로가 payload에 없음"
+      },
+      {
+        "name": "tool-use",
+        "outcome": "not_run",
+        "kind": "deterministic",
+        "detail": "Tool 사용이 선택인 case라 호출 여부는 채점하지 않음 · 호출 안 함",
+        "metrics": {
+          "toolUsed": false
+        }
+      },
+      {
+        "name": "tool-step-selection",
+        "outcome": "not_run",
+        "kind": "deterministic",
+        "detail": "Tool 사용이 선택인 case에서 step을 열지 않음"
+      },
+      {
+        "name": "tool-step-core",
+        "outcome": "not_run",
+        "kind": "deterministic",
+        "detail": "Tool 사용이 선택인 case에서 step을 열지 않음"
+      },
+      {
+        "name": "runtime-guardrails",
+        "outcome": "fail",
+        "kind": "deterministic",
+        "detail": "모델 출력이 guardrail에 걸림: unknownEvidenceRef"
+      },
+      {
+        "name": "coverage-measurement-levels",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "synthesis 없음"
+      },
+      {
+        "name": "no-threshold-verdict",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "synthesis 없음"
+      },
+      {
+        "name": "no-unrecorded-cause",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "synthesis 없음"
+      },
+      {
+        "name": "nm-md-scope",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "synthesis 없음"
+      },
+      {
+        "name": "dbsnp-scope",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "synthesis 없음"
+      },
+      {
+        "name": "step-scope",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "synthesis 없음"
+      },
+      {
+        "name": "uncertainty",
+        "outcome": "needs_review",
+        "kind": "human",
+        "detail": "synthesis 없음"
+      }
+    ]
+  },
+  "humanReview": {
+    "reviewedBy": null,
+    "verdict": null,
+    "notes": null,
+    "items": [
+      {
+        "name": "coverage-measurement-levels",
+        "question": "synthesis 없음",
+        "verdict": null
+      },
+      {
+        "name": "no-threshold-verdict",
+        "question": "synthesis 없음",
+        "verdict": null
+      },
+      {
+        "name": "no-unrecorded-cause",
+        "question": "synthesis 없음",
+        "verdict": null
+      },
+      {
+        "name": "nm-md-scope",
+        "question": "synthesis 없음",
+        "verdict": null
+      },
+      {
+        "name": "dbsnp-scope",
+        "question": "synthesis 없음",
+        "verdict": null
+      },
+      {
+        "name": "step-scope",
+        "question": "synthesis 없음",
+        "verdict": null
+      },
+      {
+        "name": "uncertainty",
+        "question": "synthesis 없음",
+        "verdict": null
+      }
+    ]
+  },
+  "available": false,
+  "errorCategory": "unknownEvidenceRef",
+  "output": null
+}
