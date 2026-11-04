@@ -338,8 +338,8 @@ function CheckTable({ rows }: { rows: CheckRow[] }) {
 
 /*
   시안의 입력 요약과 같은 골격이다.
-  pipelineScript의 Linux 절대경로는 사용자 판단에 거의 쓰이지 않는
-  기술 상세라, 값 색을 ink-900이 아닌 본문 색으로 한 단계 낮추고
+  pipelineScript(저장소 기준 상대경로, backend/app/main.py)는 사용자 판단에
+  거의 쓰이지 않는 기술 상세라, 값 색을 ink-900이 아닌 본문 색으로 한 단계 낮추고
   break-all로 감싼다 — 공백이 없어서 그냥 두면 페이지가 가로로 밀린다.
 */
 function ServerConfig({ health }: { health: HealthResponse }) {
@@ -366,6 +366,15 @@ function ServerConfig({ health }: { health: HealthResponse }) {
         </dt>
         <dd className="min-w-0 flex-1 basis-full md:basis-0">
           <code className="break-all text-text">{health.pipelineScript}</code>
+        </dd>
+      </div>
+
+      <div className="flex min-h-9 flex-wrap items-baseline gap-x-4 gap-y-1 py-1">
+        <dt className="flex-none text-small text-text-muted md:w-45">
+          배포 이름 <code className="text-caption">release</code>
+        </dt>
+        <dd className="min-w-0 flex-1 basis-full md:basis-0">
+          <code className="break-all text-text">{health.release ?? '—'}</code>
         </dd>
       </div>
     </dl>

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Sparkles } from 'lucide-react'
 
+import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/Button'
 import { DiagnosticKindMark } from '@/components/ui/DiagnosticNote'
 import { MessageBlock } from '@/components/ui/MessageBlock'
@@ -197,15 +198,22 @@ export function RunSynthesisPanel({
           </div>
         ) : null}
 
-        {/* 네트워크 자체가 실패한 경우. backend가 응답한 실패와 구분한다. */}
-        {synthesis.isError ? (
-          <MessageBlock tone="warning" title="요청을 보내지 못했습니다">
-            서버에 연결하지 못했습니다. 위의 설명은 그대로 유효합니다.
-          </MessageBlock>
-        ) : null}
+        {/*
+          요청 자체가 실패한 경우(연결 실패 · HTTP 오류 · 응답 형식 불일치).
+          backend가 200 + available:false로 답한 실패와는 다른 경로다.
+        */}
+        {synthesis.isError ? <SynthesisRequestError error={synthesis.error} /> : null}
 
         {result && !result.available ? (
-          <MessageBlock tone="warning" title="AI 설명을 사용할 수 없습니다">
+          <MessageBlock
+            tone="warning"
+            title={
+              result.errorCategory && GATE_REJECTIONS.has(result.errorCategory)
+                ? '안전 검사에서 설명을 폐기했습니다'
+                : 'AI 설명을 사용할 수 없습니다'
+            }
+          >
+            {/* 문구는 backend가 category마다 정한 것을 그대로 쓴다. */}
             <p>{result.errorMessage}</p>
             <p className="mt-2 text-caption text-text-muted">
               위의 설명은 모델 없이 만들어진 것이며 그대로 유효합니다.
@@ -222,6 +230,73 @@ export function RunSynthesisPanel({
         ) : null}
       </div>
     </section>
+  )
+}
+
+/*
+  backend가 모델의 응답을 받은 뒤 검사에서 거부한 category.
+
+  backend/app/services/explanation/llm/synthesis.py의 검사 단계 이름이며,
+  backend 테스트(test_every_error_category_has_a_curated_message)의 domain
+  집합과 같다. 사용자 문구는 여기서 만들지 않는다 — 제목만 "모델을 쓸 수
+  없었다"와 "모델이 쓴 설명을 버렸다"로 구분한다. 모르는 category는 일반
+  제목으로 간다.
+*/
+const GATE_REJECTIONS: ReadonlySet<string> = new Set([
+  'invalidSynthesis',
+  'unknownEvidenceRef',
+  'unsupportedNumber',
+  'internalFieldName',
+])
+
+/**
+ * 요청이 실패했을 때의 안내.
+ *
+ * 상태 코드는 backend/app/api/synthesis.py가 쓰는 것만 구분한다.
+ *   400 job id 형식 오류 · 404 없는 실행 · 409 아직 끝나지 않은 실행 ·
+ *   500 파이프라인 문서를 읽지 못함
+ * backend가 보낸 상세(detail)는 사용자 문구와 섞지 않고 기술 상세로 아래에 둔다.
+ */
+function SynthesisRequestError({ error }: { error: unknown }) {
+  const apiError = error instanceof ApiError ? error : null
+  const status = apiError?.status ?? null
+
+  let title = '요청이 실패했습니다'
+  let body = 'AI 설명 요청을 처리하지 못했습니다.'
+  if (apiError?.kind === 'network') {
+    title = '서버에 연결하지 못했습니다'
+    body = 'backend가 실행 중인지, 주소가 맞는지 확인한 뒤 다시 요청하세요.'
+  } else if (apiError?.kind === 'malformed') {
+    title = '응답 형식이 예상과 다릅니다'
+    body = '서버의 응답을 frontend가 아는 계약대로 읽지 못했습니다. frontend와 backend의 버전이 맞는지 확인해야 합니다.'
+  } else if (status === 400) {
+    title = '잘못된 요청입니다'
+    body = '실행 ID 형식이 올바르지 않습니다. 실행 목록에서 다시 선택하세요.'
+  } else if (status === 404) {
+    title = '이 실행을 찾을 수 없습니다'
+    body = '서버에 이 실행의 기록이 없습니다. 실행 목록에서 다시 선택하세요.'
+  } else if (status === 409) {
+    title = '아직 끝나지 않은 실행입니다'
+    body = '실행이 끝난 뒤 다시 요청하세요. 이 요청은 모델을 호출하지 않았습니다.'
+  } else if (status !== null && status >= 500) {
+    title = '서버 내부 오류가 발생했습니다'
+    body = `서버가 HTTP ${status}로 응답했습니다. 실행 기록을 읽는 중 문제가 생겼을 수 있으며, 서버 로그를 확인해야 합니다.`
+  } else if (status !== null) {
+    body = `서버가 HTTP ${status}로 응답했습니다.`
+  }
+
+  return (
+    <MessageBlock tone={status === 409 ? 'info' : 'warning'} title={title}>
+      <div className="flex flex-col gap-2">
+        <p>{body}</p>
+        {apiError?.detail ? (
+          <code className="break-all text-caption text-text-muted">
+            {apiError.detail}
+          </code>
+        ) : null}
+        <p className="text-caption text-text-muted">위의 설명은 그대로 유효합니다.</p>
+      </div>
+    </MessageBlock>
   )
 }
 

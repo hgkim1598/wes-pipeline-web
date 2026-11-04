@@ -26,6 +26,10 @@ export const HEALTH_PATH = '/api/health'
 export const HealthResponseSchema = z.object({
   status: z.string(),
   runMode: z.string(),
+  // 배포 디렉터리 이름(docs/DEPLOYMENT.md의 releases/<날짜>_<순번>_<commit>).
+  // 이 필드가 생기기 전의 backend(이전 release)에는 없으므로 optional이다.
+  release: z.string().optional(),
+  // 저장소 기준 상대경로. 서버 절대경로는 보내지 않는다.
   pipelineScript: z.string(),
   pipelineScriptPresent: z.boolean(),
   captureKitRegistryPresent: z.boolean(),
