@@ -72,11 +72,22 @@ def health() -> dict:
 
     `pipelineScript` and `referenceConfigured` are here so a misconfigured
     server is obvious before anyone uploads 12 GB of FASTQ.
+
+    `pipelineScript` is relative to the repository root. The absolute path
+    named the server's directory layout (a deploy root, a user's home) to
+    anyone who can reach this unauthenticated route.
+
+    What the operator did read from that path is which release is serving
+    (docs/DEPLOYMENT.md: `releases/<date>_<seq>_<commit>`). `release` keeps
+    exactly that: the name of the checkout directory, which `ROOT` resolves
+    through the `current` symlink. On a development checkout it is simply the
+    repository folder's name.
     """
     return {
         "status": "ok",
         "runMode": config.RUN_MODE,
-        "pipelineScript": str(config.PIPELINE_SH),
+        "release": config.ROOT.name,
+        "pipelineScript": config.PIPELINE_SH.relative_to(config.ROOT).as_posix(),
         "pipelineScriptPresent": config.PIPELINE_SH.is_file(),
         "captureKitRegistryPresent": config.CAPTURE_KIT_REGISTRY.is_file(),
         "referenceConfigured": bool(config.REFERENCE_FASTA and config.CONTIG_STYLE),

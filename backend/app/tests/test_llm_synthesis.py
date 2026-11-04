@@ -19,6 +19,7 @@ import re
 
 import pytest
 
+from ..services import worker
 from ..services.explanation import deterministic, knowledge as knowledge_module
 from ..services.explanation import run_context
 from ..services.explanation.llm import contract, prompt, provider, validation
@@ -535,6 +536,54 @@ def test_malformed_job_id_is_400(client):
     what actually fails the pattern."""
     assert client.post("/api/jobs/-bad-id/synthesis").status_code == 400
     assert client.post("/api/jobs/not-a-job/synthesis").status_code == 404
+
+
+def _provider_must_not_run(*_args, **_kwargs):
+    raise AssertionError("the provider was reached for a run that has not finished")
+
+
+@pytest.mark.parametrize(
+    ("row_status", "pipeline_status"),
+    [
+        (worker.QUEUED, None),  # no run_status.json yet -> "queued"
+        (worker.RUNNING, None),  # no run_status.json yet -> "running"
+        (worker.RUNNING, "running"),  # the pipeline's own document says running
+    ],
+)
+def test_a_run_that_has_not_finished_is_409_before_the_provider(
+    client, make_job, run, monkeypatch, row_status, pipeline_status
+):
+    """The button is disabled until the run ends; a direct call is refused too.
+
+    409 and not 200 + available:false: nothing about the model went wrong. The
+    request came too early, and the provider is never reached, so it costs no
+    usage.
+    """
+    monkeypatch.setattr(llm_synthesis.provider, "run_structured", _provider_must_not_run)
+    job = make_job(status=row_status, run_mode="full")
+    if pipeline_status is not None:
+        run(job).run_status(pipeline_status, current_step="03_alignment")
+
+    response = client.post(f"/api/jobs/{job}/synthesis")
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "runNotFinished"
+
+
+def test_a_failed_or_cancelled_run_can_still_be_explained(client, make_job, run, monkeypatch):
+    """Only queued and running are refused. Explaining a failure is the point of
+    the feature, and a cancel the pipeline could not record still reads as
+    cancelled -- the same reconciliation GET /api/jobs/{id} applies."""
+    monkeypatch.setattr(
+        llm_synthesis.provider, "run_structured", _provider_raising("usageLimit")
+    )
+    failed = make_job()
+    run(failed).as_failing_precheck()
+    assert client.post(f"/api/jobs/{failed}/synthesis").status_code == 200
+
+    cancelled = make_job("wes-20260821-142659-cccccc", status=worker.CANCELLED, run_mode="full")
+    run(cancelled).run_status("running", current_step="03_alignment")
+    assert client.get(f"/api/jobs/{cancelled}").json()["status"] == "cancelled"
+    assert client.post(f"/api/jobs/{cancelled}/synthesis").status_code == 200
 
 
 def test_provider_failure_is_200_with_a_category(client, make_job, run, monkeypatch):

@@ -24,6 +24,7 @@ def test_health_keys_unchanged(client):
     assert set(response.json()) == {
         "status",
         "runMode",
+        "release",
         "pipelineScript",
         "pipelineScriptPresent",
         "captureKitRegistryPresent",
@@ -36,6 +37,20 @@ def test_health_reports_ok(client):
     assert body["status"] == "ok"
     assert body["runMode"] in ("check_only", "full")
     assert isinstance(body["pipelineScriptPresent"], bool)
+
+
+def test_health_does_not_reveal_the_server_layout(client):
+    """The route has no authentication; an absolute path names the deploy root."""
+    from pathlib import PurePosixPath, PureWindowsPath
+
+    script = client.get("/api/health").json()["pipelineScript"]
+    assert script == "script/main.sh"
+    assert not PurePosixPath(script).is_absolute()
+    assert not PureWindowsPath(script).is_absolute()
+    # The release is still identifiable -- the one thing operators read from
+    # the old absolute path (docs/DEPLOYMENT.md) -- but only by its name.
+    release = client.get("/api/health").json()["release"]
+    assert release and "/" not in release and "\\" not in release
 
 
 # --- GET /api/jobs/{id} -----------------------------------------------------

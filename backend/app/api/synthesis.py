@@ -24,8 +24,20 @@ frontend renders a message next to the deterministic explanation that is still
 on screen. A 5xx would push the client into its error path and risk replacing a
 working page with an error page over a feature that is by design optional.
 
-The 4xx/5xx codes that remain are the same ones /explanation uses, and mean the
-same things -- they are about the job, not about the model.
+The 4xx/5xx codes that remain are about the job, not about the model. Most are
+the ones /explanation uses. One is this route's own: 409 for a run that has not
+finished yet.
+
+A run that has not finished is refused here
+-------------------------------------------
+
+The UI disables the button until the run ends, but the button is not the only
+client. A synthesis of a queued or running run goes stale as soon as the next
+step finishes, and it still spends usage. So the server applies the same rule
+before calling anything: queued and running are refused with 409; every other
+status, including failed and cancelled, can be explained. The rule matches
+front/src/features/runs/status.ts isTerminalStatus, and the status is the one
+GET /api/jobs/{id} reports (run_context reconciles it the same way).
 """
 
 from __future__ import annotations
@@ -44,6 +56,9 @@ from ..services.explanation.llm.synthesis import SynthesisResult
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/jobs", tags=["synthesis"])
+
+# JobStatus values (schemas.py) that mean the run is still going.
+_ACTIVE_STATUSES = ("queued", "running")
 
 
 @router.post("/{job_id}/synthesis", response_model=SynthesisResult)
@@ -69,6 +84,16 @@ def create_synthesis(job_id: str) -> SynthesisResult:
                 "message": "a pipeline document could not be read",
             },
         ) from exc
+
+    if context.outcome.status in _ACTIVE_STATUSES:
+        # Before the provider is reached: a refused request costs nothing.
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "runNotFinished",
+                "message": "the run has not finished; synthesis is available once it ends",
+            },
+        )
 
     explanation = deterministic.build_run_explanation(context)
     # The trace is written here rather than inside the service because this is
