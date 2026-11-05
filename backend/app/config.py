@@ -99,8 +99,10 @@ SYNTHESIS_MODEL = _env("WES_SYNTHESIS_MODEL", "sonnet") or None
 # diagnostics plus coverage and variant sections) took 160.7 seconds and the
 # 120s limit killed a call that was working. The bound exists to stop a wedged
 # CLI holding a worker thread, so it should sit well above a normal generation
-# rather than close to it. There is no retry, by design -- a retry would spend
-# the subscription allowance twice for one request.
+# rather than close to it. A timed-out call is never retried: a retry would
+# spend the subscription allowance twice for one request and most likely time
+# out again. The bound applies to each call, so with repair on (WES_SYNTHESIS_REPAIR) one
+# request can wait up to twice this long.
 SYNTHESIS_TIMEOUT_SECONDS = int(_env("WES_SYNTHESIS_TIMEOUT_SECONDS", "300"))
 
 # `bash` must be on PATH. On Windows this is Git Bash; on Linux the system bash.
@@ -139,6 +141,38 @@ def _resolve_run_mode() -> str:
 
 
 RUN_MODE = _resolve_run_mode()
+
+# --- AI synthesis repair ----------------------------------------------------
+# Below ConfigError on purpose: an invalid value raises it at import.
+
+_REPAIR_ON = ("1", "true", "on", "yes")
+_REPAIR_OFF = ("", "0", "false", "off", "no")
+
+
+def _resolve_synthesis_repair() -> bool:
+    """Whether a synthesis rejected by a safety gate gets one rewrite.
+
+    Off unless set. When on, a response that one of the content or shape gates
+    rejected is sent back to the same provider once, with what the gate found,
+    and the rewrite must pass every gate again (services/explanation/llm/
+    synthesis.py). Provider failures -- timeout, auth, usage limit -- are never
+    retried, on or off.
+
+    A second call costs subscription allowance, so an unrecognised value stops
+    the server instead of quietly choosing for the operator.
+    """
+    raw = _env("WES_SYNTHESIS_REPAIR")
+    value = raw.lower()
+    if value in _REPAIR_ON:
+        return True
+    if value in _REPAIR_OFF:
+        return False
+    raise ConfigError(
+        f"Invalid WES_SYNTHESIS_REPAIR: {raw!r}. Expected on or off."
+    )
+
+
+SYNTHESIS_REPAIR = _resolve_synthesis_repair()
 
 # --- storage --------------------------------------------------------------
 RUNS_ROOT = Path(_env("WES_RUNS_ROOT") or (ROOT / "runs"))

@@ -25,6 +25,10 @@ the evidence it cites" is a different kind of question and is deliberately not
 attempted here -- a bad approximation of it would reject correct explanations
 and lend false confidence to the ones it let through.
 
+Both checks lose which value belongs to which subject. claims.py (gates 6 and
+7) puts that link back for a few structured facts, and only for wordings
+narrow enough to decide; it is not a general claim checker either.
+
 What counts as "known" at runtime
 ---------------------------------
 
@@ -195,7 +199,12 @@ def find_exposed_property_names(statements: list[str], payload: Any) -> list[str
     return sorted(found)
 
 
+# The same token, for claims.py, which reads numbers next to what they describe.
+NUMBER = _NUMBER
+
+
 __all__ = [
+    "NUMBER",
     "SMALL_ORDINAL_MAX",
     "camel_case_property_names",
     "collect_known_numbers",

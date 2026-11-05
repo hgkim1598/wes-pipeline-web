@@ -206,6 +206,11 @@ def test_the_row_has_exactly_the_agreed_columns(explanation):
         "opened_step_ids",
         "available",
         "error_category",
+        # The repair record (WES_SYNTHESIS_REPAIR): counts and gate names,
+        # still nothing of what was written.
+        "repair_enabled",
+        "attempts",
+        "first_rejection",
     }
 
 

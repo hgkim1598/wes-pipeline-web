@@ -113,6 +113,13 @@ CREATE TABLE IF NOT EXISTS uploads (
 # decision.
 _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "jobs": {"sample_id": "TEXT"},
+    # The synthesis repair record (services/explanation/llm/trace.py). NULL on
+    # a row from before it: that request was a single generation.
+    "synthesis_traces": {
+        "repair_enabled": "INTEGER",
+        "attempts": "INTEGER",
+        "first_rejection": "TEXT",
+    },
 }
 
 

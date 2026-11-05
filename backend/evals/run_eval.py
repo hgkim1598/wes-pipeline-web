@@ -192,8 +192,9 @@ class Observation:
         self.fetched = list(use.evidence)
 
     def on_trace(self, trace) -> None:
-        # The same six fields synthesis_traces stores, as JSON. Tuples become
-        # lists; nothing is added.
+        # The same fields synthesis_traces stores, as JSON. Tuples become
+        # lists; nothing is added. Records made before the repair fields
+        # existed simply lack them.
         self.trace = {
             key: list(value) if isinstance(value, tuple) else value
             for key, value in dataclasses.asdict(trace).items()
@@ -260,6 +261,9 @@ def _evaluate_run(
             on_tool_use=seen.on_tool_use,
             on_trace=seen.on_trace,
             offer_tools=offer_tools,
+            # One generation per record, as every baseline was measured.
+            # WES_SYNTHESIS_REPAIR configures the server, not the eval.
+            repair=False,
         ).model_dump()
 
     fixture = explanation.model_dump()
@@ -491,6 +495,9 @@ def evaluate(name: str, *, variant: str = DEFAULT_VARIANT) -> dict[str, Any]:
             on_tool_use=seen.on_tool_use,
             on_trace=seen.on_trace,
             offer_tools=offer_tools,
+            # One generation per record, as every baseline was measured.
+            # WES_SYNTHESIS_REPAIR configures the server, not the eval.
+            repair=False,
         ).model_dump()
         report = evaluators.run_expectations(
             expectations, fixture, result, payload, tools_offered=offer_tools

@@ -182,6 +182,9 @@ def test_a_number_from_the_payload_is_accepted(explanation):
     response["importantFindings"][0]["statement"] = (
         "변이 후보 기록이 48,210건 있습니다."
     )
+    # The record count is a qualified fact: gate 7 asks that the answer cite
+    # its qualification somewhere, which the generic valid response does not.
+    response["importantFindings"][0]["evidenceRefs"].append("lim:UNFILTERED_VARIANTS")
 
     result = llm_synthesis.build_run_synthesis(
         explanation, run_provider=_provider_returning(response)
@@ -310,6 +313,25 @@ def test_malformed_synthesis_is_reported_not_raised(explanation):
 def test_missing_required_field_is_reported(explanation):
     result = llm_synthesis.build_run_synthesis(
         explanation, run_provider=_provider_returning({"importantFindings": []})
+    )
+    assert result.available is False
+    assert result.errorCategory == "invalidSynthesis"
+
+
+@pytest.mark.parametrize("blank", [" ", "  \n\t ", "　"])
+@pytest.mark.parametrize("where", ["summary", "statement"])
+def test_a_blank_text_is_invalid_not_served(explanation, blank, where):
+    # min_length=1 counts whitespace, so "   " used to pass every gate and be
+    # served as an empty box. A blank part is an empty answer, not an answer.
+    _payload, allowed = contract.build_payload(explanation)
+    response = _valid_response(allowed)
+    if where == "summary":
+        response["summary"] = blank
+    else:
+        response["importantFindings"][0]["statement"] = blank
+
+    result = llm_synthesis.build_run_synthesis(
+        explanation, run_provider=_provider_returning(response)
     )
     assert result.available is False
     assert result.errorCategory == "invalidSynthesis"
@@ -638,6 +660,8 @@ def test_every_error_category_has_a_curated_message():
         "unknownEvidenceRef",
         "unsupportedNumber",
         "internalFieldName",
+        "runFactMismatch",
+        "evidenceMismatch",
     }
     assert raised | domain == set(llm_synthesis._SAFE_MESSAGES)
     assert prov.ProviderError("timeout", "x").category == "timeout"

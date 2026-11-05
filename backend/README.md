@@ -283,7 +283,79 @@ Windows의 backend와 VM의 backend는 DB와 실행 폴더를 공유하지 않�
 - **취소는 Linux에서만 온전히 동작합니다.** Windows에서는 `main.sh`가 종료 신호를 받아 처리할 방법이 없어, 실행 중 취소하면 상태 파일과 잠금 폴더가 정리되지 않고 남을 수 있습니다.
 - **재시작 시 정리(`worker.recover_orphans`)는 DB 행만 맞춥니다.** 시작할 때 `RUNNING`·`CANCELLING` 행을 보고, 파이프라인 프로세스가 살아 있으면 그대로 둡니다(Linux는 `setsid`로 띄우므로 backend 재시작에도 분석이 계속됨). 프로세스가 사라졌으면 `run_status.json`이 있을 때 `DONE`, 없을 때 `EXEC_FAILED`로 닫고, `QUEUED` 행은 다시 대기열에 넣습니다. 살아 있던 분석이 끝난 뒤에도 DB 행은 다음 재시작 전까지 `RUNNING`일 수 있지만, 화면의 상태는 디스크의 상태 파일을 읽으므로 정확합니다.
 - **업로드 조각 크기에 상한이 없고 로그인/인증도 없습니다.** 로컬 개발 환경(127.0.0.1)에서만 사용하세요.
-- **AI 설명은 선택 기능입니다.** 모델 응답은 화면에 나가기 전에 근거 ID · 수치 · 내부 필드 이름 검사를 통과해야 하며, 하나라도 걸리면 응답 전체를 버리고 이유를 표시합니다(`services/explanation/llm/synthesis.py`). 초보자용 설명 품질 검사기(`evals/explanation_quality.py`)는 **평가 전용**이며 실제 응답 경로에서는 실행되지 않습니다.
+- **AI 설명은 선택 기능입니다.** 모델 응답은 화면에 나가기 전에 근거 ID · 수치 · 내부 필드 이름 · 실행 사실 · 근거 적합성 검사를 통과해야 하며, 하나라도 걸리면 응답 전체를 버리고 이유를 표시합니다(`services/explanation/llm/synthesis.py`). 초보자용 설명 품질 검사기(`evals/explanation_quality.py`)는 **평가 전용**이며 실제 응답 경로에서는 실행되지 않습니다.
+- **AI 설명 자동 수정은 기본 꺼짐입니다.** 아래 "AI 설명 자동 수정"을 보세요.
+
+## 실행 사실 · 근거 적합성 검사 (gate 6 · 7)
+
+수치 검사(gate 4)는 "그 숫자가 데이터 어딘가에 있는가"만 봅니다. 그래서 다른 지표의 실제 값을 붙인 문장이 통과했습니다
+(예: "평균 깊이는 1420배" — 1420은 변이 검출 단계의 소요 초). `services/explanation/llm/claims.py`가 그 연결을 되살립니다.
+
+| 검사 | 무엇을 비교하나 | 비교 기준(실행 시 payload에서 읽음) |
+|---|---|---|
+| `runFactMismatch` | "평균 깊이", "한 번도 읽히지 않은 염기(0×)", "변이 후보 기록" 바로 뒤의 숫자(그 항목의 단위로 쓴 것만) | `coverage.meanTargetDepth`, `zeroCoverageBasesPct`·`zeroCoverageBases`, `variantCalling.rawVariantRecords` |
+| `runFactMismatch` | "세 단계에서 경고", "경고 단계는 N개", "경고 없이 완료", "<단계 이름> 단계에서 경고" | `steps.planned`에서 status가 `warning`인 단계 |
+| `evidenceMismatch` | dbSNP·rsID, NM/MD 태그처럼 knowledge가 진단에만 연결한 용어를 쓴 문장의 인용 | 이 Run이 낸 그 진단의 `dx:` ID, 용어 ID, 그 근거 문서 |
+| `evidenceMismatch` | 변이 후보 수를 말하면서 필터 미적용 한계를 답 어디에도 인용하지 않음 | `lim:UNFILTERED_VARIANTS`가 payload에 있을 때만 |
+
+- **좁게 판정합니다.** 문장이 위 표현과 정확히 맞을 때만 비교하고, 구간(interval) 단위 수치 · 기준값("20배 미만") · 괄호 안 설명은 건너뜁니다. 알아보지 못한 표현은 통과시킵니다. 통과가 "맞다"는 뜻은 아닙니다.
+- **반올림은 걸립니다.** "평균 깊이 약 11배"는 거부됩니다. prompt의 "반올림·환산 금지" 규칙과 같은 방향입니다.
+- 기존 검사 뒤에 실행되므로 기존 거부 사유(category)는 그대로입니다. 기록된 실제 답 17개(baseline · A/B)는 모두 통과합니다(`evals/test_recorded_answers_pass_claims.py`).
+
+## AI 설명 자동 수정 (선택 기능, 기본 꺼짐)
+
+**목적:** 런타임 안전 검사에 걸린 AI 설명을 바로 버리지 않고, 무엇이 문제였는지 알려준 뒤 **한 번만** 다시 쓰게 합니다.
+고친 설명도 처음과 **똑같은 검사**를 통과해야 사용자에게 보입니다. 검사 기준은 바뀌지 않았습니다.
+
+**켜는 법:** `backend/.env`(또는 환경 변수)에 `WES_SYNTHESIS_REPAIR=on`을 둡니다.
+값은 `on`/`off`(`1`/`0`, `true`/`false`, `yes`/`no`도 가능)이고, 비어 있으면 꺼짐입니다. 그 밖의 값이면 서버가 시작하지 않습니다.
+읽는 곳은 `app/config.py`의 `SYNTHESIS_REPAIR`, 쓰는 곳은 `services/explanation/llm/synthesis.py`의 `build_run_synthesis`입니다.
+
+**흐름** (`build_run_synthesis`):
+
+```
+첫 호출 (기존과 같은 prompt, Tool 제공)
+  → _check: 형식(Pydantic) → 근거 ID → 수치 → 내부 필드명 → 실행 사실 → 근거 적합성
+  → 통과: 그대로 제공 (호출 1회)
+  → 거부 + 꺼짐: 기존처럼 폐기 (호출 1회)
+  → 거부 + 켜짐: prompt.build_repair_prompt로 수정 요청 1회 (Tool 없음)
+       → 지적된 항목만 교체(_splice) → 같은 _check, 같은 사실 목록 · 허용 근거 ID
+       → 통과: 고친 설명 제공 / 거부: 폐기 (호출 2회)
+```
+
+- **수정 요청에 들어가는 것:** 첫 호출과 똑같은 `<run_data>`, 첫 호출 때 Tool이 반환한 단계 기록(`<step_details>`, 있을 때만), 거부된 답(`<previous_answer>`), 검사가 찾은 내용(`<check_findings>`: 허용되지 않은 근거 ID와 허용 목록 · 데이터에 없는 수치 · 노출된 필드명 · 실행 사실과 맞지 않는 값 · 맞지 않는 인용 · 형식 오류 위치, 그리고 각 발견이 나온 항목 위치 `locations`).
+- **고칠 수 있는 범위:** 지적된 항목(`locations`)만 고친 답에서 가져오고, 나머지 항목은 첫 답 그대로 둡니다(`_splice`). 실제 Claude 실험에서 근거 하나를 고치며 요약까지 바꾸고 NM/MD를 "염기 보조 표시"로 잘못 쓴 일이 있었습니다. 지금은 그런 변경이 사용자에게 가지 않습니다. 첫 답이 형식 오류였으면 고친 답 전체를 씁니다. 교체된 항목 자체의 의미가 맞는지는 증명하지 못하며, 다른 답과 똑같이 전체 검사만 다시 받습니다.
+  경로 · 예외 메시지 · 인증 정보는 들어가지 않습니다.
+- **고친 답이 얻지 못하는 것:** 사실 목록과 허용 근거 ID는 첫 호출 때 것을 그대로 씁니다. 수정 요청에 적힌 숫자(거부 사유)는 사실로 인정되지 않고, 열지 않은 단계의 `step:` ID도 여전히 거부됩니다.
+- **재시도하지 않는 경우:** provider 오류 전부(timeout · 로그인 없음 · API key 감지 · 사용량 한도 · CLI 실패 · 응답 해석 불가), 409(끝나지 않은 Run), 실행 기록 자체의 오류(500). 수정 요청이 provider 오류로 끝나면 그 오류를 그대로 돌려주고 더 시도하지 않습니다.
+- **제한:** 요청당 provider 호출은 최대 2회입니다. 설정값이 아니라 코드 흐름(직선 코드에 호출 하나 추가)으로 고정돼 있습니다. timeout은 호출마다 적용되므로 최악의 경우 대기 시간이 두 배가 됩니다.
+- **평가 전용 검사기와 무관:** `evals/explanation_quality.py`의 PASS / REVIEW / FAIL은 수정 조건에 쓰이지 않습니다.
+- **API 응답 형태는 그대로입니다.** 수정 여부는 응답에 넣지 않고 trace에만 남깁니다. 실패 시 화면에 나가는 문구도 기존 안내문 그대로입니다.
+
+**trace(`synthesis_traces`)에 추가된 칸** (모두 NULL 허용, 기존 DB에는 시작 시 자동 추가):
+
+| 칸 | 의미 |
+|---|---|
+| `repair_enabled` | 이 요청에서 기능이 켜져 있었는지 |
+| `attempts` | 실제 provider 호출 수(실패한 호출 포함). 1 또는 2 |
+| `first_rejection` | 첫 답을 거부한 검사 이름. 통과했거나 provider 오류면 NULL. 기능이 꺼져 있어도 기록 |
+
+수정이 있었으면 `models`는 두 호출의 모델, `duration_ms`·`num_turns`는 두 호출의 합입니다. 최종 결과는 기존 `available`·`error_category`입니다.
+이 세 칸이 NULL인 행은 기능 추가 전 backend가 남긴 단일 생성 기록입니다. 답변 문장과 prompt는 여전히 저장하지 않습니다.
+
+**평가 도구와의 관계:** `evals/run_eval.py`는 항상 `repair=False`로 호출합니다. 서버 설정과 상관없이 eval 기록은 기존 A/B와 같은 단일 생성 측정입니다.
+
+**검증 상태:** fake provider로 `app/tests/test_synthesis_repair.py` 46개 통과(2026-11-05).
+실제 Claude 통제 실험 3건(2026-11-05): 첫 오답은 테스트 스크립트가 심은 것(숫자 · 근거 ID · 필드명 각 1건)이고 수정만 실제 Claude가 했습니다. 3건 모두 수정 후 재검사 통과, 수정 1회당 약 11–12초.
+이 실험은 항목 교체(`_splice`)와 gate 6 · 7 도입 **전**의 코드로 했습니다. 기록된 그 수정 답을 지금 코드에 다시 넣으면 3건 모두 통과하고, 근거 수정 건에서 요청하지 않은 문장 변경 5곳과 요약 변경이 버려집니다(모델 재호출 없이 확인). 실제 모델의 일반적인 수정 성공률은 3건으로 말할 수 없습니다.
+
+웹 API 경로 검증(2026-11-05, fake provider, 실제 Run 복사본): `POST /api/jobs/{id}/synthesis` → Vite proxy → frontend API 함수(Zod)로
+정상 · 수치 불일치 · 경고 단계 수 불일치 · 주제와 맞지 않는 근거 → 수정 후 통과, 수정 중 정상 항목 변경 → 원래 항목 유지,
+수정 후에도 오류 → 폐기, timeout → 안내문(호출 1회), 자동 수정 꺼짐 → 호출 1회 후 폐기, 끝나지 않은 Run → 409, 없는 Run → 404를 확인했습니다.
+모든 호출에서 `<run_data>`는 같았고, 수정 호출에는 Tool이 없었습니다. 브라우저 화면 확인과는 별개입니다.
+
+**남은 한계:** 자연어 의미 오류(모순 · 임상 표현 · 원인 단정)는 검사하지 않습니다. gate 6 · 7이 알아보지 못한 표현은 통과합니다.
+gate 6 · 7과 항목 교체를 적용한 상태로는 실제 Claude를 아직 호출하지 않았습니다. Ubuntu 실제 분석부터 Agent까지의 전체 연결은 별도 단계입니다.
 
 ## 테스트
 
@@ -293,6 +365,6 @@ cd backend
 .venv/Scripts/python.exe -m pytest evals -o addopts=""    # 평가 도구 테스트 (모델 호출 없음)
 ```
 
-2026-11-04 Windows에서 실행: app 585 passed · 1 skipped(일반 계정에 file symlink 권한이 없어 건너뜀),
-evals 238 passed. capture가 없는 PC에서는 실제 Run을 쓰는 evals 테스트가 skip됩니다.
+2026-11-05 Windows에서 실행: app 687 passed · 1 skipped(일반 계정에 file symlink 권한이 없어 건너뜀),
+evals 257 passed · 3 skipped(답변이 없는 기록). capture가 없는 PC에서는 실제 Run을 쓰는 evals 테스트가 skip됩니다.
 모델을 실제로 호출하는 것은 `python -m evals.run_eval`뿐이며 pytest는 이를 실행하지 않습니다.

@@ -247,6 +247,8 @@ const GATE_REJECTIONS: ReadonlySet<string> = new Set([
   'unknownEvidenceRef',
   'unsupportedNumber',
   'internalFieldName',
+  'runFactMismatch',
+  'evidenceMismatch',
 ])
 
 /**

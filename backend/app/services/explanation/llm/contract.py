@@ -29,14 +29,28 @@ failure rather than a plausible-looking reference nobody checks.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field
 
 from .. import knowledge
 from ..deterministic import RunExplanation
 
 # --- what the model may return ----------------------------------------------
+
+
+def _not_blank(value: str) -> str:
+    """Rejects text that is only whitespace. min_length=1 counts a space, so
+    without this an answer of blanks passed every gate and was served as an
+    empty box. The value is returned unchanged; nothing is stripped."""
+    if not value.strip():
+        raise ValueError("must contain visible text, not only whitespace")
+    return value
+
+
+# Pydantic only: the CLI schema below is not changed, so the request the
+# provider receives is the same as before.
+_Text = Annotated[str, Field(min_length=1), AfterValidator(_not_blank)]
 
 
 class SynthesisStatement(BaseModel):
@@ -47,7 +61,7 @@ class SynthesisStatement(BaseModel):
     attach to supplied evidence cannot be expressed in this shape.
     """
 
-    statement: str = Field(min_length=1)
+    statement: _Text
     evidenceRefs: list[str] = Field(min_length=1)
 
 
@@ -63,7 +77,7 @@ class RunSynthesis(BaseModel):
     prompt states and a reviewer can check against `importantFindings`.
     """
 
-    summary: str = Field(min_length=1)
+    summary: _Text
     importantFindings: list[SynthesisStatement] = Field(default_factory=list)
     limitations: list[SynthesisStatement] = Field(default_factory=list)
     nextChecks: list[SynthesisStatement] = Field(default_factory=list)

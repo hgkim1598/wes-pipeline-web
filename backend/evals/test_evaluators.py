@@ -1092,6 +1092,24 @@ def test_an_agent_case_passes_the_variant_to_both_runtime_and_scoring(monkeypatc
     assert rows["tool-use"]["detail"] == "Tool 미제공 variant"
 
 
+def test_every_eval_record_is_a_single_generation(monkeypatch):
+    """Baselines measured one call per answer. A server switch
+    (WES_SYNTHESIS_REPAIR) must not quietly turn a new record into something
+    else, so both eval paths ask for repair=False explicitly."""
+    from app import config
+
+    from . import run_eval
+
+    monkeypatch.setattr(config, "SYNTHESIS_REPAIR", True)
+    calls: list = []
+    monkeypatch.setattr(run_eval.synthesis, "build_run_synthesis", _fake_synthesis(calls))
+
+    run_eval.evaluate("execution_failed")
+    run_eval.evaluate_agent("agent_no_tool_needed")
+
+    assert [c["repair"] for c in calls] == [False, False]
+
+
 def test_the_variant_defaults_to_v3():
     import inspect
 
@@ -1254,6 +1272,11 @@ def test_an_agent_record_keeps_trace_tool_use_and_evidence_use(monkeypatch):
         "openedStepIds": ["04_processing", "00_input_validation"],
         "available": True,
         "errorCategory": None,
+        # The repair fields at their defaults: one generation, as run_eval
+        # always asks for (repair=False).
+        "repairEnabled": False,
+        "attempts": 1,
+        "firstRejection": None,
     }
     assert record["toolUse"]["callCount"] == 3
     assert record["toolUse"]["refusals"] == [{"stepId": None, "reason": "unknownStep"}]

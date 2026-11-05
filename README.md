@@ -229,9 +229,9 @@ flowchart TB
     CTX["Runtime Context<br/><i>이 run에서 무슨 일이 있었나</i>"]
     DET["Deterministic Explanation<br/><i>규칙 기반 · 모델 없음 · 항상 동일</i>"]
     PAY["Grounded Payload<br/><i>evidence id를 여기서 발급</i>"]
-    LLM["LLM Synthesis<br/><i>1 CLI call · no retry</i>"]
+    LLM["LLM Synthesis<br/><i>1 CLI call · 선택: 검사 실패 시 수정 1회</i>"]
     MCP["Read-only MCP Server<br/><i>get_step_detail · Run 고정 · 최대 2단계</i>"]
-    GATE{"5-gate validation<br/>schema · Pydantic · evidence ref<br/>number · field name"}
+    GATE{"7-gate validation<br/>schema · Pydantic · evidence ref<br/>number · field name<br/>run fact · evidence fit"}
     UI["Run Detail UI<br/><i>결정론적 설명과 AI 문장을 구분해 표시</i>"]
     EV["Evaluation Harness<br/><i>offline · UI가 소비하지 않음</i>"]
 
@@ -274,7 +274,7 @@ flowchart TB
 
 RAG · vector database · embedding · knowledge graph · LangChain / LangGraph · multi-agent · 자율적으로 계속 실행되는 agent가 **없습니다.**
 
-Tool 호출은 있지만 범위가 좁습니다. **1회 CLI 호출 안에서 읽기 전용 Tool 1개(`get_step_detail`)로 이 Run의 단계를 최대 2개까지 조회**하는 것이 전부이며, 쓰기 · 재시도 · memory · 사용자 질문 입력은 없습니다 (`synthesis.py` 주석: *"It is a small agent"*). 2026-09-21 이전에는 tool 없는 1회 synthesis였습니다. 진단 knowledge는 29개 규모의 curated 파일이라 retrieval이 필요한 대상이 아니며, **필요를 증명하기 전에 도입하지 않는다**가 이 저장소의 태도입니다.
+Tool 호출은 있지만 범위가 좁습니다. **1회 CLI 호출 안에서 읽기 전용 Tool 1개(`get_step_detail`)로 이 Run의 단계를 최대 2개까지 조회**하는 것이 전부이며, 쓰기 · memory · 사용자 질문 입력은 없습니다 (`synthesis.py` 주석: *"It is a small agent"*). 재시도는 기본적으로 없고, `WES_SYNTHESIS_REPAIR=on`일 때만 안전 검사에서 거부된 답을 Tool 없이 **1회** 고쳐 쓰게 합니다. 2026-09-21 이전에는 tool 없는 1회 synthesis였습니다. 진단 knowledge는 29개 규모의 curated 파일이라 retrieval이 필요한 대상이 아니며, **필요를 증명하기 전에 도입하지 않는다**가 이 저장소의 태도입니다.
 
 </details>
 
@@ -287,13 +287,15 @@ Tool 호출은 있지만 범위가 좁습니다. **1회 CLI 호출 안에서 읽
 | MCP client | Claude Code CLI (구독 로그인 사용) · built-in tool 차단(`--tools ""`) · `--strict-mcp-config` + `--allowedTools`로 이 서버의 Tool만 허용 | 코드 구현 |
 | MCP server | `wes-run-evidence` — Python `mcp` SDK, stdio. 요청마다 자식 프로세스로 기동되고 호출이 끝나면 종료 | 코드 구현 |
 | Tool | `get_step_detail(stepId)` 1개 — 단계의 status · exit code · checks · metrics · warnings · failures · artifact 수를 반환. 경로 · 파일명 · 시각은 제외하고 sample/run id는 placeholder로 치환 | 코드 구현 |
-| 실행 제어 | Run은 서버가 고정(Tool 인자에 Run id 없음) · 서로 다른 단계 최대 2개 · 계획에 없는 단계 거부 · Tool이 실제 반환한 기록만 근거로 인정 · 5-gate 중 하나라도 실패하면 응답 전체 폐기 | 코드 구현 · 단위 테스트 |
-| Trace | 모델 · 소요 시간 · turn 수 · 조회한 단계 · 성공 여부 · 오류 분류 6개 필드 (프롬프트 · 생성문 · Tool 반환값은 저장하지 않음) | 코드 구현 · 조회 API 없음 |
+| 실행 제어 | Run은 서버가 고정(Tool 인자에 Run id 없음) · 서로 다른 단계 최대 2개 · 계획에 없는 단계 거부 · Tool이 실제 반환한 기록만 근거로 인정 · 7-gate 중 하나라도 실패하면 응답 전체 폐기 | 코드 구현 · 단위 테스트 |
+| 자동 수정 (선택, 기본 꺼짐) | `WES_SYNTHESIS_REPAIR=on`이면 런타임 안전 검사(형식 · 근거 ID · 수치 · 내부 필드명 · 실행 사실 · 근거 적합성)에서 거부된 답을 발견 내용·위치와 함께 같은 provider에 **1회** 돌려보내고, 지적된 항목만 교체한 답에 같은 검사를 다시 적용. 통과하면 제공, 다시 실패하면 폐기. provider 오류(timeout · 인증 · 사용량 한도)는 재시도하지 않음 | 코드 구현 · fake provider 테스트 · 실제 Claude 통제 실험 3건(첫 오답은 시험용으로 심음, 3/3 통과, 항목 교체 도입 전 측정) |
+| Trace | 모델 · 소요 시간 · turn 수 · 조회한 단계 · 성공 여부 · 오류 분류 + 수정 기능 켜짐 여부 · provider 호출 횟수 · 첫 답의 거부 사유 9개 필드 (프롬프트 · 생성문 · Tool 반환값은 저장하지 않음) | 코드 구현 · 조회 API 없음 |
 
 | 검증 | 범위 | 결과 |
 |---|---|---|
 | 코드 경로 테스트 | fake provider와 in-process MCP client로 호출 경로 검사. **실제 모델 · subprocess 호출 없음** | 기본 `pytest` 범위에 포함 ([Validation](#validation)) |
 | 실제 CLI → stdio MCP → Tool | 2026-09-22 **수동 1회**. VM의 Run JSON을 read-only GET으로 받아 로컬 임시 DB · runs에 복원해 실행 | `cba73e`(완주 · 경고 3): Tool 미사용 · guardrail 통과 / `68aa20`(`03_alignment` 실패): `03_alignment` 조회 · guardrail 통과. **자동 테스트 없음** |
+| 자동 수정 · 재검사 | fake provider로 10개 시나리오(첫 답 통과 · 근거 ID / 수치 / 형식 / 내부 필드명 오류 후 수정 · 수정 후 재실패 · 수정에서 새 오류 · provider 오류 · 기능 꺼짐 · trace)와 API 응답 형태 | `app/tests/test_synthesis_repair.py` 38개 통과. **실제 모델 호출 없음 — 실제로 고쳐지는 비율은 측정하지 않음** |
 | Tool 선택 평가 | 합성 case 3개(실패 단계 · 경고 단계 · 조회 불필요)와 채점 함수 | case와 채점 함수는 구현. **실제 모델로 실행한 결과 없음** |
 | 설명 품질 | 2026-09-10 단발 synthesis baseline 사람 판정 · 2026-11-04 A/B 비교(기존·개선 prompt+Knowledge, 같은 실제 Run, 각 3회) | A 답변 2개 · B 답변 3개를 문자열 규칙 검사기(`evals/explanation_quality.py`, v1·v2)로 채점. 경고 단계 명시 0/2 → 3/3, 내부 설정 이름 노출 2/2 → 0/3. **표본이 작고 사람 평가 전이라 개선 효과가 입증된 것은 아님** ([`backend/evals/experiments/ab_2026-11-04/RESULTS.md`](backend/evals/experiments/ab_2026-11-04/RESULTS.md)) |
 
@@ -310,7 +312,7 @@ Tool 호출은 있지만 범위가 좁습니다. **1회 CLI 호출 안에서 읽
 | **Warning ≠ Failure** | 계속 가능한 데이터 한계와 중단해야 할 오류를 분리. severity(확인 필요한가)와 resolution(이미 처리됐나)도 별개 축 |
 | **Deterministic before LLM** | 모델을 먼저 붙이면 사실과 생성의 경계를 되찾을 수 없다. LLM은 선택 기능이 된다 |
 | **Evidence-grounded synthesis** | `evidenceRefs`는 스키마상 비어 있을 수 없음 → 근거에 붙일 수 없는 주장은 **표현 자체가 불가능** |
-| **Cost boundary in code** | API key 있으면 호출 거부 · 자동 재시도 없음 · eval은 `pytest` 수집 대상 밖 |
+| **Cost boundary in code** | API key 있으면 호출 거부 · 자동 재시도 기본 꺼짐(켜도 안전 검사 실패 시 1회, provider 오류는 재시도 안 함) · eval은 `pytest` 수집 대상 밖 |
 | **Read-only, run-scoped tool** | 모델은 단계만 고르고 Run은 서버가 고정한다. 쓰기 경로가 없고, 모델의 진술이 아니라 **Tool이 실제 반환한 기록**만 근거가 된다 |
 
 ---
@@ -324,8 +326,8 @@ Tool 호출은 있지만 범위가 좁습니다. **1회 CLI 호출 안에서 읽
 | Sample | GIAB **HG002 / SRR2962669** 5M paired-end subset |
 | Fatal error / failures | **0** / `[]` |
 | Core artifacts | analysis-ready BAM · gVCF · **raw VCF** ✅ |
-| Backend tests | ✅ **585 passed · 1 skipped** — `cd backend && .venv/Scripts/python.exe -m pytest` (기본 범위 `app/tests`, 2026-11-04 Windows 실행. skip 1건은 file symlink 권한) |
-| Eval tests | ✅ **238 passed** — backend에서 `.venv/Scripts/python.exe -m pytest evals` (채점 함수 · 설명 품질 검사기 · 비교 도구 테스트 · 모델 호출 없음, 2026-11-04 실행) |
+| Backend tests | ✅ **687 passed · 1 skipped** — `cd backend && .venv/Scripts/python.exe -m pytest` (기본 범위 `app/tests`, 2026-11-05 Windows 실행. skip 1건은 file symlink 권한) |
+| Eval tests | ✅ **239 passed** — backend에서 `.venv/Scripts/python.exe -m pytest evals` (채점 함수 · 설명 품질 검사기 · 비교 도구 테스트 · 모델 호출 없음, 2026-11-04 실행) |
 | Frontend typecheck / lint / build | ✅ `tsc -b` strict · `oxlint` · `vite build` (2026-11-04 실행). frontend 단위 테스트는 아직 없음 |
 
 backend 테스트의 Agent 관련 부분은 fake provider와 in-process MCP client를 쓰며, **실제 LLM 응답 품질을 측정한 결과가 아닙니다.**
@@ -360,7 +362,7 @@ raw variant records는 **필터링 전 후보 기록**이며 확인된 변이나
 | **Backend** | Python 3.12 · FastAPI · SQLite(stdlib) · threading + queue · subprocess/setsid | API · job 저장 · single worker · 재시작해도 분석이 죽지 않음 |
 | **Bioinformatics** | FastQC · MultiQC · fastp · BWA-MEM · SAMtools · GATK · mosdepth · bcftools · (InterVar) | `main.sh`가 호출. 파이프라인은 소프트웨어를 설치하지 않음 |
 | **Explanation / AI** | Pydantic contract · shared JSON knowledge · Claude Code CLI (subprocess + JSON schema) · MCP Python SDK (stdio) | deterministic 계층 + 구독 전용 LLM synthesis + 읽기 전용 Tool 1개 |
-| **Testing** | pytest (app 585 passed · 1 skipped, evals 238 passed, 2026-11-04) · offline eval harness · oxlint · tsc strict | eval은 `testpaths` 밖 — `pytest evals`로 따로 실행 |
+| **Testing** | pytest (app 687 passed · 1 skipped, evals 257 passed · 3 skipped, 2026-11-05) · offline eval harness · oxlint · tsc strict | eval은 `testpaths` 밖 — `pytest evals`로 따로 실행 |
 
 **Dev env** — Windows에서 frontend/backend 개발, **Ubuntu VM(VirtualBox)** 에서 실제 WES 실행 (conda env 2개: `wes-dev` = FastAPI, `wes-tools` = 분석 도구)
 

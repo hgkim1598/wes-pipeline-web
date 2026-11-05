@@ -2,10 +2,11 @@
 
 The whole model-facing feature is this one function. It is a *small* agent: one
 provider call in which the model may open at most two of this run's pipeline
-steps through `get_step_detail`, and nothing else -- no retries, no memory, no
-second tool, no write of any kind. If it fails, the deterministic explanation is
-still there and unchanged -- that is the property the design is protecting, and
-every failure path here returns a value rather than raising into the route.
+steps through `get_step_detail`, and nothing else -- no memory, no second tool,
+no write of any kind, and at most one rewrite (below). If it fails, the
+deterministic explanation is still there and unchanged -- that is the property
+the design is protecting, and every failure path here returns a value rather
+than raising into the route.
 
 Two fact sources, one rule
 --------------------------
@@ -22,13 +23,23 @@ rejected as invented; with it, a number from a step nobody opened still is.
 Validation is not a formality
 -----------------------------
 
-Five gates, in order, and the model has to pass all of them:
+Seven gates, in order, and the model has to pass all of them:
 
     1. the CLI shapes the output against SYNTHESIS_JSON_SCHEMA
     2. Pydantic re-validates it here -- the CLI is not a trusted validator
     3. every evidenceRef must be an id the payload minted or a tool returned
     4. every number in the prose must appear in those same facts
     5. no property name from those facts may appear in the prose
+    6. a named measurement, the warning-step count and a step said to have
+       warned must agree with the payload's own fields (claims.py)
+    7. a statement about a diagnostic-only topic cites that diagnostic's
+       evidence, and a qualified fact has its qualification cited (claims.py)
+
+Gates 4 and 5 ask whether a token is anywhere in the facts, so a real value
+attached to the wrong subject passed them ("평균 깊이는 1420배": 1420 is a
+step's elapsed seconds). Gates 6 and 7 keep the subject, but only for wordings
+narrow enough to be sure of; claims.py says what they leave alone. They run
+last, so every rejection the first five gates reported is reported the same.
 
 Gates 1 and 2 only check shape; a well-formed object can still cite
 `src:made-up-paper`, state a figure nobody measured, or hand a beginner
@@ -42,6 +53,44 @@ Gates 4 and 5 were checks the eval harness already made against recorded
 output. Finding a defect in review is worth less than refusing to serve it, so
 the rules moved into `validation.py` and now run on every user request; the
 eval keeps using the same functions.
+
+One rewrite, when switched on
+-----------------------------
+
+With WES_SYNTHESIS_REPAIR on (config.SYNTHESIS_REPAIR; off by default), an
+answer that gates 2 to 7 rejected is not discarded at once. `_check` has
+already written down what each gate found -- which ids were not supplied,
+which numbers the facts do not contain, which property names leaked, where the
+shape is wrong -- and that, with the rejected answer and the same payload, goes
+back to the same provider once (prompt.build_repair_prompt). The rewrite then
+goes through `_check` again: the same functions, the same fact set and the
+same allowed ids as the first answer, so nothing it says is credited that the
+first answer could not have earned. It passes and is served, or it fails and
+the request ends exactly as a rejected first answer always has.
+
+    gates pass          -> served, one call
+    gates reject, off   -> discarded, one call (the behaviour before this)
+    gates reject, on    -> one rewrite -> gates again -> served or discarded
+    provider fails      -> never retried, on or off: a timeout, a missing
+                           login or a usage limit is not something a rewrite
+                           can fix, and asking again spends allowance twice
+
+Each finding carries `locations`, the items it was found in, and the rewrite
+is asked to change only those. Every other item is then taken from the first
+answer whatever the rewrite says there (`_splice`): a real rewrite asked to fix
+one citation also reworded the summary and got a term wrong doing it. What the
+reader gets is the first answer with the named items replaced, checked by every
+gate. Whether a replaced item still means what it should is not provable here;
+the gates check what they always check.
+
+The rewrite is offered no tool. It is asked to correct sentences, not to look
+anything up, and the step details the first call fetched are handed over as
+data instead (they stay in the fact set either way). There is no third call:
+the count is a constant of the control flow below, not a setting.
+
+The eval-only explanation quality checker under evals/ plays no part in this,
+and its PASS / REVIEW / FAIL never reaches this module. Only the runtime gates
+decide whether a rewrite is asked for.
 """
 
 from __future__ import annotations
@@ -49,13 +98,15 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from contextlib import nullcontext
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
 from .... import config
 from ..deterministic import RunExplanation
-from . import contract, prompt, provider, tools, trace, validation
+from . import claims, contract, prompt, provider, tools, trace, validation
 
 log = logging.getLogger(__name__)
 
@@ -124,6 +175,8 @@ _SAFE_MESSAGES: dict[str, str] = {
     "unknownEvidenceRef": "생성된 설명이 제공되지 않은 근거를 인용해 폐기했습니다.",
     "unsupportedNumber": "생성된 설명에 실행 기록에 없는 수치가 있어 폐기했습니다.",
     "internalFieldName": "생성된 설명에 내부 필드 이름이 노출되어 폐기했습니다.",
+    "runFactMismatch": "생성된 설명의 수치나 경고 단계가 실행 기록과 맞지 않아 폐기했습니다.",
+    "evidenceMismatch": "생성된 설명이 내용과 맞지 않는 근거를 인용해 폐기했습니다.",
 }
 
 _FALLBACK_MESSAGE = "AI 설명을 생성하지 못했습니다."
@@ -147,6 +200,7 @@ def build_run_synthesis(
     on_tool_use: Callable[[tools.ToolUse], None] | None = None,
     on_trace: Callable[[trace.SynthesisTrace], None] | None = None,
     offer_tools: bool = True,
+    repair: bool | None = None,
 ) -> SynthesisResult:
     """Summarise one already-built deterministic explanation.
 
@@ -185,8 +239,14 @@ def build_run_synthesis(
     prompt.py). Everything else is the same call: the same payload, schema,
     gates and trace. With nothing fetched, the fact set is the payload alone,
     so a `step:` citation is rejected by gate 3 like any other invented id.
+
+    `repair` is whether a gate-rejected answer gets its one rewrite (see the
+    module docstring). None, the default and what the route passes, means
+    config.SYNTHESIS_REPAIR. The eval harness passes False so its records stay
+    single-generation measurements whatever the server is configured to do.
     """
     call = run_provider or provider.run_structured
+    repair_enabled = config.SYNTHESIS_REPAIR if repair is None else repair
     payload, initial_refs = contract.build_payload(explanation)
 
     # Filled in as the call progresses, so a failure part-way through still
@@ -196,6 +256,10 @@ def build_run_synthesis(
     models: list[str] = []
     duration_ms: int | None = None
     num_turns: int | None = None
+    # Provider calls made, counted before each call so a call that failed
+    # still counts. 1 or 2, never more.
+    attempts = 0
+    first_rejection: str | None = None
 
     def emit(outcome: SynthesisResult) -> SynthesisResult:
         """Report the execution record, then return the result unchanged.
@@ -213,9 +277,29 @@ def build_run_synthesis(
                     openedStepIds=opened,
                     available=outcome.available,
                     errorCategory=outcome.errorCategory,
+                    repairEnabled=repair_enabled,
+                    attempts=attempts,
+                    firstRejection=first_rejection,
                 )
             )
         return outcome
+
+    def served(synthesis: contract.RunSynthesis) -> SynthesisResult:
+        return emit(
+            SynthesisResult(
+                available=True,
+                synthesis=synthesis,
+                provenance=SynthesisProvenance(
+                    models=list(models),
+                    generatedAt=datetime.now(timezone.utc).isoformat(
+                        timespec="seconds"
+                    ),
+                    contextKind=explanation.contextKind,
+                    runStatus=explanation.status,
+                    durationMs=duration_ms,
+                ),
+            )
+        )
 
     # The tool channel lives exactly as long as the call. Inside the block the
     # model may open up to two steps of THIS run; when it closes, the sink and
@@ -227,6 +311,7 @@ def build_run_synthesis(
         else nullcontext(None)
     )
     with channel as toolset:
+        attempts += 1
         try:
             result = call(
                 user_prompt=prompt.build_user_prompt(
@@ -266,7 +351,8 @@ def build_run_synthesis(
     facts, allowed_refs = tools.credit(payload, initial_refs, tool_evidence)
 
     opened = use.openedStepIds
-    models = result.models
+    # A copy: a rewrite appends to it, and the provider's list is not ours.
+    models = list(result.models)
     duration_ms = result.durationMs
     # The CLI's own turn count. It is NOT a tool-call count: an observed run
     # that opened no step reported two turns (the structured-output step takes
@@ -290,16 +376,122 @@ def build_run_synthesis(
             ),
         )
 
+    first = _check(result.payload, facts, allowed_refs)
+    if first.synthesis is not None:
+        return served(first.synthesis)
+
+    first_rejection = first.category
+    if not repair_enabled:
+        return emit(_rejected(first))
+
+    # The one rewrite. Same provider, same model, same payload, same schema; no
+    # tool channel (the `with` block above has closed it); the fact set and the
+    # allowed ids are the first call's and are not recomputed. Nothing below
+    # can loop: this is straight-line code with one more call in it.
+    log.info(
+        "synthesis rejected by %s; asking the provider for one rewrite",
+        first.category,
+    )
+    attempts += 1
     try:
-        synthesis = contract.RunSynthesis.model_validate(result.payload)
+        rewrite = call(
+            user_prompt=prompt.build_repair_prompt(
+                payload,
+                step_details=tool_evidence,
+                previous_answer=result.payload,
+                findings=list(first.findings),
+            ),
+            json_schema=contract.SYNTHESIS_JSON_SCHEMA,
+            model=model,
+            timeout_seconds=timeout_seconds,
+            mcp_config=None,
+            allowed_tools=(),
+        )
+    except provider.ProviderError as exc:
+        # The same policy as a failed first call: an ordinary unavailable
+        # result, and no further attempt.
+        log.info("synthesis rewrite unavailable (%s): %s", exc.category, exc.message)
+        return emit(_unavailable(exc.category, exc.message))
+
+    for name in rewrite.models:
+        if name not in models:
+            models.append(name)
+    duration_ms = _add(duration_ms, rewrite.durationMs)
+    num_turns = _add(num_turns, rewrite.numTurns)
+
+    second = _check(_splice(first, rewrite.payload), facts, allowed_refs)
+    if second.synthesis is not None:
+        log.info("synthesis rewrite passed every gate")
+        return served(second.synthesis)
+    log.warning("synthesis rewrite rejected by %s; discarded", second.category)
+    return emit(_rejected(second))
+
+
+def _add(total: int | None, more: int | None) -> int | None:
+    """Two calls' counts added; an unreported count adds nothing."""
+    if total is None:
+        return more
+    if more is None:
+        return total
+    return total + more
+
+
+def _observe(toolset: tools.Toolset | None) -> tools.ToolUse:
+    """What the server recorded answering. Nothing, when no tool was offered."""
+    if toolset is None:
+        return tools.observe([], [])
+    return tools.observe(toolset.evidence(), toolset.attempts())
+
+
+@dataclass(frozen=True)
+class _Verdict:
+    """What gates 2 to 7 made of one structured output.
+
+    `synthesis` is set only when every gate passed. Otherwise `category` is the
+    first gate that rejected it, in gate order -- the same category a rejected
+    answer has always been reported under -- and `findings` holds what every
+    gate that could run found, in the same order, for the rewrite request.
+
+    Findings carry model-written tokens (the ids, numbers and names the answer
+    used) and ids the payload itself minted. Never a path, never an exception
+    message, never a value of the input that the answer did not already
+    contain.
+    """
+
+    synthesis: contract.RunSynthesis | None
+    category: str | None
+    findings: tuple[dict[str, Any], ...]
+    # The answer as parsed, whether or not a later gate rejected it. None only
+    # when the shape itself was wrong. The rewrite is spliced onto this.
+    parsed: contract.RunSynthesis | None = None
+
+
+def _check(
+    raw: Any, facts: list[Any], allowed_refs: set[str]
+) -> _Verdict:
+    """Gates 2 to 7 on one structured output. Used for the first answer and the
+    rewrite alike, which is what makes the rewrite's gates the same gates."""
+    try:
+        synthesis = contract.RunSynthesis.model_validate(raw)
     except ValidationError as exc:
         log.warning("synthesis failed validation: %s", exc)
-        return emit(
-            _unavailable(
-                "invalidSynthesis",
-                "the generated explanation did not match the expected structure.",
-            )
+        return _Verdict(
+            synthesis=None,
+            category="invalidSynthesis",
+            findings=(
+                {
+                    "check": "invalidSynthesis",
+                    "problem": "The answer does not match the required "
+                    "structure. Each error gives where in the answer it is "
+                    "and what is wrong there.",
+                    "errors": _shape_errors(exc),
+                },
+            ),
         )
+
+    findings: list[dict[str, Any]] = []
+    answer = synthesis.model_dump()
+    pieces = claims.units(answer)
 
     unknown = _unknown_refs(synthesis, allowed_refs)
     if unknown:
@@ -307,12 +499,14 @@ def build_run_synthesis(
         # one sentence would leave a response that invented a citation and
         # present the rest as if it were sound.
         log.warning("synthesis cited unknown evidence: %s", sorted(unknown))
-        return emit(
-            _unavailable(
-                "unknownEvidenceRef",
-                "the generated explanation referred to evidence that was not "
-                "supplied, so it was discarded.",
-            )
+        findings.append(
+            {
+                "check": "unknownEvidenceRef",
+                "problem": "These evidenceRefs are not ids the data supplies.",
+                "values": sorted(unknown),
+                "locations": [u.location for u in pieces if u.refs & unknown],
+                "allowedEvidenceIds": sorted(allowed_refs),
+            }
         )
 
     # Gates 4 and 5 read the prose, so they need the statements rather than the
@@ -328,12 +522,19 @@ def build_run_synthesis(
         # was never measured is the most quietly damaging thing this feature
         # could produce, because it looks exactly like the ones that were.
         log.warning("synthesis stated unsupported numbers: %s", invented)
-        return emit(
-            _unavailable(
-                "unsupportedNumber",
-                f"the generated explanation stated numbers not present in the "
-                f"supplied data: {invented}",
-            )
+        findings.append(
+            {
+                "check": "unsupportedNumber",
+                "problem": "These numbers are written in the answer but appear "
+                "nowhere in the data. Remove each one, or write the figure "
+                "exactly as the data gives it.",
+                "values": invented,
+                "locations": [
+                    u.location
+                    for u in pieces
+                    if validation.find_unsupported_numbers([u.text], facts)
+                ],
+            }
         )
 
     exposed = validation.find_exposed_property_names(statements, facts)
@@ -342,34 +543,120 @@ def build_run_synthesis(
         # ordinary Korean, and a schema identifier is not that. The prompt asks
         # for this; asking is not enforcing.
         log.warning("synthesis exposed internal property names: %s", exposed)
-        return emit(
-            _unavailable(
-                "internalFieldName",
-                f"the generated explanation exposed internal property names: "
-                f"{exposed}",
-            )
+        findings.append(
+            {
+                "check": "internalFieldName",
+                "problem": "These internal property names are written in "
+                "sentences a reader sees. Say in plain Korean what each one "
+                "refers to, without the name.",
+                "values": exposed,
+                "locations": [
+                    u.location
+                    for u in pieces
+                    if validation.find_exposed_property_names([u.text], facts)
+                ],
+            }
         )
 
-    return emit(
-        SynthesisResult(
-            available=True,
-            synthesis=synthesis,
-            provenance=SynthesisProvenance(
-                models=result.models,
-                generatedAt=datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                contextKind=explanation.contextKind,
-                runStatus=explanation.status,
-                durationMs=result.durationMs,
-            ),
+    # Gates 6 and 7 compare a sentence with the structured fact it names --
+    # see claims.py. facts[0] is the payload: tools.credit puts it first.
+    payload = facts[0] if facts and isinstance(facts[0], dict) else {}
+
+    contradictions = claims.find_run_fact_mismatches(answer, payload)
+    if contradictions:
+        log.warning("synthesis contradicted run facts: %s", contradictions)
+        findings.append(
+            {
+                "check": "runFactMismatch",
+                "problem": "These items give a value or a count that the data "
+                "records for something else, or not at all. Each problem says "
+                "what was written and what the data gives.",
+                "values": [p for c in contradictions for p in c["problems"]],
+                "locations": [c["location"] for c in contradictions],
+            }
         )
-    )
+
+    mismatched = claims.find_evidence_mismatches(answer, payload, allowed_refs)
+    if mismatched:
+        log.warning("synthesis cited evidence that does not fit: %s", mismatched)
+        findings.append(
+            {
+                "check": "evidenceMismatch",
+                "problem": "These items cite evidence that does not fit what "
+                "they say. Each problem names the ids that would fit.",
+                "values": [p for m in mismatched for p in m["problems"]],
+                "locations": [m["location"] for m in mismatched],
+            }
+        )
+
+    if findings:
+        return _Verdict(
+            synthesis=None,
+            category=findings[0]["check"],
+            findings=tuple(findings),
+            parsed=synthesis,
+        )
+    return _Verdict(synthesis=synthesis, category=None, findings=(), parsed=synthesis)
 
 
-def _observe(toolset: tools.Toolset | None) -> tools.ToolUse:
-    """What the server recorded answering. Nothing, when no tool was offered."""
-    if toolset is None:
-        return tools.observe([], [])
-    return tools.observe(toolset.evidence(), toolset.attempts())
+def _splice(first: _Verdict, rewrite: Any) -> Any:
+    """The rewrite, with every item the findings did not name taken from the
+    first answer.
+
+    The rewrite is asked to change only the listed items (prompt.py), and
+    asking is not enforcing: a real rewrite that fixed one citation also
+    reworded the summary, and got NM/MD wrong doing it. Here an unlisted item
+    cannot change. A group with a listed item keeps its unlisted positions
+    from the first answer when the rewrite kept the group's length; when the
+    length changed (a listed item was dropped) the rewrite's group is used as
+    it is. The result is checked by every gate, like any answer.
+
+    Nothing is spliced when the first answer had the wrong shape -- there is no
+    item to keep -- or when the rewrite does not parse; then the rewrite goes
+    to the gates as it came, and fails or passes on its own.
+    """
+    if first.parsed is None:
+        return rewrite
+    try:
+        new = contract.RunSynthesis.model_validate(rewrite).model_dump()
+    except ValidationError:
+        return rewrite
+    old = first.parsed.model_dump()
+    listed = {loc for f in first.findings for loc in f.get("locations") or []}
+    merged: dict[str, Any] = {
+        "summary": new["summary"] if "summary" in listed else old["summary"]
+    }
+    for group in claims.GROUPS:
+        marked = {i for i in range(max(len(old[group]), len(new[group]))) if f"{group}.{i}" in listed}
+        if not marked:
+            merged[group] = old[group]
+        elif len(new[group]) == len(old[group]):
+            merged[group] = [
+                new[group][i] if i in marked else old[group][i]
+                for i in range(len(old[group]))
+            ]
+        else:
+            merged[group] = new[group]
+    return merged
+
+
+def _shape_errors(exc: ValidationError) -> list[dict[str, str]]:
+    """Where and what, without the input value Pydantic would otherwise echo."""
+    return [
+        {
+            "location": ".".join(str(part) for part in error["loc"]) or "(answer)",
+            "message": error["msg"],
+        }
+        for error in exc.errors(
+            include_url=False, include_input=False, include_context=False
+        )
+    ]
+
+
+def _rejected(verdict: _Verdict) -> SynthesisResult:
+    """The unavailable result a gate rejection has always produced."""
+    category = verdict.category or "invalidSynthesis"
+    return _unavailable(category, f"rejected by {category}")
 
 
 def _statement_groups(

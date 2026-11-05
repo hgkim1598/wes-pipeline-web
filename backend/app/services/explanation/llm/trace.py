@@ -9,7 +9,7 @@ The question this answers, days later, is narrow:
 That is an execution record. It is **not** a transcript. The model's reasoning,
 the prompt, the tool results, the generated text and the evidence sink are all
 absent by construction -- not filtered out afterwards, but never assembled into
-the record in the first place. `SynthesisTrace` has six fields and no room for
+the record in the first place. `SynthesisTrace` has nine fields and no room for
 anything else, so "we could also store..." is a schema change someone has to
 make on purpose.
 
@@ -28,7 +28,22 @@ Why the fields are the ones they are
     openedStepIds    where it went. From the MCP server's own record of what it
                      answered (tools.observe), never from the model's account
     available        was the user shown anything
-    errorCategory    if not, which gate stopped it
+    errorCategory    if not, which gate stopped it -- for a repaired request,
+                     the verdict on the rewrite
+    repairEnabled    whether WES_SYNTHESIS_REPAIR was on for this request
+    attempts         provider calls actually made: 1, or 2 when a rewrite was
+                     asked for. A call that failed still counts
+    firstRejection   the gate that rejected the FIRST answer, or None when it
+                     passed or never arrived. Kept whether or not repair was
+                     on, so "how often does the first answer fail" stays
+                     answerable after the feature is enabled
+
+With a rewrite, `models` is both calls' models in order of first appearance,
+and `durationMs` and `numTurns` are the two calls added together -- what one
+request cost. The first answer's text is not kept, like any other answer.
+
+A row written before the repair columns existed reads back with all three as
+None: those requests were single-generation, recorded by an older backend.
 
 `openedStepIds` holds pipeline step ids -- `04_processing`, `01_raw_qc`. They
 are the pipeline's vocabulary and say nothing about the sample, which is why
@@ -74,11 +89,19 @@ class SynthesisTrace:
     openedStepIds: tuple[str, ...] = ()
     available: bool = False
     errorCategory: str | None = None
+    repairEnabled: bool = False
+    attempts: int = 1
+    firstRejection: str | None = None
 
     @property
     def toolUsed(self) -> bool:
         """Derived, never stored: an empty step list already says this."""
         return bool(self.openedStepIds)
+
+    @property
+    def repairAttempted(self) -> bool:
+        """Derived, never stored: a second call is a rewrite and nothing else."""
+        return self.attempts > 1
 
 
 def record(job_id: str, trace: SynthesisTrace) -> str | None:
@@ -88,8 +111,9 @@ def record(job_id: str, trace: SynthesisTrace) -> str | None:
         db.execute(
             """INSERT INTO synthesis_traces
                (trace_id, job_id, created_at, models, duration_ms, num_turns,
-                opened_step_ids, available, error_category)
-               VALUES (?,?,?,?,?,?,?,?,?)""",
+                opened_step_ids, available, error_category,
+                repair_enabled, attempts, first_rejection)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 trace_id,
                 job_id,
@@ -100,6 +124,9 @@ def record(job_id: str, trace: SynthesisTrace) -> str | None:
                 json.dumps(list(trace.openedStepIds)),
                 1 if trace.available else 0,
                 trace.errorCategory,
+                1 if trace.repairEnabled else 0,
+                trace.attempts,
+                trace.firstRejection,
             ),
         )
     except sqlite3.Error as exc:
@@ -149,6 +176,13 @@ def recent(job_id: str | None = None, *, limit: int = 20) -> list[dict[str, Any]
             "openedStepIds": db.loads(row["opened_step_ids"], []),
             "available": bool(row["available"]),
             "errorCategory": row["error_category"],
+            # NULL on rows from before these columns: not False, not 1 --
+            # unknown, because that backend did not record them.
+            "repairEnabled": (
+                None if row["repair_enabled"] is None else bool(row["repair_enabled"])
+            ),
+            "attempts": row["attempts"],
+            "firstRejection": row["first_rejection"],
         }
         for row in rows
     ]
