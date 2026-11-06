@@ -271,9 +271,11 @@ Windows에서는 이 사본을 `python -m evals.dev_restore`로 복원해 웹 �
 | `full` 실행 | ❌ 도구·참조 유전체 없음 | ✅ 1회 완주 기록 |
 | 실행 중 취소 | 부분적 (아래 "현재 제한") | ✅ |
 | 실제 Run 보기 | 보존 사본 복원(`evals/dev_restore.py`) | 그 backend가 만든 실행 |
+| AI 설명(Claude Code CLI) | ✅ 보존 사본으로 확인 | ✅ 배포본 `d240654`에서 1회 확인(2026-11-06, 아래 "AI 설명 자동 수정"의 Ubuntu 통합 확인) |
 
 Windows의 backend와 VM의 backend는 DB와 실행 폴더를 공유하지 않습니다. 한 backend는
-자기 DB에 행이 있는 실행만 보여 줍니다.
+자기 DB에 행이 있는 실행만 보여 줍니다. Windows의 웹 화면을 VM backend에 proxy로 붙이면
+VM의 실행을 그대로 봅니다(`docs/DEPLOYMENT.md` 3-9).
 
 ## 현재 제한
 
@@ -355,7 +357,20 @@ Windows의 backend와 VM의 backend는 DB와 실행 폴더를 공유하지 않�
 모든 호출에서 `<run_data>`는 같았고, 수정 호출에는 Tool이 없었습니다. 브라우저 화면 확인과는 별개입니다.
 
 **남은 한계:** 자연어 의미 오류(모순 · 임상 표현 · 원인 단정)는 검사하지 않습니다. gate 6 · 7이 알아보지 못한 표현은 통과합니다.
-gate 6 · 7과 항목 교체를 적용한 상태로는 실제 Claude를 아직 호출하지 않았습니다. Ubuntu 실제 분석부터 Agent까지의 전체 연결은 별도 단계입니다.
+gate 6 · 7을 적용한 코드(`d240654`)로 실제 Claude를 부른 것은 아래 Ubuntu 통합 확인 1회이고, 그때 첫 답이 바로 통과했습니다(`attempts=1`, 자동 수정 꺼짐). 그래서 **항목 교체와 자동 수정은 실제 모델로 아직 실행되지 않았습니다.**
+
+**Ubuntu 배포본 통합 확인** (2026-11-06, 운영자가 VM에서 수행한 기록. Windows에서 VM을 직접 확인한 것이 아닙니다):
+
+| 항목 | 결과 |
+|---|---|
+| release | `20261105_01_d240654`(Windows HEAD `d240654`와 같은 commit). `current` 링크는 바꾸지 않고 `WES_RELEASE_DIR`로 이 release를 지정해 기동(`docs/DEPLOYMENT.md` 6-1) |
+| health | `status: ok` · `runMode: full` |
+| preflight | PASS 36 · FAIL 0 · WARN 0 · SKIP 2 |
+| 데이터 | 실제 Run `cba73e`(2026-09-18 full 실행)를 VM backend가 자기 DB · run 폴더에서 직접 조회 |
+| AI 설명 | VM의 Claude Code CLI로 생성, Windows 웹(Vite proxy → VM backend)에 표시 |
+| trace (VM `synthesis_traces`) | `available=1` · `attempts=1` · `repair_enabled=0` · `first_rejection` 없음 · `duration_ms=15746` |
+
+이 확인이 말하지 않는 것: Run 1개 · 호출 1회입니다. 웹에서 **새 분석을 제출해 끝까지 돌린 뒤** AI 설명까지 이어지는 실행은 아직 없습니다(`cba73e`는 이전 실행). 자동 수정 경로, 실패 Run, Tool 조회 여부는 이 확인으로 알 수 없습니다.
 
 ## 테스트
 

@@ -373,8 +373,21 @@ CORS 설정이 필요 없습니다). Run 목록·상태·결과·설명은 모�
    cd front; npm run dev     # http://localhost:5173
    ```
 
+   5173이 이미 쓰이고 있으면 포트만 바꿔 같은 설정으로 띄웁니다
+   (`vite.config.ts`는 그대로, `.env.local`의 proxy 대상도 그대로 적용).
+
+   ```powershell
+   cd front; npx vite --host 127.0.0.1 --port 5194 --strictPort
+   ```
+
    경로가 붙은 값(`.../api`)이나 URL이 아닌 값은 dev server가 시작을
    거부합니다. 지정하지 않으면 기존대로 `http://127.0.0.1:8000`입니다.
+
+   2026-11-06 통합 확인 때의 Windows 쪽 구성(Windows에서 확인): Vite는 위
+   명령으로 5194에서 실행, `front/.env.local`은
+   `WES_API_PROXY_TARGET=http://127.0.0.1:8000`, Windows의 `127.0.0.1:8000`은
+   VirtualBox 프로세스가 listen(VM guest 8000으로 포워딩). 이때 Windows 로컬
+   backend는 8000을 쓰지 않습니다.
 4. 화면의 health 페이지에서 `release`를 한 번 더 확인합니다.
 
 주의: 화면이 쓰는 공용 용어 사전(`config/`)은 **Windows checkout**의
@@ -384,6 +397,17 @@ CORS 설정이 필요 없습니다). Run 목록·상태·결과·설명은 모�
 AI 설명(`POST /api/jobs/{id}/synthesis`)은 **VM의 backend가** Claude Code
 CLI를 호출합니다. VM에 로그인된 CLI가 없으면 화면에는 "AI 설명을 사용할 수
 없습니다"가 나오고, 결정적 설명은 그대로 보입니다.
+
+CLI는 backend 프로세스의 PATH에서 `shutil.which("claude")`로 찾습니다
+(`backend/app/services/explanation/llm/provider.py`의 `_preflight`).
+`start_backend.sh`는 PATH 앞에 인터프리터 디렉터리와 `WES_TOOLS_BIN`을 붙일 뿐
+기존 PATH를 지우지 않으므로, **손으로 띄울 때는 띄운 셸에서 `command -v claude`가
+되면 backend도 찾습니다.**
+
+> 2026-11-06 운영자 기록: 손으로 띄운(detached) release `20261105_01_d240654`
+> backend가 VM의 CLI로 AI 설명을 생성했고 Windows 화면에 표시됐습니다(6-1).
+> CLI가 어느 디렉터리에서 잡혔는지는 기록되지 않았습니다. systemd 경로는 여전히
+> 확인되지 않았습니다.
 
 systemd로 띄운 backend는 로그인 셸의 PATH를 받지 않습니다. CLI가
 `~/.local/bin` 같은 곳에 있으면 backend는 찾지 못합니다(`providerUnavailable`).
@@ -580,6 +604,106 @@ systemd로 운영 중이라면 unit이 `current`를 가리키므로 **unit은 �
 > 새 release에서 `bootstrap_server.sh`를 다시 돌려도 됩니다. shared 연결과 `.env`
 > 확인을 대신 해 주고, 이미 있는 것은 건드리지 않습니다. 다만 `current` 전환은
 > 하지 않으므로 위 `ln -sfn`은 여전히 사람이 하는 단계입니다.
+
+### 6-1. `current`를 바꾸기 전에 새 release로 띄워 보기
+
+`start_backend.sh`는 `WES_RELEASE_DIR`가 있으면 `current` 대신 그 release를
+씁니다(스크립트 1단계). `current`를 그대로 둔 채 새 release를 실제로 띄워 볼 수
+있고, 문제가 있으면 링크를 건드린 적이 없으니 되돌릴 것도 적습니다.
+
+```bash
+NEW=$DEPLOY_ROOT/releases/<새 release id>
+"$NEW/script/server_preflight.sh"                   # FAIL 0 확인
+WES_RELEASE_DIR="$NEW" "$NEW/script/start_backend.sh"
+curl -s http://127.0.0.1:8000/api/health            # release가 <새 release id>인지
+```
+
+> **2026-11-06 현재 상태 (운영자 기록):**
+>
+> | | release |
+> |---|---|
+> | `current` 링크 | `20261004_01_c41f1e2` (이전 release, 전환하지 않음) |
+> | 실행 중인 backend | `20261105_01_d240654` — `WES_RELEASE_DIR`로 지정해 손으로(detached) 기동 |
+>
+> health `ok` · `full`, preflight PASS 36 · FAIL 0 · WARN 0 · SKIP 2.
+> systemd unit 설치·enable 여부는 기록되지 않았습니다.
+
+**`WES_RELEASE_DIR` 없이 다시 실행하면 `current`(= 위 상태에서는 `c41f1e2`)가
+선택됩니다.** 스크립트 1단계의 순서가 `WES_RELEASE_DIR` → `$DEPLOY_ROOT/current`
+→ 스크립트가 들어 있는 checkout이기 때문입니다. 마지막 것은 `current`가 **없을
+때만** 쓰이므로, `"$NEW/script/start_backend.sh"`처럼 새 release 안의 스크립트를
+불러도 `current`가 있으면 **이전 release가 선택됩니다.** 스크립트 위치는 release를
+정하지 않습니다.
+
+그다음 무엇이 일어나는지는 새 backend가 아직 떠 있는지에 따라 다릅니다.
+
+| 상황 | `WES_RELEASE_DIR` 없이 실행한 결과 | 근거 (`start_backend.sh`) |
+|---|---|---|
+| 새 backend가 8000에서 실행 중 | 새 backend는 **멈추지 않고**, 이전 release도 **뜨지 않고** 오류로 끝남 | 4단계 `stop_existing`은 선택된 release(`c41f1e2`)의 `runtime/backend.pid`만 봄 → 새 backend의 pid 파일은 `d240654/runtime/`에 있어 대상이 아님. 이어서 `port_holder`가 8000 점유를 보고 `die "port 8000 is already in use…"`. (`ss`·`lsof`·`netstat`이 모두 없으면 이 검사는 결과가 비어 통과하지만, uvicorn이 bind에 실패해 종료하므로 6단계 health 대기가 오류로 끝남) |
+| 새 backend가 멈춘 뒤 (직접 정지 · 비정상 종료 · VM 재부팅) | **이전 release `c41f1e2`가 정상 기동**. 오류도 경고도 없음 | 포트가 비어 있으니 거부할 이유가 없음. detached 모드에는 자동 재시작이 없고, 재부팅 후 손으로 다시 띄우는 순간 이 경우가 됨 |
+
+즉 거부는 "새 backend가 아직 포트를 쥐고 있을 때"의 부수 효과이지, 엉뚱한
+release를 막는 장치가 아닙니다. **release를 고르는 별도의 기동 방지 절차는 이
+문서에도 스크립트에도 없습니다.** 스크립트가 해 주는 것은 선택 결과를 보여 주는
+것뿐입니다: 끝날 때 `release`(실제 경로)와 health JSON의 `release`를 출력합니다.
+
+다시 띄우거나 되돌릴 때 실수하지 않으려면:
+
+- **새 release를 다시 띄울 때는 매번 같은 `WES_RELEASE_DIR`를 줍니다.** 그래야
+  `d240654/runtime/backend.pid`의 기존 프로세스를 멈추고 같은 release로 다시
+  띄웁니다.
+  ```bash
+  WES_RELEASE_DIR="$DEPLOY_ROOT/releases/20261105_01_d240654" \
+    "$DEPLOY_ROOT/releases/20261105_01_d240654/script/start_backend.sh"
+  ```
+- **실행 후 반드시 `release`를 확인합니다.** 출력의 `release` 줄, 또는
+  `curl -s http://127.0.0.1:8000/api/health`의 `release`가 의도한 이름인지 봅니다.
+  Windows 화면의 health 페이지에서도 같은 값을 봅니다(3-9).
+- pid · log는 **실행한 release의** `runtime/`에 있습니다. 새 backend의 것은
+  `d240654/runtime/backend.pid`, `backend.log`입니다.
+- systemd unit은 항상 `current`를 실행합니다(4-1). unit이 enable돼 있으면 **재부팅
+  후에는 `c41f1e2`가 올라옵니다.**
+- 새 release를 계속 쓸 거라면 이 상태를 오래 두지 말고, 확인이 끝난 뒤
+  `ln -sfn "$NEW" "$DEPLOY_ROOT/current"`로 전환합니다. 그러면 `WES_RELEASE_DIR`
+  없이 실행해도, systemd로 기동해도 같은 release가 됩니다. systemd로 옮길 때는
+  손으로 띄운 backend를 먼저 멈춥니다(아래 6-2의 `kill`). 멈추지 않으면 systemd
+  쪽 기동이 위 표의 첫 줄처럼 포트 점유로 실패합니다.
+
+### 6-2. 되돌리기
+
+`start_backend.sh`에는 정지 전용 명령이 없습니다. 같은 release로 다시 띄울 때만
+이전 프로세스를 멈추므로, **다른 release로 돌아가려면 먼저 손으로 멈춥니다.**
+(스크립트는 포트를 쥔 다른 프로세스를 죽이지 않고 거부합니다.)
+
+`current`를 바꾸기 전(6-1 상태)이라면:
+
+```bash
+kill -TERM "$(cat "$NEW/runtime/backend.pid")"      # 새 release backend 정지
+"$DEPLOY_ROOT/current/script/start_backend.sh"      # current = 이전 release
+# 출력의 release가 이전 release 이름인지 확인
+```
+
+새 release의 pid 파일은 스크립트가 지우지 않으므로 `$NEW/runtime/`에 남습니다.
+다음에 `WES_RELEASE_DIR="$NEW"`로 띄우면 4단계가 "실행 중이 아님"으로 보고
+정리합니다.
+
+`current`를 이미 바꿨다면:
+
+```bash
+ln -sfn "$OLD" "$DEPLOY_ROOT/current"
+# systemd: sudo systemctl restart wes-backend
+# 손으로 띄웠다면: 위처럼 새 release의 pid를 멈춘 뒤 start_backend.sh
+```
+
+되돌려도 데이터는 그대로입니다.
+
+- `runs` · `uploads` · DB는 shared에 있어 release와 함께 바뀌지 않습니다(3-5).
+- `d240654`는 기동 시 `synthesis_traces`에 NULL 허용 컬럼 3개를 추가합니다
+  (`backend/app/db.py`의 `_ADDED_COLUMNS`). 컬럼은 지우지 않으며, `c41f1e2`의
+  trace 기록 코드는 컬럼 이름을 지정해 INSERT하므로 늘어난 DB에서도 동작합니다
+  (그 release가 쓴 행은 새 컬럼이 NULL).
+- `.env`의 `WES_SYNTHESIS_REPAIR`는 `c41f1e2`가 읽지 않는 값이라 무시됩니다.
+- 진행 중인 run이 있을 때는 바꾸지 않습니다(6 체크리스트 마지막 항목).
 
 ---
 

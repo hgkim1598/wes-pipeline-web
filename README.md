@@ -127,6 +127,7 @@ flowchart TB
 - Claude Code CLI를 MCP client로, 직접 구현한 **읽기 전용 MCP 서버의 Tool 1개**(`get_step_detail`)만 쓰게 연결
 - 모델은 조회할 **단계만** 고르고 Run은 서버가 고정 · 서로 다른 단계 최대 2개 · Tool이 **실제로 반환한 기록만** 근거로 인정
 - 실제 VM Run 2건으로 호출 경로를 **수동 1회** 확인 — Agent 응답 품질의 정량 평가는 아직 없음 ([아래](#diagnostic-agent--구현-범위와-검증-상태))
+- 2026-11-06 Ubuntu 배포본(`d240654`)에서 웹 → VM backend → Claude Code CLI → 화면까지 실제 Run 1건으로 **수동 1회** 연결 확인(운영자 기록)
 
 ---
 
@@ -295,7 +296,8 @@ Tool 호출은 있지만 범위가 좁습니다. **1회 CLI 호출 안에서 읽
 |---|---|---|
 | 코드 경로 테스트 | fake provider와 in-process MCP client로 호출 경로 검사. **실제 모델 · subprocess 호출 없음** | 기본 `pytest` 범위에 포함 ([Validation](#validation)) |
 | 실제 CLI → stdio MCP → Tool | 2026-09-22 **수동 1회**. VM의 Run JSON을 read-only GET으로 받아 로컬 임시 DB · runs에 복원해 실행 | `cba73e`(완주 · 경고 3): Tool 미사용 · guardrail 통과 / `68aa20`(`03_alignment` 실패): `03_alignment` 조회 · guardrail 통과. **자동 테스트 없음** |
-| 자동 수정 · 재검사 | fake provider로 10개 시나리오(첫 답 통과 · 근거 ID / 수치 / 형식 / 내부 필드명 오류 후 수정 · 수정 후 재실패 · 수정에서 새 오류 · provider 오류 · 기능 꺼짐 · trace)와 API 응답 형태 | `app/tests/test_synthesis_repair.py` 38개 통과. **실제 모델 호출 없음 — 실제로 고쳐지는 비율은 측정하지 않음** |
+| Ubuntu 배포본 통합 | 2026-11-06 **운영자가 수동 1회** 수행. release `20261105_01_d240654`를 명시적 경로로 띄운 VM backend(health `ok` · `full`, preflight PASS 36 · FAIL 0 · WARN 0 · SKIP 2)에 Windows Vite proxy로 연결하고, 실제 Run `cba73e`에서 AI 설명 생성 | VM의 Claude Code CLI로 생성 → Windows 화면에 표시. VM DB trace 1행: `available=1` · `attempts=1` · `repair_enabled=0` · `first_rejection` 없음 · `duration_ms=15746`. **Run 1개 · 호출 1회 · 첫 답이 바로 통과한 경우만 확인**(자동 수정 경로는 실환경에서 안 탔음). 자동 테스트 없음 |
+| 자동 수정 · 재검사 | fake provider로 첫 답 통과 · 근거 ID / 수치 / 형식 / 내부 필드명 / 실행 사실 / 근거 적합성 오류 후 수정 · 지적 항목만 교체 · 수정 후 재실패 · provider 오류 · 기능 꺼짐 · trace와 API 응답 형태 | `app/tests/test_synthesis_repair.py` 46개 통과(2026-11-05). **실제 모델 호출 없음 — 실제로 고쳐지는 비율은 측정하지 않음** |
 | Tool 선택 평가 | 합성 case 3개(실패 단계 · 경고 단계 · 조회 불필요)와 채점 함수 | case와 채점 함수는 구현. **실제 모델로 실행한 결과 없음** |
 | 설명 품질 | 2026-09-10 단발 synthesis baseline 사람 판정 · 2026-11-04 A/B 비교(기존·개선 prompt+Knowledge, 같은 실제 Run, 각 3회) | A 답변 2개 · B 답변 3개를 문자열 규칙 검사기(`evals/explanation_quality.py`, v1·v2)로 채점. 경고 단계 명시 0/2 → 3/3, 내부 설정 이름 노출 2/2 → 0/3. **표본이 작고 사람 평가 전이라 개선 효과가 입증된 것은 아님** ([`backend/evals/experiments/ab_2026-11-04/RESULTS.md`](backend/evals/experiments/ab_2026-11-04/RESULTS.md)) |
 
@@ -327,7 +329,8 @@ Tool 호출은 있지만 범위가 좁습니다. **1회 CLI 호출 안에서 읽
 | Fatal error / failures | **0** / `[]` |
 | Core artifacts | analysis-ready BAM · gVCF · **raw VCF** ✅ |
 | Backend tests | ✅ **687 passed · 1 skipped** — `cd backend && .venv/Scripts/python.exe -m pytest` (기본 범위 `app/tests`, 2026-11-05 Windows 실행. skip 1건은 file symlink 권한) |
-| Eval tests | ✅ **239 passed** — backend에서 `.venv/Scripts/python.exe -m pytest evals` (채점 함수 · 설명 품질 검사기 · 비교 도구 테스트 · 모델 호출 없음, 2026-11-04 실행) |
+| Eval tests | ✅ **257 passed · 3 skipped** — backend에서 `.venv/Scripts/python.exe -m pytest evals` (채점 함수 · 설명 품질 검사기 · 비교 도구 · 기록된 답의 gate 6·7 통과 테스트 · 모델 호출 없음, 2026-11-05 Windows 실행. skip 3건은 답변이 없는 기록) |
+| Ubuntu server preflight | ✅ PASS 36 · FAIL 0 · WARN 0 · SKIP 2 — `script/server_preflight.sh`, release `20261105_01_d240654` (2026-11-06 운영자 기록) |
 | Frontend typecheck / lint / build | ✅ `tsc -b` strict · `oxlint` · `vite build` (2026-11-04 실행). frontend 단위 테스트는 아직 없음 |
 
 backend 테스트의 Agent 관련 부분은 fake provider와 in-process MCP client를 쓰며, **실제 LLM 응답 품질을 측정한 결과가 아닙니다.**
@@ -466,9 +469,9 @@ bash script/main.sh --config <run_config.json> --check-only  # preflight만
 - **single worker · 인증 없음** — 로컬 / 단일 운영자 환경 전제
 - **local reference resources 필요** — 파이프라인이 reference를 내려받지 않음
 - **LLM explanation은 분석 사실의 출처가 아니며 medical advice가 아님**
-- **Diagnostic Agent는 실험 단계** — Tool 1개 · 실제 CLI→MCP 경로는 수동 1회 확인 · Agent 응답 품질의 정량 평가 없음 · 상주 배포된 서비스 아님
-- **설명 품질 검사기는 평가 전용** — 실제 응답 경로에서 도는 것은 근거 ID · 수치 · 내부 필드 이름 검사뿐이고, 초보자용 설명 품질 규칙(`evals/explanation_quality.py`)은 기록된 답변을 채점할 때만 쓴다
-- **Windows와 Ubuntu VM은 데이터를 공유하지 않음** — 각 backend는 자기 DB의 실행만 보여 준다. Windows에서 보는 실제 Run은 VM 실행의 보존 사본이다
+- **Diagnostic Agent는 실험 단계** — Tool 1개 · 실제 CLI→MCP 경로는 수동 확인뿐(2026-09-22 VM Run 2건, 2026-11-06 Ubuntu 배포본에서 Run 1건) · Agent 응답 품질의 정량 평가 없음 · 상주 배포된 서비스 아님
+- **설명 품질 검사기는 평가 전용** — 실제 응답 경로에서 도는 것은 형식 · 근거 ID · 수치 · 내부 필드 이름 · 실행 사실 · 근거 적합성 검사이고, 초보자용 설명 품질 규칙(`evals/explanation_quality.py`)은 기록된 답변을 채점할 때만 쓴다
+- **Windows backend와 Ubuntu VM backend는 데이터를 공유하지 않음** — 각 backend는 자기 DB의 실행만 보여 준다. Windows 웹을 VM backend에 proxy로 붙이면 VM의 실행을 그대로 본다([`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) 3-9). Windows backend로 보는 실제 Run은 VM 실행의 보존 사본이다
 
 ---
 
