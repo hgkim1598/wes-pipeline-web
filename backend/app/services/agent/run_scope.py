@@ -27,8 +27,10 @@ step_reader.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from ... import db
 from .privacy import Redactor
@@ -66,6 +68,36 @@ class RunScope:
     max_distinct_steps: int = DEFAULT_MAX_DISTINCT_STEPS
 
 
+# The placeholder a job's sample identifier is replaced with. Exported because
+# a consumer may need to know whether the redactor CAN hide the sample at all:
+# a job row written before jobs.sample_id existed has no such literal.
+SAMPLE_PLACEHOLDER = "<sample>"
+
+
+def redactor_for_row(row: Mapping[str, Any]) -> Redactor:
+    """The redactor for one job row: its own identifiers plus the shape rules.
+
+    Used by for_job() and by the public step detail endpoint, so the agent and
+    the API redact a job's text with exactly the same literals.
+    """
+    # Longest first: job_id and run_id are the same string in the current
+    # schema, and a shorter identifier must never consume part of a longer one
+    # before that one has had its turn.
+    candidates = [
+        (row["sample_id"], SAMPLE_PLACEHOLDER),
+        (row["run_id"], "<run>"),
+        (row["job_id"], "<job>"),
+    ]
+    literals = tuple(
+        sorted(
+            ((str(value), placeholder) for value, placeholder in candidates if value),
+            key=lambda pair: len(pair[0]),
+            reverse=True,
+        )
+    )
+    return Redactor(literals=literals)
+
+
 def for_job(
     job_id: str,
     *,
@@ -80,27 +112,11 @@ def for_job(
     if row is None:
         raise RunNotFound(job_id)
 
-    # Longest first: job_id and run_id are the same string in the current
-    # schema, and a shorter identifier must never consume part of a longer one
-    # before that one has had its turn.
-    candidates = [
-        (row["sample_id"], "<sample>"),
-        (row["run_id"], "<run>"),
-        (row["job_id"], "<job>"),
-    ]
-    literals = tuple(
-        sorted(
-            ((str(value), placeholder) for value, placeholder in candidates if value),
-            key=lambda pair: len(pair[0]),
-            reverse=True,
-        )
-    )
-
     return RunScope(
         run_dir=Path(row["run_dir"]),
         planned_steps=tuple(db.loads(row["planned_steps"], [])),
         run_mode=row["run_mode"],
-        redactor=Redactor(literals=literals),
+        redactor=redactor_for_row(row),
         sink=sink,
         max_distinct_steps=max_distinct_steps,
     )
@@ -110,5 +126,7 @@ __all__ = [
     "DEFAULT_MAX_DISTINCT_STEPS",
     "RunNotFound",
     "RunScope",
+    "SAMPLE_PLACEHOLDER",
     "for_job",
+    "redactor_for_row",
 ]

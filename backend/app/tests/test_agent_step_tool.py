@@ -419,6 +419,10 @@ def test_step_evidence_fields_are_pinned():
         "failures",
         "artifactCount",
         "nextStepReady",
+        # P0-1 / ADR-001: added as an explicit decision. It is the already
+        # projected ResourceBundleDiagnosis (redacted, disclosure rule applied),
+        # the same value the public step detail returns.
+        "resourceBundleDiagnosis",
     }
 
 

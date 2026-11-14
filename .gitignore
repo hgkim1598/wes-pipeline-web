@@ -31,3 +31,9 @@ wes-web_c0a94a5.tar.gz
 
 # Local Claude Design references
 docs/design/
+
+# Real-run failure evidence archive (may contain sample/run data). Never commit.
+/wes_failure_evidence_*.tar.gz
+
+# A/B evaluation answer keys. Kept local so reviewers stay blind.
+backend/evals/experiments/**/blind_key*.json

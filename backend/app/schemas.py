@@ -356,6 +356,57 @@ class StepValidation(BaseModel):
     results: list[CheckResult] = Field(default_factory=list)
 
 
+# --- resource_bundle failure causes (P0-1, ADR-001) ---------------------------
+#
+# The EXTERNAL shape only. The internal analysis (raw sentences) is a frozen
+# dataclass in services/resource_bundle_causes.py and is deliberately not a
+# model: the one way from it to here is services/resource_bundle_diagnosis.py,
+# which redacts and applies the disclosure rule. The public step detail and the
+# agent's StepEvidence both carry THIS model, so they cannot differ in shape.
+
+ResourceBundleState = Literal[
+    "not_applicable",
+    "source_unavailable",
+    "source_unreadable",
+    "segment_unresolved",
+    "no_error_block",
+    "parsed",
+]
+
+
+class ResourceBundleCause(BaseModel):
+    """One sentence of the failed check, classified by a fixed rule table."""
+
+    # From the rule table's fixed vocabulary; "unknown" when no rule matched.
+    kind: str
+    resourceRole: str
+    tool: str | None = None
+    ruleId: str | None = None
+    # The sentence itself, cleaned and redacted -- or None when it could not be
+    # released safely (no sample identifier to redact, or something path- or
+    # digest-shaped survived). The classification above is kept either way.
+    evidenceText: str | None = None
+
+
+class ResourceBundleDiagnosis(BaseModel):
+    """Why resource_bundle failed, as recorded at the time the run ran.
+
+    A record of the past attempt, not the server's current state.
+    `truncated: true` means the cause list may be incomplete and must not be
+    read as "this cause is absent".
+    """
+
+    state: ResourceBundleState
+    source: Literal["report", "pipeline_log"] | None = None
+    causes: list[ResourceBundleCause] = Field(default_factory=list)
+    # Only for no_error_block: the end of what was read, for a human. Not a cause.
+    unparsedExcerpt: str | None = None
+    truncated: bool = False
+    # How many raw strings above were withheld (set to None) by the disclosure
+    # rule. Lets a reader tell "no text" from "text withheld".
+    withheldTextCount: int = 0
+
+
 class StepDetailResponse(BaseModel):
     jobId: str
     runId: str
@@ -391,6 +442,11 @@ class StepDetailResponse(BaseModel):
     # main.sh's own gate: gate_next_step() refuses to continue unless the step
     # reported a terminal status AND next_step_ready is true.
     nextStepReady: bool = False
+
+    # Why resource_bundle failed, for 00_input_validation only; None for every
+    # other step. Built by services/resource_bundle_diagnosis.project(), never
+    # from step_reader's dict (ADR-001 E2).
+    resourceBundleDiagnosis: ResourceBundleDiagnosis | None = None
 
 
 class ArtifactListResponse(BaseModel):

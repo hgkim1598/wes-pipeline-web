@@ -46,7 +46,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from .. import step_reader
+from ...schemas import ResourceBundleDiagnosis
+from .. import resource_bundle_diagnosis, step_reader
 from .privacy import MetricValue, Redactor
 from .run_scope import RunScope
 
@@ -148,6 +149,12 @@ class StepEvidence(BaseModel):
     # main.sh's own judgement that the pipeline could continue past this step.
     nextStepReady: bool = False
 
+    # Why resource_bundle failed, for 00_input_validation only (P0-1). The same
+    # model, built by the same projection with the same redactor, as the public
+    # step detail -- already redacted and subject to its disclosure rule, so it
+    # is copied across as it is rather than scrubbed a second time.
+    resourceBundleDiagnosis: ResourceBundleDiagnosis | None = None
+
 
 def read_step_evidence(scope: RunScope, step_id: Any) -> StepEvidence:
     """Read one step of the scoped run and project it for a model.
@@ -174,10 +181,17 @@ def read_step_evidence(scope: RunScope, step_id: Any) -> StepEvidence:
             f"planned steps: {', '.join(scope.planned_steps)}"
         ) from exc
 
-    return _project(detail, scope.redactor)
+    diagnosis = resource_bundle_diagnosis.diagnose(
+        scope.run_dir, detail["stepId"], detail["validation"]["results"], scope.redactor
+    )
+    return _project(detail, scope.redactor, diagnosis)
 
 
-def _project(detail: dict[str, Any], redactor: Redactor) -> StepEvidence:
+def _project(
+    detail: dict[str, Any],
+    redactor: Redactor,
+    diagnosis: ResourceBundleDiagnosis | None = None,
+) -> StepEvidence:
     """Copy the allowed fields across, scrubbing every string on the way."""
     validation = detail.get("validation") or {}
     metrics, withheld = redactor.metrics(detail.get("metrics") or {})
@@ -219,6 +233,7 @@ def _project(detail: dict[str, Any], redactor: Redactor) -> StepEvidence:
         ],
         artifactCount=len(detail.get("artifacts") or []),
         nextStepReady=detail.get("nextStepReady") is True,
+        resourceBundleDiagnosis=diagnosis,
     )
 
 

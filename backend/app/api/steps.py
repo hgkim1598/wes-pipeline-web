@@ -37,7 +37,8 @@ from fastapi import APIRouter, HTTPException
 
 from .. import db
 from ..schemas import StepDetailResponse
-from ..services import step_reader
+from ..services import resource_bundle_diagnosis, step_reader
+from ..services.agent.run_scope import redactor_for_row
 from .jobs import _load_job
 
 router = APIRouter(prefix="/api/jobs", tags=["steps"])
@@ -68,4 +69,20 @@ def get_step(job_id: str, step_id: str) -> StepDetailResponse:
             },
         ) from exc
 
-    return StepDetailResponse(jobId=row["job_id"], runId=row["run_id"], **payload)
+    # Why resource_bundle failed (00_input_validation only). Analysed apart from
+    # step_reader and projected through the same function and the same job
+    # redactor the agent uses, then passed by keyword -- never merged into
+    # `payload`, which is splatted into the response as it is (ADR-001 E2).
+    diagnosis = resource_bundle_diagnosis.diagnose(
+        Path(row["run_dir"]),
+        step_id,
+        payload["validation"]["results"],
+        redactor_for_row(row),
+    )
+
+    return StepDetailResponse(
+        jobId=row["job_id"],
+        runId=row["run_id"],
+        resourceBundleDiagnosis=diagnosis,
+        **payload,
+    )
