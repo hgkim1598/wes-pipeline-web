@@ -299,3 +299,126 @@ def test_a_run_without_the_section_has_no_rule():
     answer = _one("평균 깊이는 1420배입니다. 경고 단계는 5개입니다.", ["run:coverage"])
     assert claims.find_run_fact_mismatches(answer, {}) == []
     assert claims.find_evidence_mismatches(answer, {}, ALLOWED) == []
+
+
+# --- a warning raised INSIDE a step that did not end with a warning -----------
+#
+# Found by the real evaluation (2026-11-16): a precheck that FAILED in 00 also
+# recorded MULTIQC_MISSING there. The payload says so -- the diagnostic's
+# `occurredAtStep` is "입력 검증" -- but the step's status is "failed", so the
+# gate discarded two answers that said the warning was recorded in 입력 검증.
+# A warning occurring in a step is not the step ENDING with a warning.
+
+FAILED_PRECHECK_WITH_WARNING = {
+    "steps": {
+        "evidenceId": "run:steps",
+        "planned": [
+            {"stepId": "00_input_validation", "status": "failed"},
+            {"stepId": "01_raw_qc", "status": "pending"},
+            {"stepId": "03_alignment", "status": "pending"},
+        ],
+    },
+    "diagnostics": [
+        {"evidenceId": "dx:MULTIQC_MISSING", "code": "MULTIQC_MISSING",
+         "occurredAtStep": "입력 검증", "severity": "info"},
+    ],
+}
+
+
+def _facts_in_failed_precheck(statement: str) -> list[dict]:
+    return claims.find_run_fact_mismatches(
+        _one(statement, ["dx:MULTIQC_MISSING"]), FAILED_PRECHECK_WITH_WARNING
+    )
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "입력 검증 단계에서 경고가 기록됐습니다.",
+        "입력 검증 단계에서도 경고가 하나 기록됐습니다.",
+        "입력 검증에서 경고가 발생했습니다.",
+        "경고가 기록된 단계는 입력 검증입니다.",
+    ],
+)
+def test_a_warning_recorded_in_the_step_it_occurred_in_is_not_found(statement):
+    assert _facts_in_failed_precheck(statement) == []
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        # The step FAILED: saying it ended with a warning is still wrong.
+        "입력 검증 단계가 경고로 끝났습니다.",
+        "경고로 끝난 단계는 입력 검증입니다.",
+        # No diagnostic occurred in this step at all.
+        "참조 유전체 정렬 단계에서 경고가 발생했습니다.",
+    ],
+)
+def test_ending_with_a_warning_or_a_step_without_one_is_still_found(statement):
+    assert [f["location"] for f in _facts_in_failed_precheck(statement)] == ["importantFindings.0"]
+
+
+# Codex gate review (2026-11-16): the first version only refused "경고로 끝".
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "입력 검증 단계는 경고 상태입니다.",               # M1
+        "입력 검증 단계가 경고 상태로 끝났습니다.",        # M1
+        "입력 검증 단계가 경고로             끝났습니다.",  # L1: whitespace
+        "두 단계에서 경고가 기록됐습니다.",                # a count no reading supports
+    ],
+)
+def test_a_warning_state_claim_about_a_failed_step_is_still_found(statement):
+    assert [f["location"] for f in _facts_in_failed_precheck(statement)] == ["importantFindings.0"]
+
+
+def test_a_count_of_steps_a_warning_occurred_in_is_not_found():
+    # M2: one step (00) recorded a warning, even though none ENDED with one.
+    assert _facts_in_failed_precheck("한 단계에서 경고가 기록됐습니다.") == []
+    assert _facts_in_failed_precheck("1개 단계에서 경고가 발생했습니다.") == []
+
+
+def test_the_exception_holds_in_the_summary_too():
+    answer = _one("입력 검증 단계에서 경고가 기록됐습니다.", [], where="summary")
+    assert claims.find_run_fact_mismatches(answer, FAILED_PRECHECK_WITH_WARNING) == []
+    answer = _one("입력 검증 단계는 경고 상태입니다.", [], where="summary")
+    found = claims.find_run_fact_mismatches(answer, FAILED_PRECHECK_WITH_WARNING)
+    assert [f["location"] for f in found] == ["summary"]
+
+
+def test_a_failure_recorded_in_a_step_grants_no_warning_exception():
+    # M3: only `diagnostics` (warnings the pipeline recorded) count. A failure
+    # in the same step travels under `failures` and changes nothing.
+    payload = {
+        "steps": FAILED_PRECHECK_WITH_WARNING["steps"],
+        "failures": [{"evidenceId": "fail:resource_bundle", "code": "resource_bundle",
+                      "occurredAtStep": "입력 검증"}],
+    }
+    found = claims.find_run_fact_mismatches(
+        _one("입력 검증 단계에서 경고가 기록됐습니다.", ["fail:resource_bundle"]), payload
+    )
+    assert [f["location"] for f in found] == ["importantFindings.0"]
+
+
+# --- P2 (2026-11-16): the sentence a real answer was discarded for ----------
+#
+# Read through the rejection observer (development log 16.8). The step failed
+# and also recorded a warning; the answer called it a step that ended with a
+# warning. That is false, and the gate must keep finding it -- the P1-era
+# occurrence exception must not swallow an ending claim.
+
+
+def test_the_real_discarded_sentence_is_still_found():
+    found = _facts_in_failed_precheck(
+        "입력 검증 단계는 경고 1건으로 끝난 단계가 1개 있습니다. "
+        "통합 리포트만 만들어지지 않는다고 기록했습니다."
+    )
+    assert [f["location"] for f in found] == ["importantFindings.0"]
+    assert any("did not end with a warning" in p for f in found for p in f["problems"])
+
+
+def test_both_variants_say_a_warning_in_a_failed_step_is_not_a_warning_ending():
+    from app.services.explanation.llm import prompt
+
+    rule = "A warning recorded in a step whose\n  status is failed occurred in that step"
+    assert rule in prompt.CONSTRAINTS and rule in prompt.CONSTRAINTS_NO_TOOL

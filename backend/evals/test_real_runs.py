@@ -626,6 +626,8 @@ def test_an_agent_record_keeps_its_key_order(monkeypatch):
         "humanReview", "available", "errorCategory", "output",
         # Appended, not inserted: evaluation-only, see explanation_quality.py.
         "explanationQuality",
+        # Appended (2026-11-16): the answer a gate discarded, never served.
+        "rejectedOutput",
     ]
 
 
@@ -762,7 +764,7 @@ def test_a_spawned_server_refuses_a_run_that_is_not_the_restored_one(monkeypatch
             server = _server_config(toolset)
             other = dict(
                 server,
-                env={**server["env"], "WES_AGENT_JOB_ID": "wes-20260904-172826-68aa20"},
+                env={**server["env"], "WES_AGENT_JOB_ID": "wes-20990101-000000-ffffff"},
             )
             with pytest.raises(Exception):
                 _call_over_stdio(other, ["04_processing"])

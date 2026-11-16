@@ -1452,8 +1452,17 @@ def _payload_for_case(case: str) -> dict[str, Any] | None:
     from app.services.explanation.deterministic import RunExplanation
     from app.services.explanation.llm import contract
 
-    from . import agent_cases, real_runs
+    from . import agent_cases, archive_runs, real_runs
 
+    if case in archive_runs.ARCHIVE_RUNS:
+        # Real failed runs restored from the git-excluded archive (dev split).
+        # Without the archive there is no payload, as for a missing capture.
+        archived = archive_runs.ARCHIVE_RUNS[case]
+        if not archive_runs.archive_available(archived):
+            return None
+        with archive_runs.materialise(archived) as explanation:
+            payload, _ = contract.build_payload(explanation)
+        return payload
     if case in real_runs.REAL_RUNS:
         run = real_runs.REAL_RUNS[case]
         if not real_runs.capture_available(run):

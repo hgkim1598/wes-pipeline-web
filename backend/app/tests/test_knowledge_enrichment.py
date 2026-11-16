@@ -179,6 +179,11 @@ def test_every_source_is_actually_cited():
     for term in knowledge.all_terms():
         for claim in [term.definition, *term.misreadings]:
             cited.update(claim.sourceIds)
+    # Checks per resource_bundle cause kind and role (wes_cause_kinds.json, P1),
+    # and the remedy directions added in log 17.4.
+    for row in [*knowledge.all_cause_kinds(), *knowledge.all_resource_roles()]:
+        for claim in [*row.checks, *getattr(row, "cautions", []), *getattr(row, "remedies", [])]:
+            cited.update(claim.sourceIds)
     declared = {source.id for source in knowledge.all_sources()}
     assert declared - cited == set(), f"uncited sources: {sorted(declared - cited)}"
 

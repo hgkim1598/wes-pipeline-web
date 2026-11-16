@@ -35,7 +35,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ....agent_mcp import launch
-from ...agent import tool_sink
+from ...agent import doc_retrieval, tool_sink
 from ...agent.run_scope import DEFAULT_MAX_DISTINCT_STEPS
 
 
@@ -189,7 +189,25 @@ def credit(
         ref = item.get("evidenceId")
         if isinstance(ref, str) and ref:
             refs.add(ref)
+        refs |= returned_doc_refs(item)
     return facts, refs
 
 
-__all__ = ["ToolUse", "Toolset", "credit", "observe", "step_detail_toolset"]
+def returned_doc_refs(item: dict[str, Any]) -> set[str]:
+    """`doc:` ids of the official excerpts this tool result carried (log 18).
+
+    Only ids that name a passage in the store: the result is server-written,
+    but a doc id is credited for what the store says it is, not for its shape.
+    """
+    out: set[str] = set()
+    for entry in item.get("causeGuidance") or []:
+        if not isinstance(entry, dict):
+            continue
+        for doc in entry.get("officialDocs") or []:
+            ref = doc.get("evidenceId") if isinstance(doc, dict) else None
+            if isinstance(ref, str) and doc_retrieval.by_evidence_id(ref) is not None:
+                out.add(ref)
+    return out
+
+
+__all__ = ["ToolUse", "Toolset", "credit", "observe", "returned_doc_refs", "step_detail_toolset"]

@@ -33,19 +33,26 @@ make and asks first.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import dataclasses
 import hashlib
+import io
 import json
+import re
+from pathlib import PurePosixPath, PureWindowsPath
 import sys
+from collections.abc import Iterable, Iterator
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from app import config
+from app.services.agent import run_scope
+from app.services.agent.step_evidence import read_step_evidence
 from app.services.explanation.deterministic import RunExplanation
 from app.services.explanation.llm import contract, prompt, synthesis
 
-from . import agent_cases, evaluators, explanation_quality, real_runs
+from . import agent_cases, archive_runs, evaluators, explanation_quality, real_runs
 
 HERE = Path(__file__).resolve().parent
 FIXTURES = HERE / "fixtures"
@@ -71,6 +78,17 @@ AGENT_CASES = {
     "agentfail": "agent_failed_step",
     "agentwarn": "agent_warning_step",
     "agentnotool": "agent_no_tool_needed",
+    # Synthetic held-out case for P1 (cause kinds absent from the dev runs).
+    "agentheldout": "agent_resource_heldout",
+}
+
+# Synthetic resource_bundle cases written in Cycle 3 (log 17.4). Their own
+# group (`--case synth`), out of `agent`, so the existing `--case agent` command
+# does not start calling the model more often. Same builder path as the agent
+# cases above; synthetic, held out from the dev runs, not independent.
+SYNTH_CASES = {
+    "agentunclassified": "agent_resource_unclassified",
+    "agentindexpair": "agent_resource_index_pair",
 }
 
 # Preserved real runs (dev), restored from a capture: see real_runs.py. Not in
@@ -79,15 +97,34 @@ REAL_CASES = {
     "realcba73e": "real_cba73e",
 }
 
-# Variant -> whether the step detail tool is offered. Only these two exist.
+# Real FAILED runs, restored from the evidence archive: see archive_runs.py.
+# Their own group (`--case failruns`), kept out of `all`, `agent` and `real`
+# so that no existing command starts calling the model more often.
+FAILRUN_CASES = {
+    "real3a22c5": "real_3a22c5",
+    "realb94559": "real_b94559",
+}
+
+# Variant -> whether the step detail tool is offered.
 #
-#     v1   no tool: no MCP channel and no tool instructions in the prompt
-#     v3   the production agent, unchanged -- the default
+#     v1      no tool: no MCP channel and no tool instructions in the prompt
+#     v3      the production agent, unchanged -- the default
+#     v3rag   v3 with the official-document excerpts switched on (log 18):
+#             same prompt (same hash), same model, same payload; the ONLY
+#             difference is `officialDocs` in the step tool's result
 #
 # Everything else is held equal: model, initial payload, the rest of the rules,
 # output schema, runtime gates. See prompt.py and synthesis.py.
-VARIANTS = {"v1": False, "v3": True}
+VARIANTS = {"v1": False, "v3": True, "v3rag": True}
+DOC_RAG_VARIANTS = frozenset({"v3rag"})
 DEFAULT_VARIANT = "v3"
+
+
+def apply_variant_settings(variant: str) -> None:
+    """Process-wide switches a variant implies. Called once, before anything is
+    built, so preflight, the in-process tool reads and the MCP server (through
+    launch.py's env) all see the same setting."""
+    config.DOC_RAG = variant in DOC_RAG_VARIANTS
 
 # fixture가 검체 이름 자리에 넣어 둔 값. payload에 나타나면 allowlist가 뚫린
 # 것이다 -- 단 조립 failure code 안은 예외다(privacy_check 참고).
@@ -184,6 +221,9 @@ class Observation:
         self.tool_use: dict[str, Any] | None = None
         self.fetched: list[Any] = []
         self.trace: dict[str, Any] | None = None
+        # The answer a gate discarded, with the gate's findings. Never served;
+        # kept in the record so a rejection can be read instead of guessed at.
+        self.rejected: dict[str, Any] | None = None
 
     def on_tool_use(self, use) -> None:
         self.tool_use = use.to_json()
@@ -199,6 +239,9 @@ class Observation:
             key: list(value) if isinstance(value, tuple) else value
             for key, value in dataclasses.asdict(trace).items()
         }
+
+    def on_rejection(self, rejected: dict[str, Any]) -> None:
+        self.rejected = rejected
 
 
 def load_expectations(name: str) -> dict[str, Any]:
@@ -260,6 +303,7 @@ def _evaluate_run(
             explanation,
             on_tool_use=seen.on_tool_use,
             on_trace=seen.on_trace,
+            on_rejection=seen.on_rejection,
             offer_tools=offer_tools,
             # One generation per record, as every baseline was measured.
             # WES_SYNTHESIS_REPAIR configures the server, not the eval.
@@ -323,6 +367,9 @@ def _evaluate_run(
         "explanationQuality": explanation_quality.evaluate_record(
             expectations, payload, result.get("synthesis")
         ),
+        # 덧붙임(삽입 아님). 게이트가 폐기한 답. 사용자에게 제공되지 않았고 채점하지 않는다. 오탐인지
+        # 사람이 읽고 재현하기 위해서만 남긴다. 기록 전체와 같은 누출 검사를 받는다.
+        "rejectedOutput": seen.rejected,
     }
     return record, payload
 
@@ -458,6 +505,259 @@ def evaluate_real(name: str, *, variant: str = DEFAULT_VARIANT) -> dict[str, Any
     )
 
 
+# --- real failed runs from the evidence archive (dev) ---------------------------
+#
+# Same scoring path as the capture above; what differs is where the run comes
+# from (archive_runs.py) and two extra preflight checks: the step tool must
+# hand back the diagnosis the case was built on, and nothing from the answer
+# key may appear in what the model would see.
+
+_HEX64 = re.compile(r"\b[0-9a-f]{64}\b")
+
+
+def _archive_leaks(text: str, run: archive_runs.ArchiveRun, extra=(), loaded=None) -> int:
+    """Sample, ids, locations and 64-hex digests in `text`. A count only."""
+    return archive_runs.count_leaks(text, run, extra, loaded=loaded) + len(_HEX64.findall(text))
+
+
+# Fields of a saved archive record that name the source on purpose. Everything
+# else in the record (output, trace, evaluation, ...) is scanned.
+_RECORD_SOURCE_FIELDS = ("runId", "archive")
+
+
+def archive_record_leaks(run: archive_runs.ArchiveRun, record: dict[str, Any], loaded=None) -> int:
+    """Run id, sample, a path or a 64-hex digest anywhere in the record but
+    its source fields.
+
+    The record's own top-level `...Hash` / `...Digest` fields (archiveDigest,
+    payloadHash, promptHash, ...) are digests by design and are left out of the
+    64-hex count only; everything else -- output, trace, evaluation -- is held
+    to the same rules as the payload. A count only -- matches are never printed.
+    """
+    exempt = {"runId": run.run_id, "archive": run.archive.name}
+    rest = {k: v for k, v in record.items() if not (k in exempt and v == exempt[k])}
+    text = json.dumps(rest, ensure_ascii=False)
+    undigested = {k: v for k, v in rest.items() if not k.endswith(("Hash", "Digest"))}
+    hexes = len(_HEX64.findall(json.dumps(undigested, ensure_ascii=False)))
+    return archive_runs.count_leaks(text, run, loaded=loaded) + hexes
+
+
+# A capture record names its source in these two fields on purpose (the run id
+# and the capture folder's name). They are exempt only while they hold exactly
+# that -- a source field carrying anything else is checked like the rest
+# (Codex review, log 17.3).
+def _real_source_values(run: real_runs.RealRun) -> dict[str, str]:
+    return {"runId": run.run_id, "captureDir": run.capture_dir.name}
+
+
+def real_record_leaks(run: real_runs.RealRun, record: dict[str, Any]) -> int:
+    """Sample name, capture paths or a path in a capture record, outside its
+    two source fields. A count only -- matches are never printed.
+
+    "A path" is what real_runs.count_paths recognises -- not every string a
+    reader would call a path (a one-segment "/etc" is not counted). The run's
+    own paths are also refused as exact literals. The archive twin is
+    archive_record_leaks. Before this existed a capture record went to
+    baselines/ (tracked by git) unchecked (log 17.2).
+    """
+    exempt = _real_source_values(run)
+    rest = {k: v for k, v in record.items() if not (k in exempt and v == exempt[k])}
+    ancestors = sorted({a for lit in real_runs.forbidden_literals(run) for a in path_ancestors(lit)})
+    return real_runs.count_leaks(json.dumps(rest, ensure_ascii=False), run, extra=ancestors)
+
+
+def path_ancestors(literal: str) -> list[str]:
+    """The directories above a forbidden path, root excluded.
+
+    Codex round 2 (log 17.3): "/ClinicSecret/runs/job42" was refused whole but
+    "/ClinicSecret" alone passed -- a one-segment path the shared detector does
+    not count. Only this write boundary adds them; the shared detector used by
+    the payload checks is unchanged. Fails closed: a mention of a real
+    ancestor refuses the save, it never lets one through.
+    """
+    if literal.startswith("/"):
+        path = PurePosixPath(literal)
+    elif re.match(r"^[A-Za-z]:[\\/]", literal) or literal.startswith("\\\\"):
+        path = PureWindowsPath(literal)
+    else:
+        return []
+    return [str(parent) for parent in path.parents if str(parent) != path.anchor]
+
+
+def mask_record(value: Any, literals: Iterable[str]) -> Any:
+    """A copy of `value` with every string masked: literals, then paths.
+
+    Applied to a record BEFORE print_report truncates its strings -- a sample
+    name cut in half at the 60-character limit would no longer match.
+    """
+    literals = list(literals)
+    if isinstance(value, str):
+        return real_runs.mask_paths(real_runs.mask_literals(value, literals))
+    if isinstance(value, dict):
+        return {k: mask_record(v, literals) for k, v in value.items()}
+    if isinstance(value, list):
+        return [mask_record(v, literals) for v in value]
+    return value
+
+
+@contextlib.contextmanager
+def masked_output(literals: Iterable[str]) -> Iterator[None]:
+    """Collect what is printed inside, mask it, then write it to the terminal.
+
+    The second line of defence after mask_record: it also covers anything a
+    report helper prints that is not a string inside the record.
+    """
+    literals = list(literals)
+    buffer = io.StringIO()
+    try:
+        # stderr too: Python-level writes from anything run inside. Output a
+        # child process writes straight to the file descriptor is not seen.
+        with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+            yield
+    finally:
+        sys.stdout.write(
+            real_runs.mask_paths(real_runs.mask_literals(buffer.getvalue(), literals))
+        )
+
+
+def archive_privacy_check(
+    run: archive_runs.ArchiveRun, payload: dict[str, Any], loaded=None
+) -> evaluators.CheckResult:
+    leaks = _archive_leaks(json.dumps(payload, ensure_ascii=False), run, loaded=loaded)
+    if leaks:
+        return evaluators.CheckResult(
+            name="payload-privacy",
+            outcome="fail",
+            detail=f"검체 식별자·경로·해시가 payload에 {leaks}건 유입",
+        )
+    return evaluators.CheckResult(
+        name="payload-privacy", outcome="pass", detail="검체 식별자·경로·해시가 payload에 없음"
+    )
+
+
+def answer_key_strings(expectations: dict[str, Any]) -> list[str]:
+    """Sentences that exist only in the answer key, never in run evidence."""
+    out = [line for line in expectations.get("_comment") or [] if len(line) > 20]
+    out += [h["question"] for h in expectations.get("humanReview") or []]
+    out += [e["what"] for e in expectations.get("confirmedErrors") or []]
+    out += [c["why"] for c in expectations.get("mustCite") or []]
+    for key in ("allowedUncertainty", "forbiddenClaims", "unsafeRemediations"):
+        out += list(expectations.get(key) or [])
+    return out
+
+
+def preflight_archive(name: str) -> dict[str, Any]:
+    """Everything checkable about an archived failed run, without a model.
+
+    Reads the archive once, restores it twice from that read (the payload and
+    the step tool's result must each be a function of the archive alone),
+    reads the step the case needs through the agent's own reader, and checks
+    what the model would be sent -- the v3 prompt plus that step's evidence --
+    for leaks and for the answer key's own sentences.
+
+    `answerKeyIsolated` is a narrow check: none of the answer key's free-text
+    sentences (and not the case name) occur verbatim in what the model would
+    see. It cannot show the key had no influence in other ways; that the key
+    is never read by the agent path is a property of the code (only run_eval
+    and the evaluators open evals/expectations).
+    """
+    run = archive_runs.ARCHIVE_RUNS[name]
+    expectations = load_expectations(name)
+    step_id = expectations["expectedDiagnosis"]["stepId"]
+    loaded = archive_runs.load(run)
+    before = archive_runs.archive_digest(run.archive)
+
+    payloads: list[dict[str, Any]] = []
+    evidences: list[dict[str, Any]] = []
+    work_dirs: list[str] = []
+    for _ in range(2):
+        with archive_runs.materialise(run, loaded=loaded) as explanation:
+            work_dirs.append(str(Path(config.RUNS_ROOT).parent))
+            payloads.append(contract.build_payload(explanation)[0])
+            evidences.append(
+                read_step_evidence(run_scope.for_job(run.run_id), step_id).model_dump()
+            )
+    evidence = evidences[0]
+
+    v1, v3 = (
+        prompt.build_user_prompt(payloads[0], offer_tools=offered).split(_RUN_DATA_OPEN, 1)[1]
+        for offered in (False, True)
+    )
+    model_bound = prompt.build_user_prompt(payloads[0], offer_tools=True) + json.dumps(
+        evidence, ensure_ascii=False
+    )
+    leaks = _archive_leaks(model_bound, run, extra=work_dirs, loaded=loaded)
+    leaked_key = [s for s in answer_key_strings(expectations) if s in model_bound]
+    diagnosis = evaluators.check_tool_diagnosis(expectations, [evidence])
+    after = archive_runs.archive_digest(run.archive)
+
+    return {
+        "payloadHash": real_runs.payload_hash(payloads[0]),
+        "restorationsMatch": payloads[0] == payloads[1],
+        "variantRunDataMatch": v1 == v3,
+        "privacy": "pass" if leaks == 0 else "fail",
+        "privacyDetail": f"prompt+도구 결과의 식별자·경로·해시 {leaks}건 (정의한 검사 범위)",
+        "toolEvidenceMatches": evidences[0] == evidences[1],
+        "toolDiagnosisMatches": diagnosis.outcome == "pass",
+        "toolDiagnosisDetail": diagnosis.detail,
+        "answerKeyIsolated": not leaked_key and name not in model_bound,
+        "archiveDigest": before,
+        "parsedDigestMatchesFile": loaded.digest == before,
+        "archiveUnchanged": before == after,
+    }
+
+
+def preflight_archive_ok(check: dict[str, Any]) -> bool:
+    return bool(
+        check["restorationsMatch"]
+        and check["variantRunDataMatch"]
+        and check["privacy"] == "pass"
+        and check["toolEvidenceMatches"]
+        and check["toolDiagnosisMatches"]
+        and check["answerKeyIsolated"]
+        and check["archiveUnchanged"]
+        and check["parsedDigestMatchesFile"]
+    )
+
+
+def evaluate_archive(
+    name: str, *, variant: str = DEFAULT_VARIANT, loaded: archive_runs.LoadedRun | None = None
+) -> dict[str, Any]:
+    """One archived failed run: restore, call the model once, score, say where from.
+
+    `loaded` is the read main() checked against the preflight digest; the
+    model then sees exactly the bytes preflight validated.
+    """
+    run = archive_runs.ARCHIVE_RUNS[name]
+    if loaded is None:
+        loaded = archive_runs.load(run)
+    before = loaded.digest  # the digest of exactly the bytes restored
+    record, payload = _evaluate_run(
+        name,
+        archive_runs.materialise(run, loaded=loaded),
+        variant=variant,
+        privacy=lambda _fixture, payload: archive_privacy_check(run, payload, loaded=loaded),
+    )
+    after = archive_runs.archive_digest(run.archive)
+    return _after_case(
+        record,
+        {
+            "caseKind": "real",
+            "caseIntent": run.intent,
+            "source": "archive",
+            "split": run.split,
+            "runId": run.run_id,
+            # The file's name, not its path.
+            "archive": run.archive.name,
+            "archiveDigest": before,
+            "archiveUnchanged": before == after,
+            "jobRowAssumptions": list(run.assumptions),
+            "payloadHash": real_runs.payload_hash(payload),
+            "codeVersion": _code_version(),
+        },
+    )
+
+
 def load_case(name: str) -> tuple[dict[str, Any], dict[str, Any]]:
     fixture = json.loads((FIXTURES / f"{name}.json").read_text(encoding="utf-8"))
     expectations = json.loads(
@@ -494,6 +794,7 @@ def evaluate(name: str, *, variant: str = DEFAULT_VARIANT) -> dict[str, Any]:
             explanation,
             on_tool_use=seen.on_tool_use,
             on_trace=seen.on_trace,
+            on_rejection=seen.on_rejection,
             offer_tools=offer_tools,
             # One generation per record, as every baseline was measured.
             # WES_SYNTHESIS_REPAIR configures the server, not the eval.
@@ -544,6 +845,9 @@ def evaluate(name: str, *, variant: str = DEFAULT_VARIANT) -> dict[str, Any]:
         "explanationQuality": explanation_quality.evaluate_record(
             expectations, payload, result.get("synthesis")
         ),
+        # 덧붙임(삽입 아님). 게이트가 폐기한 답. 사용자에게 제공되지 않았고 채점하지 않는다. 오탐인지
+        # 사람이 읽고 재현하기 위해서만 남긴다. 기록 전체와 같은 누출 검사를 받는다.
+        "rejectedOutput": seen.rejected,
     }
 
 
@@ -553,7 +857,11 @@ def print_report(record: dict[str, Any]) -> None:
         # 기록 이전의 baseline에는 이 필드가 없다. 없는 것을 v3라고 추정하지 않는다.
         offered = "Tool 제공" if record.get("toolsOffered") else "Tool 미제공"
         print(f"  variant    {record['variant']} ({offered})")
-    if record.get("caseKind") == "real":
+    if record.get("caseKind") == "real" and record.get("source") == "archive":
+        print(f"  source     실제 실패 Run 압축 파일 ({record['split']}) · payload {record['payloadHash'][:16]}")
+        if not record.get("archiveUnchanged"):
+            print("  경고       압축 파일이 평가 전후로 다릅니다. 압축 파일을 확인하세요.")
+    elif record.get("caseKind") == "real":
         print(f"  source     실제 Run capture ({record['split']}) · payload {record['payloadHash'][:16]}")
         if not record.get("captureUnchanged"):
             print("  경고       capture manifest가 평가 전후로 다릅니다. capture를 확인하세요.")
@@ -592,16 +900,71 @@ def print_report(record: dict[str, Any]) -> None:
             f"{'PASSED' if record['evaluation']['deterministicPassed'] else 'FAILED'}"
             f" · human items: {len(record['humanReview']['items'])}"
         )
+    rejected = record.get("rejectedOutput")
+    if rejected:
+        print_rejected(rejected)
     if "explanationQuality" in record:
         # 기록 이전의 baseline에는 이 키가 없다. 없는 것을 검사하지 않는다.
         explanation_quality.print_quality(record["case"], record["explanationQuality"])
+
+
+_REJECTED_LOCATION = re.compile(
+    r"(summary|importantFindings|limitations|nextChecks|uncertainties)(?:\.([0-9]{1,6}))?",
+    re.ASCII,
+)
+
+
+def rejected_statement(answer: Any, location: Any) -> str | None:
+    """The sentence at a gate location like "importantFindings.5" or "summary".
+
+    None for anything that is not exactly such a location, or not a sentence.
+    """
+    if not isinstance(answer, dict) or not isinstance(location, str):
+        return None
+    match = _REJECTED_LOCATION.fullmatch(location)
+    if match is None:
+        return None
+    group, index = match.groups()
+    value = answer.get(group)
+    if group == "summary":
+        return value if index is None and isinstance(value, str) else None
+    if index is None or not isinstance(value, list) or int(index) >= len(value):
+        return None
+    item = value[int(index)]
+    statement = item.get("statement") if isinstance(item, dict) else None
+    return statement if isinstance(statement, str) else None
+
+
+def _as_list(value: Any) -> list[Any]:
+    """A list as is; anything else -- a bare string included -- as nothing."""
+    return value if isinstance(value, list) else []
+
+
+def print_rejected(rejected: dict[str, Any]) -> None:
+    """What the gate discarded and where. Not served; printed for diagnosis."""
+    print(
+        f"  폐기된 답 (시도 {rejected.get('attempt')}, {rejected.get('category')}) "
+        "-- 사용자에게 제공되지 않음, 오탐 여부 진단용"
+    )
+    for finding in _as_list(rejected.get("findings")):
+        if not isinstance(finding, dict):
+            continue
+        for location in _as_list(finding.get("locations")):
+            text = rejected_statement(rejected.get("answer"), location)
+            print(f"    {location}: {text if text is not None else '(위치를 찾지 못함)'}")
+        for problem in _as_list(finding.get("values")):
+            print(f"      - {problem}")
 
 
 def rescore(names: list[str], *, record: bool) -> int:
     """Re-evaluate stored baselines. No model call."""
     failed = 0
     for name in names:
-        if name in agent_cases.CASES or name in real_runs.REAL_RUNS:
+        if (
+            name in agent_cases.CASES
+            or name in real_runs.REAL_RUNS
+            or name in archive_runs.ARCHIVE_RUNS
+        ):
             # An agent case has no frozen fixture: its run is built on the spot
             # and its tool-use observation only exists during the call. Scoring
             # a stored output again would answer the grounding questions and
@@ -678,8 +1041,24 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--case",
-        choices=[*sorted(CASES), *sorted(AGENT_CASES), *sorted(REAL_CASES), "all", "agent", "real"],
+        choices=[
+            *sorted(CASES),
+            *sorted(AGENT_CASES),
+            *sorted(REAL_CASES),
+            *sorted(FAILRUN_CASES),
+            *sorted(SYNTH_CASES),
+            "all",
+            "agent",
+            "real",
+            "failruns",
+            "synth",
+        ],
         required=True,
+    )
+    parser.add_argument(
+        "--preflight-only",
+        action="store_true",
+        help="실제 Run 사전 검증만 하고 모델을 호출하지 않고 종료한다",
     )
     parser.add_argument(
         "--record-baseline",
@@ -700,9 +1079,10 @@ def main() -> int:
         "--variant",
         choices=sorted(VARIANTS),
         default=DEFAULT_VARIANT,
-        help="v1 = Tool 미제공(MCP·Tool 지시문 없음), v3 = 운영 Agent (기본값)",
+        help="v1 = Tool 미제공(MCP·Tool 지시문 없음), v3 = 운영 Agent (기본값), v3rag = v3 + 공식 문서 발췌",
     )
     args = parser.parse_args()
+    apply_variant_settings(args.variant)
 
     if args.case == "all":
         names = list(CASES.values())
@@ -710,10 +1090,18 @@ def main() -> int:
         names = list(AGENT_CASES.values())
     elif args.case == "real":
         names = list(REAL_CASES.values())
+    elif args.case == "failruns":
+        names = list(FAILRUN_CASES.values())
+    elif args.case == "synth":
+        names = list(SYNTH_CASES.values())
+    elif args.case in SYNTH_CASES:
+        names = [SYNTH_CASES[args.case]]
     elif args.case in AGENT_CASES:
         names = [AGENT_CASES[args.case]]
     elif args.case in REAL_CASES:
         names = [REAL_CASES[args.case]]
+    elif args.case in FAILRUN_CASES:
+        names = [FAILRUN_CASES[args.case]]
     else:
         names = [CASES[args.case]]
 
@@ -744,6 +1132,53 @@ def main() -> int:
             print("오류: 사전 검증 실패로 중단합니다. 호출하지 않았습니다.")
             return 2
 
+    archived = [n for n in names if n in archive_runs.ARCHIVE_RUNS]
+    if args.preflight_only and not (real or archived):
+        # 성공(0)으로 끝나면 아무것도 확인하지 않았는데 확인한 것처럼 보인다.
+        print("오류: 이 case 묶음에는 사전 검증 대상이 없습니다 (real / failruns 전용). 호출하지 않았습니다.")
+        return 2
+    absent = [
+        n for n in archived if not archive_runs.archive_available(archive_runs.ARCHIVE_RUNS[n])
+    ]
+    if absent:
+        # 압축 파일은 git에 없다. 없는 환경에서 조용히 넘어가지 않고 멈춘다.
+        print("오류: 실제 실패 Run 압축 파일이 이 환경에 없어 중단합니다. 호출하지 않았습니다.")
+        for n in absent:
+            print(f"  {n}: {archive_runs.ARCHIVE_RUNS[n].archive.name} 이(가) 저장소 루트에 필요합니다")
+        return 2
+
+    preflight_digests: dict[str, str] = {}
+    for n in archived:
+        try:
+            check = preflight_archive(n)
+        except archive_runs.ArchiveError as exc:
+            print(f"오류: {n} 복원 실패로 중단합니다. 호출하지 않았습니다. ({exc})")
+            return 2
+        except Exception as exc:  # noqa: BLE001 -- the text may quote a path; the type is enough
+            print(f"오류: {n} 사전 검증 중 예외로 중단합니다. 호출하지 않았습니다. ({type(exc).__name__})")
+            return 2
+        print(f"사전 검증 ({n}, 모델 호출 없음)")
+        print(f"  payload hash          {check['payloadHash'][:16]}")
+        print(f"  복원 2회 payload 일치   {check['restorationsMatch']}")
+        print(f"  V1/V3 run data 일치    {check['variantRunDataMatch']}")
+        print(f"  개인정보 검사          {check['privacy']} ({check['privacyDetail']})")
+        print(f"  복원 2회 도구 결과 일치 {check['toolEvidenceMatches']}")
+        print(f"  도구 진단 일치         {check['toolDiagnosisMatches']} ({check['toolDiagnosisDetail']})")
+        print(f"  정답 문장 미포함        {check['answerKeyIsolated']} (정답 문장의 문자열 일치 검사)")
+        print(f"  압축 파일 불변         {check['archiveUnchanged']} · {check['archiveDigest'][:16]}")
+        print(f"  읽은 바이트 = 파일      {check['parsedDigestMatchesFile']}")
+        print("  job 행 가정 (원본에 없는 값):")
+        for assumption in archive_runs.ARCHIVE_RUNS[n].assumptions:
+            print(f"    - {assumption}")
+        if not preflight_archive_ok(check):
+            print("오류: 사전 검증 실패로 중단합니다. 호출하지 않았습니다.")
+            return 2
+        preflight_digests[n] = check["archiveDigest"]
+
+    if args.preflight_only:
+        print("--preflight-only: 사전 검증만 하고 모델을 호출하지 않고 종료합니다.")
+        return 0
+
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     if args.record_baseline:
         # 모델을 부르기 전에 확인한다. 사용량을 쓰고 나서 저장할 곳이 없다는 것을
@@ -771,6 +1206,8 @@ def main() -> int:
             print(f"  (skip) {n} : 모델을 호출하지 않습니다")
         if n in real_runs.REAL_RUNS:
             print(f"  (real) {n} : 실제 Run capture · {real_runs.REAL_RUNS[n].split} · 일반 성능 근거 아님")
+        if n in archive_runs.ARCHIVE_RUNS:
+            print(f"  (real) {n} : 실제 실패 Run 압축 파일 · {archive_runs.ARCHIVE_RUNS[n].split} · 일반 성능 근거 아님")
     print(f"  model: {config.SYNTHESIS_MODEL or 'CLI 기본값'}")
     print("  자동 재시도 없음. 실패하면 그대로 보고합니다.")
     if not calling:
@@ -783,16 +1220,57 @@ def main() -> int:
 
     records = []
     for name in names:
-        if name in real_runs.REAL_RUNS:
+        loaded = None
+        if name in archive_runs.ARCHIVE_RUNS:
+            # 사전 검증한 바이트와 모델이 볼 바이트가 같아야 한다.
+            try:
+                loaded = archive_runs.load(archive_runs.ARCHIVE_RUNS[name])
+            except archive_runs.ArchiveError as exc:
+                print(f"오류: {name} 압축 파일을 다시 읽지 못해 중단합니다. 호출하지 않았습니다. ({exc})")
+                return 2
+            if loaded.digest != preflight_digests.get(name):
+                print(f"오류: {name} 사전 검증 뒤 압축 파일이 바뀌어 중단합니다. 호출하지 않았습니다.")
+                return 2
+            # 터미널도 기록과 같은 규칙으로 가린다. 평가 실행 중 출력도 포함한다.
+            literals = archive_runs.forbidden_literals(archive_runs.ARCHIVE_RUNS[name], loaded)
+            try:
+                with masked_output(literals):
+                    record = evaluate_archive(name, variant=args.variant, loaded=loaded)
+            except Exception as exc:  # noqa: BLE001 -- its text may quote a path or the sample
+                print(f"오류: {name} 평가 중 예외로 중단합니다. ({type(exc).__name__}; 내용은 출력하지 않음)")
+                return 2
+            with masked_output(literals):
+                print_report(mask_record(record, literals))
+            records.append(record)
+        elif name in real_runs.REAL_RUNS:
             record = evaluate_real(name, variant=args.variant)
+            # A real capture's report is masked like an archive's: the record
+            # can carry answer text (rejectedOutput is printed in full).
+            print_report(
+                mask_record(record, real_runs.forbidden_literals(real_runs.REAL_RUNS[name]))
+            )
+            records.append(record)
         elif name in agent_cases.CASES:
             record = evaluate_agent(name, variant=args.variant)
         else:
             record = evaluate(name, variant=args.variant)
-        print_report(record)
-        records.append(record)
+        if name not in archive_runs.ARCHIVE_RUNS and name not in real_runs.REAL_RUNS:
+            print_report(record)
+            records.append(record)
 
         if args.record_baseline:
+            if name in archive_runs.ARCHIVE_RUNS:
+                leaks = archive_record_leaks(archive_runs.ARCHIVE_RUNS[name], record, loaded=loaded)
+                if leaks:
+                    # baselines/는 git 추적 대상이다. 식별자가 섞인 기록은 쓰지 않는다.
+                    print(f"오류: {name} 기록에 식별자·경로 {leaks}건이 있어 저장하지 않고 중단합니다.")
+                    return 2
+            elif name in real_runs.REAL_RUNS:
+                leaks = real_record_leaks(real_runs.REAL_RUNS[name], record)
+                if leaks:
+                    # archive와 같은 규칙. 이전에는 capture 기록이 검사 없이 저장됐다.
+                    print(f"오류: {name} 기록에 식별자·경로 {leaks}건이 있어 저장하지 않고 중단합니다.")
+                    return 2
             BASELINES.mkdir(parents=True, exist_ok=True)
             target = baseline_path(name, args.variant, stamp)
             try:

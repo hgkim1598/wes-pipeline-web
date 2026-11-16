@@ -541,6 +541,76 @@ def check_step_core(
     )
 
 
+def _diagnosis_vocab(diag: dict[str, Any]) -> dict[str, Any]:
+    """The rule-table vocabulary of a diagnosis -- no free text, order-free."""
+    return {
+        "state": diag.get("state"),
+        "source": diag.get("source"),
+        "truncated": diag.get("truncated"),
+        "causes": sorted(
+            (
+                str(c.get("kind")),
+                str(c.get("resourceRole")),
+                str(c.get("tool")),
+                str(c.get("ruleId")),
+            )
+            for c in diag.get("causes") or []
+        ),
+    }
+
+
+def check_tool_diagnosis(
+    expectations: dict[str, Any], fetched_facts: list[Any] | None
+) -> CheckResult:
+    """Did the opened step hand the agent the diagnosis the case was built on?
+
+    Compares what the tool RETURNED during the call (the MCP server's record,
+    not the model's text) with `expectedDiagnosis`: state, source, truncation
+    and the multiset of classified causes. Free text (`evidenceText`) is not
+    compared -- it is redacted and is not the point.
+
+    This is a SETUP check of the evidence path, not a score of the answer:
+    it passes whenever the step was opened and the deterministic analysis
+    behaved, regardless of what the model then wrote. Its details say so
+    ("[설정 검사]") so a report cannot read it as diagnosis quality. Whether the answer then
+    reported every cause, kept them apart and recommended nothing unsafe is a
+    human judgement (humanReview). `not_run` when the step was never opened:
+    the tool-use checks already report that, and failing twice for one miss
+    would double-count it.
+    """
+    name = "tool-evidence-diagnosis"
+    spec = expectations.get("expectedDiagnosis") or {}
+    step_id = spec.get("stepId")
+    opened = [
+        item
+        for item in fetched_facts or []
+        if isinstance(item, dict) and item.get("stepId") == step_id
+    ]
+    if not opened:
+        return CheckResult(name=name, outcome="not_run", detail=f"{step_id}를 열지 않음")
+
+    got = opened[0].get("resourceBundleDiagnosis")
+    if not isinstance(got, dict):
+        return CheckResult(
+            name=name, outcome="fail", detail=f"[설정 검사] {step_id} 결과에 resourceBundleDiagnosis 없음"
+        )
+    want, have = _diagnosis_vocab(spec), _diagnosis_vocab(got)
+    if want == have:
+        return CheckResult(
+            name=name,
+            outcome="pass",
+            detail=f"[설정 검사] 도구가 기대한 진단을 반환: state={have['state']}, 원인 {len(have['causes'])}개",
+        )
+    return CheckResult(
+        name=name,
+        outcome="fail",
+        detail=(
+            f"[설정 검사] 기대 state={want['state']} 원인 {len(want['causes'])}개 · "
+            f"반환 state={have['state']} 원인 {len(have['causes'])}개"
+        ),
+    )
+
+
 # --- C. runtime guardrail outcome --------------------------------------------
 
 
@@ -687,6 +757,12 @@ def run_expectations(
                 report.results.append(
                     CheckResult(name=name, outcome="not_run", detail="모델 호출 안 함")
                 )
+        if "expectedDiagnosis" in expectations:
+            report.results.append(
+                CheckResult(
+                    name="tool-evidence-diagnosis", outcome="not_run", detail="모델 호출 안 함"
+                )
+            )
         for name in ("runtime-guardrails", "numbers-preserved", "no-internal-field-names"):
             report.results.append(
                 CheckResult(name=name, outcome="not_run", detail="모델 호출 안 함")
@@ -722,6 +798,18 @@ def run_expectations(
         report.results.append(check_tool_use(expectations, tool_use))
         report.results.append(check_step_selection(expectations, tool_use))
         report.results.append(check_step_core(expectations, tool_use))
+
+    # Only for a case that declares it (the archived failed runs), so every
+    # existing case scores exactly as before.
+    if "expectedDiagnosis" in expectations:
+        if tools_offered:
+            report.results.append(check_tool_diagnosis(expectations, fetched_facts))
+        else:
+            report.results.append(
+                CheckResult(
+                    name="tool-evidence-diagnosis", outcome="not_run", detail="Tool 미제공 variant"
+                )
+            )
 
     guard = check_guardrails(result)
     report.results.append(guard)

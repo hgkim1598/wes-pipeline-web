@@ -675,6 +675,19 @@ function EvidenceRefs({
                 <span className="ml-2 text-text-muted">{view.group}</span>
               ) : null}
             </span>
+            {view.quote ? (
+              <span className="text-caption text-text-muted">“{view.quote}”</span>
+            ) : null}
+            {view.href ? (
+              <a
+                href={view.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-caption text-text-muted underline"
+              >
+                원문 열기
+              </a>
+            ) : null}
             {view.known ? (
               <code className="font-mono text-caption text-text-muted">
                 {view.id}

@@ -36,6 +36,9 @@ TERMS = [
     "vcf",
     "dbsnp-rsid",
     "nm-md-tags",
+    # Added 2026-11-16 (log 17.4): failure explanations used "BED" with nothing
+    # to explain it; the user's request names BED as a term to explain.
+    "bed",
 ]
 
 # Sections build_payload adds only when the run produced them. A term can only
@@ -93,7 +96,7 @@ def _walk_evidence_ids(node: object) -> set[str]:
 # --- knowledge ----------------------------------------------------------------
 
 
-def test_the_registered_terms_are_the_eight_beginner_terms():
+def test_the_registered_terms_are_the_beginner_terms():
     assert [term.id for term in knowledge.all_terms()] == TERMS
 
 
@@ -274,9 +277,10 @@ def test_a_run_that_needs_no_term_has_no_terms_section(case):
 
 
 def test_a_precheck_failure_gets_only_the_terms_its_failure_uses():
-    """resource_bundle names target BED and dbSNP; the dbSNP definition uses VCF."""
+    """resource_bundle names target BED and dbSNP; the dbSNP definition uses VCF.
+    BED (log 17.4) is sent because target's own definition uses it."""
     payload, _allowed = contract.build_payload(_fixture("precheck_failed"))
-    assert _term_ids(payload) == ["term:target", "term:vcf", "term:dbsnp-rsid"]
+    assert _term_ids(payload) == ["term:target", "term:vcf", "term:dbsnp-rsid", "term:bed"]
 
 
 def test_a_single_warning_brings_only_its_own_terms():
@@ -299,6 +303,7 @@ def test_coverage_alone_brings_the_coverage_terms_and_nothing_else():
         "term:target",
         "term:depth",
         "term:zero-coverage",
+        "term:bed",  # target's definition uses BED (log 17.4)
     ]
 
 

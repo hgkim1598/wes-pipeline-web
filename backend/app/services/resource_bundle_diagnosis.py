@@ -79,8 +79,15 @@ def _release(raw: str | None, redactor: Redactor, *, keep_newlines: bool) -> str
     """The cleaned, redacted text -- or None when it cannot be released safely."""
     if raw is None or not _sample_known(redactor):
         return None
-    text = redactor.text(_clean(raw, keep_newlines=keep_newlines))
+    cleaned = _clean(raw, keep_newlines=keep_newlines)
+    text = redactor.text(cleaned)
     if _RESIDUAL_PATH.search(text) or _RESIDUAL_HEX.search(text):
+        return None
+    # The model path's own check too (encoded or look-alike separators, a name
+    # glued to a placeholder, the two literal orders disagreeing): anything it
+    # would change or withhold is not released here, so this field is never
+    # the weaker one.
+    if redactor.release(cleaned) != text:
         return None
     if redactor.contains_literal(text):
         return None

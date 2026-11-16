@@ -1,10 +1,29 @@
 import { fileURLToPath, URL } from 'node:url'
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
 
 const DEFAULT_API_TARGET = 'http://127.0.0.1:8000'
+
+// The release build always uses the public corpus. Local excerpts can be
+// served during development, but are never silently bundled into a release.
+function passageCorpus(command: string, mode: string): string {
+  const repo = fileURLToPath(new URL('..', import.meta.url))
+  const publicFile = resolve(repo, 'config/knowledge/wes_doc_passages.public.json')
+  if (command !== 'serve') return publicFile
+  const env = loadEnv(mode, process.cwd(), 'WES_')
+  const override = env.WES_DOC_PASSAGES_FILE?.trim()
+  const localFile = override
+    ? resolve(repo, override)
+    : resolve(repo, 'config/knowledge/wes_doc_passages.json')
+  if (override && !existsSync(localFile)) {
+    throw new Error('WES_DOC_PASSAGES_FILE does not exist')
+  }
+  return existsSync(localFile) ? localFile : publicFile
+}
 
 /*
   /api proxy가 향할 backend. 기본값은 같은 PC의 backend다.
@@ -37,10 +56,11 @@ function apiProxyTarget(mode: string): string {
 }
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ command, mode }) => ({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
+      '@shared/knowledge/wes_doc_passages.public.json': passageCorpus(command, mode),
       '@': fileURLToPath(new URL('./src', import.meta.url)),
       /*
         저장소 최상위의 공용 도메인 지식. frontend와 backend가 **같은 파일**을

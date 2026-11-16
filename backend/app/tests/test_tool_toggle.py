@@ -62,14 +62,34 @@ FULL_PLAN = [
 #                     internal setting names). Shipped with knowledge wording
 #                     edits for DBSNP_NOT_CONFIGURED and resource_bundle, so
 #                     the two are again confounded. _HEAD unchanged
-V3_CONSTRAINTS_HASH = "4a4f2d9ddf604ce8"
+#   3e95d20d110eb4c5  P1, after the first real evaluation (2026-11-16): the
+#                     tool rule opens a step that recorded a failure (one run's
+#                     agent skipped it and missed three of four causes), the
+#                     tool section explains causeGuidance, and _HEAD forbids
+#                     saying one fix unblocks a run with several failures.
+#                     Shipped with the required_tools `effect` wording and
+#                     the new cause-kind checks, so these are confounded too.
+#                     After the Codex P1 review: failed steps before warnings,
+#                     and an unopened failed step is still reported
+#   4c7087633f10e05c  P2 (2026-11-16), _TAIL only: WARNINGS says a warning
+#                     recorded in a failed step occurred there and the step did
+#                     not end with a warning. A real run's answer counted its
+#                     failed step as "경고로 끝난 단계"; gate 6 rightly discarded
+#                     it (read via the rejection observer). _HEAD, tool unchanged
+#   b6f820f352b929c7  Cycle 3 (log 17.4), _STEP_TOOL only: causeGuidance may carry
+#                     `remedies` (directions that change something); offer one
+#                     after its checks, as a proposal, naming what it changes and
+#                     who approves; never as done or as making the run succeed.
+#                     Shipped with the remedies themselves (wes_cause_kinds.json)
+#                     and the BED term / VCF wording, so these are confounded
+V3_CONSTRAINTS_HASH = "b6f820f352b929c7"
 
 # The pieces the beginner rules did not touch, pinned on their own: the
 # evidence boundary and prohibitions (_HEAD), and the tool's instructions and
 # their no-tool replacement. A change to what the model may claim, or to when
 # it may call the tool, must not ride along with a change of tone.
-HEAD_HASH = "8195bb22906aca3e"
-STEP_TOOL_HASH = "a856626d25bac345"
+HEAD_HASH = "1c7dbebfa5d2c330"  # P1: multi-failure rule
+STEP_TOOL_HASH = "ab3d527da7888feb"  # P1: failed-step trigger, causeGuidance; 17.4: remedies
 STEP_NAMES_HASH = "23540799b847a7a4"
 
 
@@ -226,7 +246,7 @@ def test_both_variants_use_the_same_schema_model_and_timeout(explanation):
 def test_v3_prompt_text_is_pinned():
     assert _sha16(prompt.CONSTRAINTS) == V3_CONSTRAINTS_HASH
     # 9484 before the second beginner revision.
-    assert len(prompt.CONSTRAINTS) == 11825
+    assert len(prompt.CONSTRAINTS) == 13583  # 13154 before 17.4, 12847 before P2, 11825 before P1
     assert prompt.constraints_for(offer_tools=True) is prompt.CONSTRAINTS
 
 

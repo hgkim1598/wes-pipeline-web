@@ -423,6 +423,11 @@ def test_step_evidence_fields_are_pinned():
         # projected ResourceBundleDiagnosis (redacted, disclosure rule applied),
         # the same value the public step detail returns.
         "resourceBundleDiagnosis",
+        # P1: added as an explicit decision after the first real evaluation.
+        # Curated static checks looked up by each cause's kind and role; no
+        # run text, and test_cause_kind_knowledge.py keeps every sentence
+        # unchanged by the model-input redactor.
+        "causeGuidance",
     }
 
 

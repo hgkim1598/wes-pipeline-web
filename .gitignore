@@ -37,3 +37,27 @@ docs/design/
 
 # A/B evaluation answer keys. Kept local so reviewers stay blind.
 backend/evals/experiments/**/blind_key*.json
+
+# Local configuration and credentials. Keep distributable templates visible.
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.template
+/.aws/
+/config/local/
+/local-context/
+/.capture_*/
+
+# Real evaluation data stays on disk; these rules do not untrack old commits.
+backend/evals/baselines/*_real_*.json
+backend/evals/baselines/*_agent_resource_*.json
+backend/evals/expectations/real_*.json
+backend/evals/experiments/ab_*/
+
+# Unreleased document content and frozen research queries, not implementation.
+/config/knowledge/wes_doc_passages.json
+/backend/evals/experiments/retrieval_queries.json
+/resources/official_docs/
+/resources/models/
+/runtime/cache/
+/.cache/

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "archive": "config/local/failure_evidence.tar.gz",
+  "runs": {
+    "real_3a22c5": { "runId": "wes-20990101-000000-000001" },
+    "real_b94559": { "runId": "wes-20990101-000000-000002" },
+    "real_68aa20": { "runId": "wes-20990101-000000-000003" },
+    "real_cba73e": {
+      "runId": "wes-20990101-000000-000004",
+      "captureDir": "config/local/synthetic-capture-example"
+    }
+  }
+}

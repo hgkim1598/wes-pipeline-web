@@ -609,14 +609,16 @@ def test_heredoc_output_has_no_unclassified_sentence(pybundle, tmp_path):
 
 # --- real runs from the evidence archive (FR-14) ----------------------------
 
-ARCHIVE = config.ROOT / "wes_failure_evidence_20261112.tar.gz"
-RUN_3A22C5 = "wes-20260904-194645-3a22c5"
-RUN_B94559 = "wes-20260917-223800-b94559"
-RUN_68AA20 = "wes-20260904-172826-68aa20"
+from evals import local_data
+
+ARCHIVE = local_data.source_path("archive")
+RUN_3A22C5 = local_data.run_id("real_3a22c5")
+RUN_B94559 = local_data.run_id("real_b94559")
+RUN_68AA20 = local_data.run_id("real_68aa20")
 
 real = pytest.mark.skipif(
-    not ARCHIVE.is_file(),
-    reason="real-run archive wes_failure_evidence_20261112.tar.gz is not present",
+    not ARCHIVE.is_file() or not all((RUN_3A22C5, RUN_B94559, RUN_68AA20)),
+    reason="private real-run source or local registration is absent",
 )
 
 

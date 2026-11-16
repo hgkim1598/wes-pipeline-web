@@ -1,0 +1,307 @@
+{
+  "_comment": [
+    "Project-authored synthetic sentences; never a production knowledge source."
+  ],
+  "passages": [
+    {
+      "id": "synthetic-tabix-input-sorted-bgzip",
+      "sourceId": "tabix-manual",
+      "heading": "Synthetic retrieval case 1",
+      "causeKinds": [
+        "vcf_index_missing"
+      ],
+      "quote": "Synthetic test text for vcf index missing.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-tabix-csi-option",
+      "sourceId": "tabix-manual",
+      "heading": "Synthetic retrieval case 2",
+      "causeKinds": [
+        "vcf_index_missing"
+      ],
+      "quote": "Synthetic test text for vcf index missing.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-tabix-force-overwrite",
+      "sourceId": "tabix-manual",
+      "heading": "Synthetic retrieval case 3",
+      "causeKinds": [
+        "vcf_index_missing"
+      ],
+      "quote": "Synthetic test text for vcf index missing.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-bcftools-index-default-csi",
+      "sourceId": "bcftools-manual",
+      "heading": "Synthetic retrieval case 4",
+      "causeKinds": [
+        "vcf_index_missing"
+      ],
+      "quote": "Synthetic test text for vcf index missing.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-bcftools-index-tbi",
+      "sourceId": "bcftools-manual",
+      "heading": "Synthetic retrieval case 5",
+      "causeKinds": [
+        "vcf_index_missing"
+      ],
+      "quote": "Synthetic test text for vcf index missing.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-bcftools-rename-chrs",
+      "sourceId": "bcftools-manual",
+      "heading": "Synthetic retrieval case 6",
+      "causeKinds": [
+        "contig_style_mismatch"
+      ],
+      "quote": "Synthetic test text for contig style mismatch.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-faidx-creates-fai",
+      "sourceId": "samtools-faidx",
+      "heading": "Synthetic retrieval case 7",
+      "causeKinds": [
+        "reference_index_mismatch"
+      ],
+      "quote": "Synthetic test text for reference index mismatch.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-picard-dict-from-fasta",
+      "sourceId": "picard-create-dict",
+      "heading": "Synthetic retrieval case 8",
+      "causeKinds": [
+        "reference_index_mismatch"
+      ],
+      "quote": "Synthetic test text for reference index mismatch.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-picard-dict-no-overwrite",
+      "sourceId": "picard-create-dict",
+      "heading": "Synthetic retrieval case 9",
+      "causeKinds": [
+        "reference_index_mismatch"
+      ],
+      "quote": "Synthetic test text for reference index mismatch.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-vcf-contig-length-md5",
+      "sourceId": "vcf-spec",
+      "heading": "Synthetic retrieval case 10",
+      "causeKinds": [
+        "reference_index_mismatch",
+        "vcf_contig_length_mismatch"
+      ],
+      "quote": "Synthetic test text for reference index mismatch.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-gatk-same-name-different-length",
+      "sourceId": "gatk-dict-utils",
+      "heading": "Synthetic retrieval case 11",
+      "causeKinds": [
+        "vcf_contig_length_mismatch"
+      ],
+      "quote": "Synthetic test text for vcf contig length mismatch.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-gatk-no-overlapping-contigs",
+      "sourceId": "gatk-dict-utils",
+      "heading": "Synthetic retrieval case 12",
+      "causeKinds": [
+        "vcf_contigs_absent",
+        "contig_style_mismatch"
+      ],
+      "quote": "Synthetic test text for vcf contigs absent.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-gatk-disable-validation-risk",
+      "sourceId": "gatk-dict-validation",
+      "heading": "Synthetic retrieval case 13",
+      "causeKinds": [
+        "vcf_contig_length_mismatch",
+        "vcf_contigs_absent"
+      ],
+      "quote": "Synthetic test text for vcf contig length mismatch.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-bwa-index-bwtsw",
+      "sourceId": "bwa-manual",
+      "heading": "Synthetic retrieval case 14",
+      "causeKinds": [
+        "bwa_index_incomplete",
+        "bwa_index_not_found"
+      ],
+      "quote": "Synthetic test text for bwa index incomplete.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-bwa-index-default-is-limit",
+      "sourceId": "bwa-manual",
+      "heading": "Synthetic retrieval case 15",
+      "causeKinds": [
+        "bwa_index_incomplete",
+        "bwa_index_not_found"
+      ],
+      "quote": "Synthetic test text for bwa index incomplete.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-bwa-index-resources",
+      "sourceId": "bwa-manual",
+      "heading": "Synthetic retrieval case 16",
+      "causeKinds": [
+        "bwa_index_incomplete",
+        "bwa_index_not_found"
+      ],
+      "quote": "Synthetic test text for bwa index incomplete.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-cwl-file-checksum",
+      "sourceId": "cwl-v12-commandlinetool",
+      "heading": "Synthetic retrieval case 17",
+      "causeKinds": [
+        "checksum_mismatch"
+      ],
+      "quote": "Synthetic test text for checksum mismatch.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-htslib-provides-tabix",
+      "sourceId": "htslib-install",
+      "heading": "Synthetic retrieval case 18",
+      "causeKinds": [
+        "vcf_tool_unavailable"
+      ],
+      "quote": "Synthetic test text for vcf tool unavailable.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-bed-three-mandatory-fields",
+      "sourceId": "ga4gh-bed-spec",
+      "heading": "Synthetic retrieval case 19",
+      "causeKinds": [
+        "bed_content_invalid"
+      ],
+      "quote": "Synthetic test text for bed content invalid.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-bed-zero-based-half-open",
+      "sourceId": "ga4gh-bed-spec",
+      "heading": "Synthetic retrieval case 20",
+      "causeKinds": [
+        "bed_content_invalid"
+      ],
+      "quote": "Synthetic test text for bed content invalid.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    },
+    {
+      "id": "synthetic-ucsc-bed-first-base-zero",
+      "sourceId": "ucsc-bed-format",
+      "heading": "Synthetic retrieval case 21",
+      "causeKinds": [
+        "bed_content_invalid"
+      ],
+      "quote": "Synthetic test text for bed content invalid.",
+      "explains": "Synthetic explanation for retrieval testing.",
+      "limits": "Invented test data; no statement about a real run or tool manual.",
+      "toolVersion": "synthetic-test-only",
+      "checkedOn": "2026-11-16",
+      "license": "Project-authored synthetic test data"
+    }
+  ]
+}

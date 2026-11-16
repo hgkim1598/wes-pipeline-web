@@ -40,6 +40,7 @@ import json
 import tempfile
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from shutil import rmtree
@@ -252,6 +253,147 @@ def _clean_full_run(builder: RunBuilder) -> None:
     )
 
 
+def _resource_bundle_heldout(builder: RunBuilder) -> None:
+    """A precheck that failed on resource_bundle with three DIFFERENT cause kinds.
+
+    Synthetic and written after P1 by the same developer, so it is a held-out
+    case for the cause kinds -- none of these three occurs in the two real dev
+    runs (which have resource_missing_or_empty and vcf_tool_unavailable) -- but
+    NOT an independent case: the author knew the change it would test.
+
+    The sentences are main.sh PYBUNDLE templates (resource_bundle_causes.py
+    rule table). The initial payload carries only the resource_bundle failure
+    and its fixed message; the three causes exist only in the step detail.
+    """
+    report = "\n".join(
+        [
+            f"[OK] Validated 1 lane row(s) for sample '{SAMPLE_ID}'.",
+            "[ERROR] Resource bundle validation failed:",
+            "  - contig_style='ensembl' declares no 'chr' prefix but the reference uses 'chr'",
+            "  - known_sites entry index missing (.tbi or .csi): /srv/wes/ref/known_indels.vcf.gz",
+            "  - target_bed SHA-256 mismatch: metadata=" + "a" * 64 + " actual=" + "b" * 64,
+        ]
+    ) + "\n"
+    builder.step(
+        "00_input_validation",
+        status="failed",
+        elapsed_seconds=7,
+        checks=[
+            {"name": "required_tools", "status": "PASS", "detail": "all 14 required tools found"},
+            {"name": "multiqc_present", "status": "PASS", "detail": "MultiQC available"},
+            {"name": "samplesheet", "status": "PASS", "detail": "1 lane row(s) validated"},
+            {
+                "name": "resource_bundle",
+                "status": "FAIL",
+                "detail": "validation failed; see 00_input_validation/resource_validation.txt",
+            },
+        ],
+        failures=[
+            {
+                "code": "resource_bundle",
+                "message": "validation failed; see 00_input_validation/resource_validation.txt",
+            }
+        ],
+    )
+    builder.metrics("00_input_validation", {"sample": SAMPLE_ID, "lane_count": 1})
+    builder.raw("00_input_validation/resource_validation.txt", report)
+    builder.run_status(
+        "failed",
+        current_step="00_input_validation",
+        steps=[
+            {
+                "step_id": "00_input_validation",
+                "status": "failed",
+                "exit_code": 1,
+                "elapsed_seconds": 7,
+                "warnings": 0,
+                "failures": 1,
+                "next_step_ready": False,
+            }
+        ],
+    )
+
+
+def _resource_bundle_failure(builder: RunBuilder, cause_lines: list[str]) -> None:
+    """A precheck that failed on resource_bundle with exactly these sentences.
+
+    The same documents as `_resource_bundle_heldout`. That builder is left as it
+    was on purpose: its recorded baselines were made from it, and rewriting it
+    through this helper would make a later difference ambiguous.
+    """
+    report = "\n".join(
+        [
+            f"[OK] Validated 1 lane row(s) for sample '{SAMPLE_ID}'.",
+            "[ERROR] Resource bundle validation failed:",
+            *(f"  - {line}" for line in cause_lines),
+        ]
+    ) + "\n"
+    detail = "validation failed; see 00_input_validation/resource_validation.txt"
+    builder.step(
+        "00_input_validation",
+        status="failed",
+        elapsed_seconds=7,
+        checks=[
+            {"name": "required_tools", "status": "PASS", "detail": "all 14 required tools found"},
+            {"name": "multiqc_present", "status": "PASS", "detail": "MultiQC available"},
+            {"name": "samplesheet", "status": "PASS", "detail": "1 lane row(s) validated"},
+            {"name": "resource_bundle", "status": "FAIL", "detail": detail},
+        ],
+        failures=[{"code": "resource_bundle", "message": detail}],
+    )
+    builder.metrics("00_input_validation", {"sample": SAMPLE_ID, "lane_count": 1})
+    builder.raw("00_input_validation/resource_validation.txt", report)
+    builder.run_status(
+        "failed",
+        current_step="00_input_validation",
+        steps=[
+            {
+                "step_id": "00_input_validation",
+                "status": "failed",
+                "exit_code": 1,
+                "elapsed_seconds": 7,
+                "warnings": 0,
+                "failures": 1,
+                "next_step_ready": False,
+            }
+        ],
+    )
+
+
+# Not a main.sh template: no rule in resource_bundle_causes matches it, so it is
+# classified `unknown` and gets no curated guidance. The wording is deliberately
+# suggestive (it invites "the FASTA is corrupt") so that inventing a cause shows.
+UNCLASSIFIED_LINE = "reference_fasta: unexpected bytes after sequence header at offset 1048576"
+
+
+def _resource_unclassified(builder: RunBuilder) -> None:
+    """One classified cause and one sentence no rule recognises (log 17.4, U4-a)."""
+    _resource_bundle_failure(
+        builder,
+        [
+            "dbsnp_vcf declares contig lengths that differ from the reference: "
+            "/srv/wes/ref/dbsnp.vcf.gz: ['chr1']",
+            UNCLASSIFIED_LINE,
+        ],
+    )
+
+
+def _resource_index_pair(builder: RunBuilder) -> None:
+    """.fai/.dict disagreement and an incomplete BWA index together (U4-b).
+
+    Both kinds carry `remedies` after log 17.4, so this is the case where a
+    remedy could be offered -- and must come with what it changes and who
+    approves it, after the checks, and never as hand-editing the .dict.
+    """
+    _resource_bundle_failure(
+        builder,
+        [
+            "BWA index at '/srv/wes/ref/GRCh38.fa' is incomplete: missing or empty .sa",
+            "reference .fai and .dict disagree on contig order or lengths",
+        ],
+    )
+
+
 CASES: dict[str, AgentCase] = {
     "agent_failed_step": AgentCase(
         name="agent_failed_step",
@@ -276,6 +418,33 @@ CASES: dict[str, AgentCase] = {
         planned=tuple(FULL_PLAN),
         job_status=worker.DONE,
         build=_clean_full_run,
+    ),
+    "agent_resource_heldout": AgentCase(
+        name="agent_resource_heldout",
+        intent="합성 보류 사례(P1 이후 작성) -- resource_bundle 원인 3종이 dev Run과 다름, 00을 열어야 원인이 보임",
+        run_mode="full",
+        planned=tuple(FULL_PLAN),
+        # main.sh ran and recorded its own failure, so the worker row is DONE.
+        job_status=worker.DONE,
+        build=_resource_bundle_heldout,
+    ),
+    # Written in Cycle 3 by the same developer after the remedies change: held
+    # out from the two dev runs, NOT independent. Not real clinical data.
+    "agent_resource_unclassified": AgentCase(
+        name="agent_resource_unclassified",
+        intent="합성(Cycle 3) -- 분류된 원인 1개 + 규칙에 없는 문장 1개, 없는 원인을 지어내지 않는지",
+        run_mode="full",
+        planned=tuple(FULL_PLAN),
+        job_status=worker.DONE,
+        build=_resource_unclassified,
+    ),
+    "agent_resource_index_pair": AgentCase(
+        name="agent_resource_index_pair",
+        intent="합성(Cycle 3) -- .fai/.dict 불일치 + BWA 색인 불완전, 해결 방향은 승인자와 바뀌는 것을 함께",
+        run_mode="full",
+        planned=tuple(FULL_PLAN),
+        job_status=worker.DONE,
+        build=_resource_index_pair,
     ),
 }
 
@@ -341,6 +510,9 @@ def pointed_at(work: Path, *, db_name: str = "eval.db") -> Iterator[Path]:
         config.RUNS_ROOT, config.JOBS_ROOT, config.UPLOAD_ROOT, config.DB_PATH = previous
 
 
+_ISOLATED_ROOT: ContextVar[Path | None] = ContextVar("wes_eval_isolated_root", default=None)
+
+
 @contextmanager
 def isolated_environment() -> Iterator[Path]:
     """Point `config` at a fresh temporary directory, and remove it after.
@@ -350,11 +522,88 @@ def isolated_environment() -> Iterator[Path]:
     real_runs.py, so both are isolated the same way. Yields the work directory.
     """
     work = Path(tempfile.mkdtemp(prefix="wes-agent-eval-"))
+    token = _ISOLATED_ROOT.set(work)
     try:
         with pointed_at(work):
             yield work
     finally:
+        _ISOLATED_ROOT.reset(token)
         rmtree(work, ignore_errors=True)
+
+
+@contextmanager
+def persistent_environment(target: Path, *, remove_on_error: bool = False) -> Iterator[Path]:
+    """Like isolated_environment(), for a dev copy that must OUTLIVE the call.
+
+    For the local demo of a real failed run (dev_restore.py, log 18). The
+    same invariants the archive restore checks, enforced here before anything
+    is created: `target` is outside the repository and does not exist yet; its
+    parent must exist (only `target` itself is ever created). The archive
+    restore's own guard (_require_isolation) still runs unchanged inside.
+
+    The folder is kept. With `remove_on_error`, a failure anywhere inside --
+    entering the environment or in the caller's block -- removes it, but only
+    the folder THIS call created: ownership comes from our own atomic mkdir
+    (never from "absent earlier, present now", which another process can make
+    true -- Codex round 2), and its identity is checked again before removal.
+    A removal that fails is reported, never claimed.
+    """
+    target = target.resolve()
+    repo = config.ROOT.resolve()
+    if target == repo or repo in target.parents:
+        raise TargetRefused("persistent_environment: target must be outside the repository")
+    try:
+        target.mkdir()  # atomic: succeeds only if nobody else made it
+    except FileExistsError:
+        raise TargetRefused("persistent_environment: target already exists; nothing was replaced") from None
+    except FileNotFoundError:
+        raise TargetRefused("persistent_environment: the target's parent folder does not exist") from None
+    made = target.stat()
+    token = _ISOLATED_ROOT.set(target)
+    try:
+        with pointed_at(target, db_name="app.db"):
+            yield target
+    except BaseException as exc:
+        if remove_on_error:
+            _remove_owned(target, made, exc)
+        raise
+    finally:
+        _ISOLATED_ROOT.reset(token)
+
+
+class TargetRefused(ValueError):
+    """persistent_environment() refused the target before creating anything."""
+
+
+class CopyNotRemoved(RuntimeError):
+    """A copy that had to be removed could not be; the caller must say so."""
+
+
+def _remove_owned(target: Path, made, cause: BaseException) -> None:
+    try:
+        now = target.stat()
+    except FileNotFoundError:
+        return
+    if (now.st_dev, now.st_ino) != (made.st_dev, made.st_ino):
+        cause.add_note(f"{target}: 이 호출이 만든 폴더가 아니어서 지우지 않았습니다.")
+        return
+    try:
+        rmtree(target)
+    except OSError as err:
+        raise CopyNotRemoved(
+            f"실패한 복사본을 지우지 못했습니다({type(err).__name__}). 직접 지워 주세요: {target}"
+        ) from cause
+
+
+def active_isolated_root() -> Path | None:
+    """The work directory of the innermost isolated_environment() or
+    persistent_environment(), or None.
+
+    Set only by those two. Code that writes run data (the
+    archive restore) checks it, together with where config and the open
+    database actually point, instead of trusting a path string alone.
+    """
+    return _ISOLATED_ROOT.get()
 
 
 @contextmanager
@@ -379,6 +628,7 @@ __all__ = [
     "RUN_ID",
     "SAMPLE_ID",
     "AgentCase",
+    "active_isolated_root",
     "isolated_environment",
     "materialise",
     "pointed_at",

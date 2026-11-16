@@ -268,6 +268,54 @@ class StepKnowledge(BaseModel):
     tools: list[str]
 
 
+class CauseKindKnowledge(BaseModel):
+    """Checks for one classified resource_bundle cause kind (P1).
+
+    `kind` is the rule table's vocabulary (services/resource_bundle_causes.py);
+    a test keeps the two sets equal. `checks` are things a person can LOOK at.
+    Nothing here repairs anything: a step that changes files, reruns the
+    pipeline or bypasses a check belongs in `cautions` as something not to do,
+    or is left to the person responsible.
+    """
+
+    kind: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    checks: list[Claim] = Field(min_length=1)
+    cautions: list[Claim] = Field(default_factory=list)
+    # Directions that CHANGE something (log 17.4). Kept apart from `checks` so
+    # a reader -- and the model -- can never mistake one for a look. Optional:
+    # a kind without a sourced remedy has none, rather than a guessed one.
+    remedies: list["RemedyKnowledge"] = Field(default_factory=list)
+
+
+class RemedyKnowledge(Claim):
+    """A sourced remedy direction: what it changes and who must approve it.
+
+    The agent proposes; it never carries one out (it has no write tool), and
+    the prompt forbids describing one as done.
+    """
+
+    changes: str = Field(min_length=1)
+    approval: str = Field(min_length=1)
+
+
+CauseKindKnowledge.model_rebuild()
+
+
+class ResourceRoleKnowledge(BaseModel):
+    """What one resource role is for, and what to look at for it."""
+
+    role: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    checks: list[Claim] = Field(min_length=1)
+
+
+class _CauseKindsDoc(BaseModel):
+    schemaVersion: str
+    causeKinds: list[CauseKindKnowledge]
+    roles: list[ResourceRoleKnowledge]
+
+
 class _DiagnosticsDoc(BaseModel):
     schemaVersion: str
     diagnostics: list[DiagnosticKnowledge]
@@ -505,8 +553,50 @@ def all_sources() -> list[Source]:
     return list(_sources().values())
 
 
+def _check_claims_resolve(claims: list[Claim], owner: str, source_file: str) -> None:
+    known = _sources()
+    for claim in claims:
+        for source_id in claim.sourceIds:
+            if source_id not in known:
+                raise KnowledgeError(
+                    f"{source_file}: {owner} cites an unknown source "
+                    f"{source_id!r} in {claim.statement[:40]!r}."
+                )
+
+
+@lru_cache(maxsize=1)
+def _cause_kind_doc() -> tuple[dict[str, CauseKindKnowledge], dict[str, ResourceRoleKnowledge]]:
+    name = config.CAUSE_KIND_KNOWLEDGE.name
+    doc = _load(config.CAUSE_KIND_KNOWLEDGE, _CauseKindsDoc)
+    kinds = _index(doc.causeKinds, "kind", name)
+    roles = _index(doc.roles, "role", name)
+    for kind, row in kinds.items():
+        _check_claims_resolve([*row.checks, *row.cautions, *row.remedies], kind, name)
+    for role, row in roles.items():
+        _check_claims_resolve(row.checks, role, name)
+    return kinds, roles
+
+
+def cause_kind(kind: str) -> CauseKindKnowledge | None:
+    """Checks for one resource_bundle cause kind, or None (e.g. `unknown`)."""
+    return _cause_kind_doc()[0].get(kind)
+
+
+def resource_role(role: str) -> ResourceRoleKnowledge | None:
+    return _cause_kind_doc()[1].get(role)
+
+
+def all_cause_kinds() -> list[CauseKindKnowledge]:
+    return list(_cause_kind_doc()[0].values())
+
+
+def all_resource_roles() -> list[ResourceRoleKnowledge]:
+    return list(_cause_kind_doc()[1].values())
+
+
 def reload() -> None:
     """Drop the cached documents. For tests that rewrite the source files."""
+    _cause_kind_doc.cache_clear()
     _diagnostics.cache_clear()
     _steps.cache_clear()
     _sources.cache_clear()

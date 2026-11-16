@@ -15,6 +15,11 @@
     concept:<id>     해석 개념
     term:<id>        초보자 용어 정의 (일반 지식. 이 실행의 사실이 아니다)
     run:<section>    실행 자체의 사실 (status · checkSummary · coverage 등)
+    step:<stepId>    Agent가 도구로 실제로 연 단계의 상세 기록. 서버가 그 단계를
+                     돌려준 경우에만 인용할 수 있다(tools.credit) -- 즉 인용됐다면
+                     Agent가 그 단계를 조회했다는 뜻이다
+    doc:<id>         공식 문서 발췌(로컬 RAG). 이런 종류의 실패가 일반적으로
+                     무엇을 뜻하는지의 근거이지, 이 실행에서 일어난 일의 근거가 아니다
 
   ── 이름을 지어내지 않는다 `[설계판단]` ─────────────────────────────────
 
@@ -25,6 +30,8 @@
     src     wes_sources.json      title
     concept wes_concepts.json     label
     term    wes_terms.json        label
+    step    wes_steps.json        label
+    doc     wes_doc_passages.json heading + wes_sources.json title·locator
 
   `lim:`과 `run:`만 이 파일이 이름을 갖는다. 그 둘은 knowledge 파일의 항목이
   아니라 **payload의 구획 이름**이어서 canonical source가 존재하지 않는다.
@@ -39,8 +46,10 @@
 import {
   conceptKnowledge,
   diagnosticKnowledge,
+  docPassageKnowledge,
   failureKnowledge,
   sourceKnowledge,
+  stepKnowledge,
   termKnowledge,
 } from '@/registries/knowledge'
 
@@ -48,10 +57,21 @@ export interface EvidenceView {
   /** 사람이 읽는 이름. `known`이 false면 raw id가 그대로 들어온다. */
   label: string
   /** 어떤 종류의 근거인가. 목록에서 묶어 보여줄 때 쓴다. */
-  group: '이 실행의 기록' | '등록된 지식' | '용어 설명' | '참고 자료' | '알 수 없음'
+  group:
+    | '이 실행의 기록'
+    | 'Agent가 조회한 단계 기록'
+    | '등록된 지식'
+    | '용어 설명'
+    | '참고 자료'
+    | '공식 문서 발췌'
+    | '알 수 없음'
   known: boolean
   /** 항상 원본 id. 기술 정보에서 그대로 보여준다. */
   id: string
+  /** 공식 문서 발췌만: 출처 링크(wes_sources.json locator). */
+  href?: string
+  /** 공식 문서 발췌만: 원문 인용. */
+  quote?: string
 }
 
 /*
@@ -118,6 +138,31 @@ export function describeEvidenceRef(ref: string): EvidenceView {
       const label = LIMITATION_LABEL[key]
       return label
         ? { label, group: '이 실행의 기록', known: true, id: ref }
+        : unknown(ref)
+    }
+    case 'step': {
+      const entry = stepKnowledge(key)
+      return entry
+        ? {
+            label: `${entry.label} 단계 상세`,
+            group: 'Agent가 조회한 단계 기록',
+            known: true,
+            id: ref,
+          }
+        : unknown(ref)
+    }
+    case 'doc': {
+      const entry = docPassageKnowledge(key)
+      return entry
+        ? {
+            label: `${entry.source.title} — ${entry.heading}`,
+            group: '공식 문서 발췌',
+            known: true,
+            id: ref,
+            // https만 링크로 만든다. 다른 scheme(javascript: 등)은 링크 없이 이름만 보인다.
+            href: entry.source.locator.startsWith('https://') ? entry.source.locator : undefined,
+            quote: entry.quote,
+          }
         : unknown(ref)
     }
     case 'run': {

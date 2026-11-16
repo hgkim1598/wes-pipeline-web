@@ -33,6 +33,7 @@ import { z } from 'zod'
 import conceptsDoc from '@shared/knowledge/wes_concepts.json'
 import diagnosticsDoc from '@shared/knowledge/wes_diagnostics.json'
 import failuresDoc from '@shared/knowledge/wes_failures.json'
+import passagesDoc from '@shared/knowledge/wes_doc_passages.public.json'
 import sourcesDoc from '@shared/knowledge/wes_sources.json'
 import stepsDoc from '@shared/knowledge/wes_steps.json'
 import termsDoc from '@shared/knowledge/wes_terms.json'
@@ -322,4 +323,44 @@ export function conceptKnowledge(id: string): ConceptKnowledge | undefined {
 /** 초보자 용어. 없으면 undefined — 호출부가 raw id를 그대로 보여준다. */
 export function termKnowledge(id: string): TermKnowledge | undefined {
   return TERM_BY_ID.get(id)
+}
+
+/*
+  공식 문서 발췌(로컬 RAG, 개발판단기록 18장). `doc:<id>`로 인용된다.
+
+  제목과 링크는 발췌 파일에 없다. `sourceId`로 wes_sources.json에서 가져온다 —
+  backend(doc_retrieval.source_title / source_url)와 같은 규칙이라, Agent가 봤다고
+  기록된 문서와 화면이 여는 링크가 같은 문서다.
+*/
+const DocPassageSchema = z.object({
+  id: z.string().min(1),
+  sourceId: z.string().min(1),
+  heading: z.string().min(1),
+  quote: z.string().min(1),
+})
+
+const DocPassagesDocSchema = z.object({
+  passages: z.array(DocPassageSchema),
+})
+
+const passages = parseOrThrow(
+  DocPassagesDocSchema,
+  passagesDoc,
+  'document passage corpus',
+)
+const PASSAGE_BY_ID = indexBy(passages.passages, (row) => row.id, 'wes_doc_passages.json')
+
+export interface DocPassageKnowledge {
+  id: string
+  heading: string
+  quote: string
+  source: SourceKnowledge
+}
+
+/** 공식 문서 발췌와 그 출처. 출처가 등록돼 있지 않으면 undefined. */
+export function docPassageKnowledge(id: string): DocPassageKnowledge | undefined {
+  const row = PASSAGE_BY_ID.get(id)
+  const source = row ? SOURCE_BY_ID.get(row.sourceId) : undefined
+  if (!row || !source) return undefined
+  return { id: row.id, heading: row.heading, quote: row.quote, source }
 }

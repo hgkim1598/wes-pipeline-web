@@ -74,6 +74,11 @@ def build_mcp_config(
                     MAX_STEPS_ENV: str(max_distinct_steps),
                     "WES_DB_PATH": str(config.DB_PATH),
                     "WES_RUNS_ROOT": str(config.RUNS_ROOT),
+                    # The server process reads config from this env, not from
+                    # the parent's module state: without it an eval that turns
+                    # the excerpts on in-process would get a server without them.
+                    "WES_DOC_RAG": "1" if config.DOC_RAG else "0",
+                    "WES_DOC_PASSAGES_FILE": str(config.DOC_PASSAGE_KNOWLEDGE),
                 },
             }
         }

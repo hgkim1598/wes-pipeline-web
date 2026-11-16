@@ -207,6 +207,15 @@ _COUNT_PATTERNS = (
 _NONE_CLAIM = re.compile(r"경고(가|는)?\s?(하나도\s?|전혀\s?)?(없었|없습|없이\s?(완료|끝))")
 _NOT_A_CLAIM = re.compile(r"^.{0,15}(뜻|의미|것)(은|이)?\s?아니")
 _NEGATED_AFTER = re.compile(r"^.{0,10}(없|않|아니)")
+# A warning RECORDED in a step, as opposed to the step ending with one. An
+# allow-list on purpose (Codex gate review M1): only these predicates, right
+# after the warning mention, count as "it occurred there"; anything else --
+# "경고 상태입니다", "경고로 끝났습니다" -- is still read as the step's state.
+_OCCURRENCE_AFTER = re.compile(
+    r"^\s*(?:도\s*)?(?:하나|한\s*건|1\s*건|1\s*개|한\s*개)?\s*"
+    r"(?:기록|발생|나왔|나온|남았|남은|있었|있습|있는)"
+)
+_OCCURRENCE_VERBS = {"기록된", "발생한", "나온", "남은", "있는", "있었던"}
 # Where a list of warned steps stops: what follows is about the others.
 _LIST_STOP = re.compile(r"나머지|반면|외에|제외|정상|경고\s?없|없이|않")
 
@@ -226,12 +235,30 @@ def _warning_findings(unit: Unit, payload: dict[str, Any]) -> list[str]:
         return []
     warned = {s.get("stepId") for s in steps if s.get("status") == "warning"}
     labels = _step_labels()
+    # Steps a diagnostic OCCURRED in, by the label the payload names. A step can
+    # record a warning and still end failed (a precheck that failed and also
+    # found MultiQC missing): "<step>에서 경고가 기록됐다" is then true, while
+    # "<step>이 경고로 끝났다" is not. Only the first wording is let through.
+    # Only `diagnostics`: in this payload every diagnostic is a warning the
+    # pipeline recorded (contract.build_payload builds it from the step
+    # warnings); failures travel separately under `failures` and grant nothing.
+    occurred = {
+        d.get("occurredAtStep")
+        for d in payload.get("diagnostics") or []
+        if isinstance(d, dict) and isinstance(d.get("occurredAtStep"), str)
+    }
+    occurred_ids = {labels[label] for label in occurred if label in labels}
     problems: list[str] = []
     for clause in _clauses(unit.text):
         for pattern in _COUNT_PATTERNS:
             for found in pattern.finditer(clause):
                 token = next(g for g in found.groups() if g and (g.isdigit() or g in _COUNT_WORDS))
-                if _count_of(token) != len(warned):
+                allowed = {len(warned)}
+                if _OCCURRENCE_AFTER.match(clause[found.end() :].lstrip("가를")):
+                    # "한 단계에서 경고가 기록됐습니다": steps a warning occurred
+                    # in, which include steps that ended failed (review M2).
+                    allowed.add(len(warned | occurred_ids))
+                if _count_of(token) not in allowed:
                     problems.append(
                         f"warning steps: written as {token}, the run has {len(warned)}"
                     )
@@ -253,14 +280,21 @@ def _warning_findings(unit: Unit, payload: dict[str, Any]) -> list[str]:
             for found in adjacent.finditer(clause):
                 if _NEGATED_AFTER.match(clause[found.end() :]):
                     continue
+                if label in occurred and found.group(4) != "로" and _OCCURRENCE_AFTER.match(
+                    clause[found.end() :]
+                ):
+                    continue
                 problems.append(f"warning steps: {label} did not end with a warning")
         listing = re.search(rf"경고(가|로)?\s?{_DONE}\s?단계(는|은|가)", clause)
         if listing:
             tail = clause[listing.end() :]
             stop = _LIST_STOP.search(tail)
             tail = tail[: stop.start()] if stop else tail
+            occurrence = listing.group(1) != "로" and listing.group(2) in _OCCURRENCE_VERBS
             for label, step_id in labels.items():
                 if step_id not in warned and label in tail:
+                    if label in occurred and occurrence:
+                        continue
                     problems.append(f"warning steps: {label} did not end with a warning")
     return sorted(set(problems))
 

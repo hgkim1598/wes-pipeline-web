@@ -20,7 +20,7 @@ import pytest
 
 from app.services.explanation.llm import claims
 
-from . import real_runs
+from . import archive_runs, real_runs
 from .explanation_quality import _payload_for_case
 
 HERE = Path(__file__).resolve().parent
@@ -55,6 +55,10 @@ def test_a_recorded_answer_passes_gates_6_and_7(path: Path):
     case = record["case"]
     if case in real_runs.REAL_RUNS and not real_runs.capture_available(real_runs.REAL_RUNS[case]):
         pytest.skip("capture not available")
+    if case in archive_runs.ARCHIVE_RUNS and not archive_runs.archive_available(
+        archive_runs.ARCHIVE_RUNS[case]
+    ):
+        pytest.skip("archive not available")
     payload = _payload_for_case(case)
     assert payload is not None
     allowed = _ids(payload, set()) | set((record.get("toolUse") or {}).get("toolEvidenceIds") or [])

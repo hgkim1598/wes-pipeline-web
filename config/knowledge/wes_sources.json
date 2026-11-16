@@ -130,6 +130,78 @@
       "type": "project-doc",
       "title": "MAIN_SH_COMPLETE_GUIDE — 실행 방법과 실행 전 준비물",
       "locator": "docs/MAIN_SH_COMPLETE_GUIDE.md#6. 실행 방법과 CLI option"
+    },
+    {
+      "id": "htslib-install",
+      "type": "tool-doc",
+      "title": "HTSlib — Download and installation (설치 위치의 bin을 PATH에 추가, bgzip·tabix 포함)",
+      "locator": "https://www.htslib.org/download/"
+    },
+    {
+      "id": "bcftools-manual",
+      "type": "tool-doc",
+      "title": "bcftools manual — 색인된 VCF와 여러 VCF를 함께 읽을 때의 색인 요구",
+      "locator": "https://samtools.github.io/bcftools/bcftools.html"
+    },
+    {
+      "id": "tabix-manual",
+      "type": "tool-doc",
+      "title": "tabix manual — 위치 정렬·bgzip 압축 입력과 CSI 색인",
+      "locator": "https://www.htslib.org/doc/tabix.html"
+    },
+    {
+      "id": "samtools-faidx",
+      "type": "tool-doc",
+      "title": "samtools faidx manual — 참조 FASTA 색인(.fai)",
+      "locator": "https://www.htslib.org/doc/samtools-faidx.html"
+    },
+    {
+      "id": "ucsc-bed-format",
+      "type": "spec",
+      "title": "UCSC Genome Browser FAQ — BED format (필수 3열, 0부터 세는 시작 좌표)",
+      "locator": "https://genome.ucsc.edu/FAQ/FAQformat.html#format1"
+    },
+    {
+      "id": "ga4gh-bed-spec",
+      "type": "spec",
+      "title": "GA4GH BED v1 specification — 좌표계, 필수 열, 염색체 이름 일관성",
+      "locator": "https://github.com/samtools/hts-specs/blob/master/BEDv1.tex"
+    },
+    {
+      "id": "broad-warp-exome",
+      "type": "tool-doc",
+      "title": "Broad WARP — Exome Germline Single Sample pipeline 입력(시퀀싱 제공처의 target 구간 목록)",
+      "locator": "https://broadinstitute.github.io/warp/docs/Pipelines/Exome_Germline_Single_Sample_Pipeline/README"
+    },
+    {
+      "id": "picard-create-dict",
+      "type": "tool-doc",
+      "title": "Picard CreateSequenceDictionary 소스 — FASTA에서 .dict 생성, 기존 파일 덮어쓰기 거부",
+      "locator": "https://github.com/broadinstitute/picard/blob/master/src/main/java/picard/sam/CreateSequenceDictionary.java"
+    },
+    {
+      "id": "gatk-dict-utils",
+      "type": "tool-doc",
+      "title": "GATK SequenceDictionaryUtils 소스 — 공통 contig 없음, 이름이 같고 길이가 다른 contig 판정",
+      "locator": "https://github.com/broadinstitute/gatk/blob/master/src/main/java/org/broadinstitute/hellbender/utils/SequenceDictionaryUtils.java"
+    },
+    {
+      "id": "gatk-dict-validation",
+      "type": "tool-doc",
+      "title": "GATK 사전 검증 끄기 옵션 설명 — 'Use at your own risk!'",
+      "locator": "https://github.com/broadinstitute/gatk/blob/master/src/main/java/org/broadinstitute/hellbender/cmdline/argumentcollections/SequenceDictionaryValidationArgumentCollection.java"
+    },
+    {
+      "id": "bwa-manual",
+      "type": "tool-doc",
+      "title": "BWA 매뉴얼 — bwa index, 사람 유전체용 bwtsw, 필요한 메모리와 시간",
+      "locator": "https://bio-bwa.sourceforge.net/bwa.shtml"
+    },
+    {
+      "id": "cwl-v12-commandlinetool",
+      "type": "spec",
+      "title": "CWL v1.2 CommandLineTool — File checksum(파일 내용 확인용 해시)",
+      "locator": "https://www.commonwl.org/v1.2/CommandLineTool.html"
     }
   ]
 }

@@ -48,8 +48,8 @@ from app.services.agent.step_evidence import read_step_evidence
 from app.services.explanation import deterministic, run_context
 from app.services.explanation.llm import contract
 
-from . import real_runs
-from .agent_cases import pointed_at
+from . import archive_runs, real_runs
+from .agent_cases import CopyNotRemoved, TargetRefused, persistent_environment, pointed_at
 
 DEFAULT_CASE = "real_cba73e"
 DB_NAME = "app.db"
@@ -175,14 +175,90 @@ def _check(run: real_runs.RealRun, target: Path) -> dict[str, object]:
     }
 
 
+def restore_archive(run: archive_runs.ArchiveRun, target: Path) -> Restored:
+    """A persistent dev copy of a real FAILED run, for the local demo (log 18).
+
+    The target must be OUTSIDE the repository (the archive restore refuses
+    anything else, and that guard is not relaxed) and must not exist. The
+    caller names it: a copy of real failure records is the user's to place.
+    """
+    if not archive_runs.archive_available(run):
+        raise Refused(f"실패 기록 압축 파일이 이 환경에 없습니다: {run.archive.name}")
+    target = target.resolve()
+    if (target / DB_NAME).resolve() == Path(config.DB_PATH).resolve():
+        raise Refused("대상 DB가 현재 backend가 쓰는 DB와 같습니다.")
+    loaded = archive_runs.load(run)
+    before = archive_runs.archive_digest(run.archive)
+    # persistent_environment refuses an existing target, or one inside the
+    # repository, before creating anything. Every check runs inside it, so any
+    # failure -- including a copy that was written but failed its own checks
+    # (Codex round 1: a real-run copy that leaked must not stay on disk) --
+    # removes the folder, and only the folder this call created (Codex round 2).
+    try:
+        with persistent_environment(target, remove_on_error=True):
+            archive_runs.restore_into_current_config(run, loaded=loaded)
+            result = _check_archive(run, target, loaded)
+            after = archive_runs.archive_digest(run.archive)
+            restored = Restored(**result, capture_unchanged=before == after)
+            problems = archive_copy_problems(restored)
+            if problems:
+                raise Refused("복사본 검증 실패(" + ", ".join(problems) + ")")
+    except (TargetRefused, CopyNotRemoved) as exc:
+        raise Refused(str(exc)) from exc
+    return restored
+
+
+def archive_copy_problems(result: Restored) -> list[str]:
+    """What makes a failed-run dev copy unusable. Empty means usable."""
+    problems = []
+    if (result.jobs, result.uploads, result.traces) != (1, 0, 0):
+        problems.append("DB 행 수")
+    if result.payload_leaks or result.evidence_leaks:
+        problems.append("개인정보 검사")
+    if not result.capture_unchanged:
+        problems.append("압축 파일 변경")
+    return problems
+
+
+def _check_archive(run: archive_runs.ArchiveRun, target: Path, loaded) -> dict[str, object]:
+    def count(table: str) -> int:
+        return db.query_one(f"SELECT COUNT(*) AS n FROM {table}")["n"]
+
+    explanation = deterministic.build_run_explanation(
+        run_context.build_run_diagnostic_context(run.run_id)
+    )
+    payload, _allowed = contract.build_payload(explanation)
+    scope = run_scope.for_job(run.run_id)
+    evidence = json.dumps(
+        [read_step_evidence(scope, s.stepId).model_dump(mode="json") for s in explanation.steps],
+        ensure_ascii=False,
+    )
+    extra = [str(target)]
+    return {
+        "run_id": run.run_id,
+        "status": explanation.status,
+        "jobs": count("jobs"),
+        "uploads": count("uploads"),
+        "traces": count("synthesis_traces"),
+        "payload_leaks": archive_runs.count_leaks(
+            json.dumps(payload, ensure_ascii=False), run, extra, loaded=loaded
+        ),
+        "evidence_leaks": archive_runs.count_leaks(evidence, run, extra, loaded=loaded),
+    }
+
+
 def instructions(target: Path) -> str:
     rel = shown(target)
+    # An outside-repo copy is never printed as an absolute path (the path may
+    # name the user or the sample's folder); the user typed it, so they have it.
+    dev = '<--target으로 지정한 경로>' if rel == "<저장소 밖 경로>" else f'$(pwd -W)/{rel}'
     return f"""
 다음 단계 (Git Bash, 저장소 루트에서):
 
   # 1) backend -- 이 복사본을 읽도록 세 경로를 지정한다. pwd -W 는 Windows 경로를 준다.
-  DEV="$(pwd -W)/{rel}"
-  WES_DB_PATH="$DEV/{DB_NAME}" WES_RUNS_ROOT="$DEV/runs" WES_UPLOAD_ROOT="$DEV/uploads" \\
+  #    WES_DOC_RAG=1 은 공식 문서 발췌(로컬 RAG)를 켠다. 빼면 기존 v3와 같다.
+  DEV="{dev}"
+  WES_DOC_RAG=1 WES_DB_PATH="$DEV/{DB_NAME}" WES_RUNS_ROOT="$DEV/runs" WES_UPLOAD_ROOT="$DEV/uploads" \\
     backend/.venv/Scripts/python.exe -m uvicorn app.main:app --app-dir backend --port 8000
 
   # 2) frontend (다른 터미널)
@@ -197,15 +273,31 @@ def instructions(target: Path) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--case", choices=sorted(real_runs.REAL_RUNS), default=DEFAULT_CASE)
-    parser.add_argument("--target", type=Path, default=None, help="기본값: runs/dev_<case>/")
+    parser.add_argument(
+        "--case",
+        choices=sorted(real_runs.REAL_RUNS) + sorted(archive_runs.ARCHIVE_RUNS),
+        default=DEFAULT_CASE,
+    )
+    parser.add_argument(
+        "--target",
+        type=Path,
+        default=None,
+        help="기본값: runs/dev_<case>/ (capture만). 실패 Run(archive)은 저장소 밖의 새 폴더를 반드시 지정(부모 폴더는 이미 있어야 함)",
+    )
     args = parser.parse_args(argv)
 
-    run = real_runs.REAL_RUNS[args.case]
-    target = args.target if args.target is not None else default_target(run)
-
     try:
-        result = restore(run, target)
+        if args.case in archive_runs.ARCHIVE_RUNS:
+            if args.target is None:
+                raise Refused(
+                    "실패 Run 복사본은 저장소 밖에 둡니다. 둘 곳을 --target으로 직접 지정하세요."
+                )
+            target = args.target
+            result = restore_archive(archive_runs.ARCHIVE_RUNS[args.case], target)
+        else:
+            run = real_runs.REAL_RUNS[args.case]
+            target = args.target if args.target is not None else default_target(run)
+            result = restore(run, target)
     except Refused as exc:
         print(f"중단: {exc}")
         return 2

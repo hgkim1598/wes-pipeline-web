@@ -131,7 +131,7 @@
     },
     {
       "termId": "vcf",
-      "basis": "wes_terms vcf.plain '참조 유전체와 다른 위치를 한 줄에 하나씩 모아 기록한 파일', aliases '변이 기록 파일', misreadings '확정된 변이의 수가 아닙니다'",
+      "basis": "wes_terms vcf.plain '변이 기록을 한 줄에 하나씩 담는 텍스트 파일 형식'(2026-11-16 개정, 이전 '참조 유전체와 다른 위치를 한 줄에 하나씩 모아 기록한 파일'), aliases '변이 기록 파일', misreadings '확정된 변이의 수가 아닙니다'. 허용 표현은 바꾸지 않았다",
       "groups": [
         {
           "name": "VCF",
@@ -167,6 +167,31 @@
         }
       ],
       "plainSubstitutes": [],
+      "reviewSubstitutes": []
+    },
+    {
+      "termId": "bed",
+      "basis": "wes_terms bed.plain '분석하거나 집계할 유전체 구간을 한 줄에 하나씩 적은 텍스트 파일' (2026-11-16 추가, 개발판단기록 17.4)",
+      "groups": [
+        {
+          "name": "BED",
+          "surfaces": ["BED"],
+          "accept": [
+            "구간(을|들을)? .{0,12}(적은|담은|기록한)",
+            "구간(이|들이)? .{0,12}(적힌|담긴|기록된)",
+            "(분석|집계|계산)할 (유전체 )?구간",
+            "위치 범위"
+          ],
+          "reject": [
+            {
+              "pattern": "변이 (목록|기록)",
+              "unless": "아니|아닙|아님|않",
+              "why": "BED는 변이가 아니라 구간을 적은 파일이다(wes_terms bed.plain)"
+            }
+          ]
+        }
+      ],
+      "plainSubstitutes": ["구간 파일"],
       "reviewSubstitutes": []
     },
     {

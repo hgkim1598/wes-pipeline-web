@@ -1,0 +1,414 @@
+{
+  "schemaVersion": "1.0",
+  "_comment": [
+    "resource_bundle 실패 원인 종류(kind)와 대상 리소스(role)별 점검 지식 (P1).",
+    "",
+    "kind와 role은 backend/app/services/resource_bundle_causes.py 규칙표의 고정 어휘다.",
+    "test_cause_kind_knowledge.py가 두 집합이 같은지 검사한다. 검색이나 순위 매기기는",
+    "없다 -- 단계 상세 도구가 분류한 kind와 role을 키로 그대로 찾는다.",
+    "",
+    "checks는 사람이 '보는' 일만 적는다. 파일을 고치거나, 다시 실행하거나, 검사를",
+    "우회하는 일은 checks에 넣지 않는다. 하지 말아야 할 일은 cautions에 적고, 고치는",
+    "작업은 책임자가 판단한다고만 적는다.",
+    "",
+    "문장에는 경로, URL, 슬래시를 쓰지 않는다. 이 문장은 모델 입력으로 가며, 모델 입력의",
+    "경로 검사(privacy.Redactor.release)를 바뀌지 않고 통과해야 한다. 출처 URL은",
+    "wes_sources.json에 있고 모델에는 제목만 간다.",
+    "",
+    "GATK 공식 문서(Intervals, Resource bundle 등)는 2026-11-16 조사에서 페이지가 열리지",
+    "않아(HTTP 403) 실제로 읽지 못했으므로 출처로 쓰지 않았다.",
+    "",
+    "remedies (log 17.4): 데이터를 바꾸는 해결 방향. checks와 따로 둔다. 각 항목은 무엇을 바꾸는지(changes),",
+    "누가 승인하는지(approval)를 적는다. Agent는 제안만 하고 실행하지 않는다(쓰기 도구 없음).",
+    "1차 자료로 확인한 종류에만 넣었다. 근거가 없는 7종(missing_or_empty, not_declared, known_sites_empty,",
+    "bed_content_invalid, vcf_header_unparseable, vcf_contig_list_unreadable, contig_style_unrecognised)은 비워 둔다."
+  ],
+  "causeKinds": [
+    {
+      "kind": "resource_missing_or_empty",
+      "title": "선언된 리소스 파일이 없거나 비어 있음",
+      "checks": [
+        {
+          "statement": "선언된 경로에 파일이 실제로 있는지, 크기가 0보다 큰지 서버에서 확인합니다. 파이프라인은 파일이 없을 때와 크기가 0일 때 같은 문장을 남기므로 기록만으로는 둘을 구분할 수 없습니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ],
+      "cautions": [
+        {
+          "statement": "검사를 끄거나 건너뛰고 진행하지 않습니다. 이 검사는 리소스 문제를 분석 시작 전에 막기 위한 것입니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ]
+    },
+    {
+      "kind": "resource_not_declared",
+      "title": "리소스 경로가 설정에 선언되지 않음",
+      "checks": [
+        {
+          "statement": "실행 설정의 참조 자료 묶음 항목에 이 항목의 경로가 적혀 있는지 확인합니다. 파이프라인은 값이 비어 있으면 파일을 찾기 전에 이 원인을 기록합니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ]
+    },
+    {
+      "kind": "bwa_index_incomplete",
+      "title": "BWA 색인 파일 일부가 없거나 비어 있음",
+      "checks": [
+        {
+          "statement": "참조 FASTA 옆의 BWA 색인 파일 다섯 개(.amb, .ann, .bwt, .pac, .sa)가 모두 있고 비어 있지 않은지 확인합니다. 파이프라인은 .bwt가 있는 이름을 기준으로 나머지를 찾고, 다른 이름의 색인으로 넘어가지 않습니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ],
+      "cautions": [
+        {
+          "statement": "색인을 다시 만드는 일은 참조 파일 옆에 새 파일을 쓰는 작업이므로 리소스 관리자가 판단합니다. 파이프라인은 색인을 스스로 만들지 않습니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ],
+      "remedies": [
+        {
+          "statement": "참조 FASTA 전체로 BWA 색인을 처음부터 다시 만듭니다(bwa index, 사람 유전체는 -a bwtsw). 매뉴얼은 사람 유전체에 약 5GB 메모리와 몇 시간이 걸린다고 적고 있습니다. 다른 색인에서 빠진 파일 하나만 복사해 채우지 않습니다.",
+          "sourceIds": ["bwa-manual"],
+          "changes": "참조 FASTA 옆에 BWA 색인 파일 다섯 개(.amb .ann .bwt .pac .sa)를 새로 씁니다",
+          "approval": "리소스 관리자(계산 자원과 시간 확보 필요)"
+        }
+      ]
+    },
+    {
+      "kind": "bwa_index_not_found",
+      "title": "BWA 색인을 찾지 못함",
+      "checks": [
+        {
+          "statement": "참조 FASTA 이름 뒤에 .bwt 또는 .64.bwt가 붙은 색인 파일이 있는지 확인합니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ],
+      "cautions": [
+        {
+          "statement": "색인을 만드는 일은 참조 파일 옆에 새 파일을 쓰는 작업이므로 리소스 관리자가 판단합니다. 파이프라인은 색인을 스스로 만들지 않습니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ],
+      "remedies": [
+        {
+          "statement": "색인 접두어가 선언된 FASTA 경로와 맞는데도 색인이 없다면, 참조 FASTA 전체로 BWA 색인을 처음부터 만듭니다(bwa index, 사람 유전체는 -a bwtsw). 매뉴얼은 사람 유전체에 약 5GB 메모리와 몇 시간이 걸린다고 적고 있습니다.",
+          "sourceIds": ["bwa-manual"],
+          "changes": "참조 FASTA 옆에 BWA 색인 파일 다섯 개(.amb .ann .bwt .pac .sa)를 새로 씁니다",
+          "approval": "리소스 관리자(계산 자원과 시간 확보 필요)"
+        }
+      ]
+    },
+    {
+      "kind": "reference_index_mismatch",
+      "title": "참조의 .fai와 .dict가 서로 맞지 않음",
+      "checks": [
+        {
+          "statement": "참조의 .fai와 .dict가 같은 FASTA에서 만들어졌는지, contig 순서와 길이가 일치하는지 확인합니다. .fai는 samtools faidx가 FASTA에서 만드는 색인입니다.",
+          "sourceIds": ["main-sh-resource-bundle", "samtools-faidx"]
+        }
+      ],
+      "cautions": [
+        {
+          "statement": "다른 FASTA에서 만든 색인을 가져와 한쪽만 덮어쓰지 않습니다. 어느 파일이 실제 참조와 맞는지 먼저 확인합니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        },
+        {
+          "statement": ".dict 파일을 손으로 고쳐 .fai에 맞추지 않습니다. .dict의 길이와 MD5 값은 그 서열 자체의 길이와 MD5입니다(VCF 명세의 contig 정의가 SAM @SQ의 M5와 같다고 적음).",
+          "sourceIds": ["vcf-spec"]
+        }
+      ],
+      "remedies": [
+        {
+          "statement": "같은 참조 FASTA에서 .fai와 .dict를 둘 다 다시 만듭니다(samtools faidx, CreateSequenceDictionary). CreateSequenceDictionary는 기존 .dict를 덮어쓰지 않으므로 기존 파일을 옮겨 두는 일이 먼저 필요합니다. 그 전에 이 FASTA가 BAM과 VCF를 만들 때 쓴 바로 그 파일인지 확인합니다. FASTA가 바뀐 것이라면 색인만 다시 만들면 진짜 불일치가 가려집니다.",
+          "sourceIds": ["samtools-faidx", "picard-create-dict"],
+          "changes": "참조 FASTA 옆의 .fai와 .dict 파일을 새로 씁니다",
+          "approval": "리소스 관리자"
+        }
+      ]
+    },
+    {
+      "kind": "contig_style_mismatch",
+      "title": "설정의 염색체 이름 방식과 참조가 다름",
+      "checks": [
+        {
+          "statement": "실행 설정의 contig_style 값과 참조 FASTA의 염색체 이름 방식(chr 접두사 유무)이 같은지 확인합니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ],
+      "cautions": [
+        {
+          "statement": "BED나 VCF의 염색체 이름을 임의로 바꿔 맞추지 않습니다. BED 명세는 염색체 이름이 참조와 같은 방식이어야 한다고 적고 있으며, 이름 방식이 다른 파일은 다른 참조용으로 만들어졌을 수 있습니다.",
+          "sourceIds": ["ga4gh-bed-spec"]
+        }
+      ],
+      "remedies": [
+        {
+          "statement": "실행 설정에 적힌 이름 방식 값이 잘못 적힌 것인지, 참조가 다른 이름 방식으로 만들어진 것인지 먼저 구분합니다. 설정 값이 틀렸다면 참조에 맞게 설정을 고치고, 참조나 리소스가 다르다면 같은 빌드와 같은 이름 방식으로 만든 파일을 구합니다. 염색체 이름만 바꾼 사본을 만드는 것(bcftools annotate --rename-chrs 등)은 데이터를 고치는 일이며, 바꾸는 모든 contig의 길이가 참조와 같은지 확인된 경우에만 고려합니다.",
+          "sourceIds": ["main-sh-resource-bundle", "bcftools-manual", "gatk-dict-utils"],
+          "changes": "실행 설정 값을 고치거나 리소스 파일을 교체 또는 사본으로 새로 만듭니다",
+          "approval": "데이터 담당자와 서버 관리자"
+        }
+      ]
+    },
+    {
+      "kind": "contig_style_unrecognised",
+      "title": "설정의 염색체 이름 방식을 알 수 없음",
+      "checks": [
+        {
+          "statement": "실행 설정의 contig_style에 파이프라인이 아는 이름 방식이 적혀 있는지 확인합니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ]
+    },
+    {
+      "kind": "known_sites_empty",
+      "title": "known sites가 하나도 선언되지 않음",
+      "checks": [
+        {
+          "statement": "참조 자료 묶음 설정의 known sites 목록에 VCF가 하나 이상 선언돼 있는지 확인합니다. 이 파이프라인에서 BQSR은 core 단계라 known sites가 반드시 필요합니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ],
+      "cautions": [
+        {
+          "statement": "BQSR을 빼는 방식으로 우회하지 않습니다. 이 파이프라인에서 BQSR은 core 단계입니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ]
+    },
+    {
+      "kind": "vcf_header_unparseable",
+      "title": "VCF 헤더를 읽지 못함",
+      "checks": [
+        {
+          "statement": "해당 VCF의 헤더를 bcftools로 읽을 수 있는지 확인합니다. 파이프라인은 bcftools view -h가 실패하면 이 원인을 기록합니다.",
+          "sourceIds": ["main-sh-resource-bundle", "bcftools-manual"]
+        }
+      ]
+    },
+    {
+      "kind": "vcf_tool_unavailable",
+      "title": "VCF 확인에 쓰는 도구(bcftools 또는 tabix)를 실행하지 못했거나 확인을 끝내지 못함",
+      "checks": [
+        {
+          "statement": "원인 문장에 붙은 오류를 먼저 봅니다. 파이프라인은 도구를 시작하지 못한 경우와 제한 시간 안에 끝내지 못한 경우를 같은 분류로 기록합니다. 오류가 '파일이나 디렉터리가 없음'(Errno 2)이면 도구를 찾지 못한 것이고, 시간 초과라면 도구는 시작됐지만 그 VCF 확인이 끝나지 않은 것이라 입력 파일도 함께 봐야 합니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        },
+        {
+          "statement": "도구를 찾지 못한 경우, 파이프라인을 실행하는 계정과 환경에서 그 도구를 이름만으로 실행할 수 있는지(command -v 와 --version) 확인합니다. HTSlib 설치 문서는 설치 위치의 bin 폴더를 PATH에 추가하도록 안내합니다.",
+          "sourceIds": ["main-sh-resource-bundle", "htslib-install"]
+        },
+        {
+          "statement": "이 원인은 확인하려던 VCF마다 한 줄씩 기록되므로, 같은 문장이 여러 번 나와도 도구 문제 하나일 수 있습니다. 같은 실행에 필수 도구 검사 실패도 있다면 두 기록이 같은 도구를 가리키는지 함께 봅니다.",
+          "sourceIds": ["main-sh-resource-bundle", "main-sh-required-tools"]
+        }
+      ],
+      "cautions": [
+        {
+          "statement": "도구를 설치하거나 PATH를 바꾸는 일은 서버 관리자의 작업입니다. 도구 문제가 해결돼도 같은 실행에 기록된 다른 원인은 그대로 남습니다.",
+          "sourceIds": ["main-sh-required-tools"]
+        }
+      ],
+      "remedies": [
+        {
+          "statement": "기록이 '파일이나 디렉터리가 없음'이라면, 서버 관리자가 bcftools와 tabix를 설치하거나 실행 경로(PATH)에 등록합니다. 파이프라인은 도구를 스스로 설치하지 않습니다. 시간 초과였다면 설치가 아니라 입력 파일 쪽을 먼저 봅니다.",
+          "sourceIds": ["htslib-install", "main-sh-required-tools"],
+          "changes": "서버의 프로그램 설치 상태나 실행 경로 설정을 바꿉니다",
+          "approval": "서버 관리자"
+        }
+      ]
+    },
+    {
+      "kind": "vcf_contig_list_unreadable",
+      "title": "VCF 색인에서 contig 목록을 읽지 못함",
+      "checks": [
+        {
+          "statement": "해당 VCF의 tabix 색인에서 contig 목록을 읽을 수 있는지 확인합니다. tabix 문서는 입력이 위치 순으로 정렬되고 bgzip으로 압축돼 있어야 한다고 적고 있습니다.",
+          "sourceIds": ["main-sh-resource-bundle", "tabix-manual"]
+        }
+      ]
+    },
+    {
+      "kind": "vcf_index_missing",
+      "title": "VCF 색인(.tbi 또는 .csi)이 없음",
+      "checks": [
+        {
+          "statement": "VCF 파일 옆에 같은 이름의 .tbi 또는 .csi 색인 파일이 있는지 확인합니다. bcftools 문서는 여러 VCF를 함께 읽을 때 색인이 필요하다고 적고 있습니다.",
+          "sourceIds": ["main-sh-resource-bundle", "bcftools-manual", "tabix-manual"]
+        }
+      ],
+      "cautions": [
+        {
+          "statement": "색인을 만드는 일은 리소스 폴더에 새 파일을 쓰는 작업이므로 리소스 관리자가 판단합니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ],
+      "remedies": [
+        {
+          "statement": "같은 VCF에서 색인 파일만 새로 만듭니다(tabix -p vcf 또는 bcftools index -t). VCF 자체는 바뀌지 않습니다. 먼저 VCF가 bgzip으로 압축되고 위치 순서로 정렬돼 있는지 확인해야 하며, 그렇지 않다면 그 자리에서 다시 정렬하거나 압축하지 말고 원래 출처에서 올바른 파일을 받습니다.",
+          "sourceIds": ["tabix-manual", "bcftools-manual"],
+          "changes": "VCF 옆에 .tbi 색인 파일을 새로 씁니다(두 명령 모두 .tbi를 만듭니다)",
+          "approval": "리소스 관리자"
+        }
+      ]
+    },
+    {
+      "kind": "vcf_contig_length_mismatch",
+      "title": "VCF가 선언한 contig 길이가 참조와 다름",
+      "checks": [
+        {
+          "statement": "VCF 헤더에 선언된 contig 길이가 참조 .fai의 길이와 같은지 확인합니다. 다르면 다른 참조 버전용으로 만들어진 VCF일 수 있습니다.",
+          "sourceIds": ["main-sh-resource-bundle", "vcf-spec"]
+        }
+      ],
+      "cautions": [
+        {
+          "statement": "헤더의 길이만 고쳐 맞추지 않습니다. 헤더를 고쳐도 파일이 만들어진 참조 버전은 바뀌지 않습니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ],
+      "remedies": [
+        {
+          "statement": "참조와 같은 빌드로 만든 VCF로 바꿉니다. 같은 이름의 contig 길이가 다르면 다른 빌드일 가능성이 큽니다. GATK의 사전 검증 끄기 옵션(--disable-sequence-dictionary-validation)으로 넘기지 않습니다. GATK 소스의 옵션 설명도 위험을 감수하라고 적고 있습니다.",
+          "sourceIds": ["gatk-dict-utils", "gatk-dict-validation", "vcf-spec"],
+          "changes": "리소스 VCF를 교체합니다",
+          "approval": "리소스 관리자"
+        }
+      ]
+    },
+    {
+      "kind": "vcf_contigs_absent",
+      "title": "VCF의 contig가 참조에 없음",
+      "checks": [
+        {
+          "statement": "VCF 색인에 있는 contig 이름이 참조에도 있는지, 이름 방식(chr 접두사 유무)이 같은지 확인합니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ],
+      "remedies": [
+        {
+          "statement": "참조에 없는 contig가 이름 방식 차이(예: chr1과 1) 때문인지 다른 빌드 때문인지 먼저 구분한 뒤, 참조와 같은 빌드와 같은 이름 방식으로 만든 VCF로 바꿉니다. GATK의 사전 검증 끄기 옵션으로 넘기지 않습니다.",
+          "sourceIds": ["gatk-dict-utils", "gatk-dict-validation", "vcf-spec"],
+          "changes": "리소스 VCF를 교체합니다",
+          "approval": "리소스 관리자"
+        }
+      ]
+    },
+    {
+      "kind": "checksum_mismatch",
+      "title": "BED 파일의 SHA-256 값이 기록된 값과 다름",
+      "checks": [
+        {
+          "statement": "선언한 BED 파일이 메타데이터가 가리키는 바로 그 파일인지, 다른 버전으로 바뀌지 않았는지 확인합니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ],
+      "cautions": [
+        {
+          "statement": "메타데이터의 기대값을 실제 파일의 값으로 바꿔 검사를 통과시키지 않습니다. 파일의 출처를 먼저 확인합니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ],
+      "remedies": [
+        {
+          "statement": "원래 출처에서 파일을 다시 받거나 복원한 뒤, 제공처가 공개한 체크섬과 비교합니다. 기록된 기대값은 제공처의 체크섬으로 새 값이 확인되고 그 이유를 남길 때만 바꿉니다. 방금 계산된 값으로 기대값을 덮어쓰지 않습니다.",
+          "sourceIds": ["main-sh-resource-bundle", "cwl-v12-commandlinetool"],
+          "changes": "BED 파일을 교체하거나, 확인된 경우에만 기록된 기대값을 고칩니다",
+          "approval": "데이터 담당자"
+        }
+      ]
+    },
+    {
+      "kind": "bed_content_invalid",
+      "title": "BED 내용이 형식에 맞지 않음",
+      "checks": [
+        {
+          "statement": "BED의 각 줄이 최소 3열(염색체, 시작, 끝)을 갖는지, 시작과 끝이 정수인지, 염색체가 참조에 있고 구간이 참조 길이 안에 있는지 확인합니다. BED의 시작 좌표는 0부터 세고 끝 좌표는 구간에 포함되지 않습니다.",
+          "sourceIds": ["main-sh-resource-bundle", "ucsc-bed-format", "ga4gh-bed-spec"]
+        }
+      ]
+    }
+  ],
+  "roles": [
+    {
+      "role": "target_bed",
+      "title": "target BED (분석할 구간)",
+      "checks": [
+        {
+          "statement": "target BED는 엑솜 분석에서 분석할 구간을 정하는 파일입니다. Broad의 엑솜 파이프라인도 시퀀싱 제공처가 준 target 구간 목록을 입력으로 씁니다. 사용한 capture kit와 참조 버전에 맞는 파일인지 출처를 확인합니다.",
+          "sourceIds": ["main-sh-capture-kit", "broad-warp-exome"]
+        }
+      ]
+    },
+    {
+      "role": "coverage_bed",
+      "title": "coverage BED (깊이를 집계할 구간)",
+      "checks": [
+        {
+          "statement": "coverage BED는 깊이를 집계할 구간을 정하는 파일이며 target BED와 따로 선언됩니다. 두 파일을 각각 확인합니다.",
+          "sourceIds": ["main-sh-resource-bundle", "main-sh-capture-kit"]
+        }
+      ]
+    },
+    {
+      "role": "known_sites",
+      "title": "known sites VCF",
+      "checks": [
+        {
+          "statement": "known sites는 core 단계인 BQSR에 필요한 VCF 목록입니다. 목록의 각 VCF와 그 색인을 따로 확인합니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ]
+    },
+    {
+      "role": "dbsnp_vcf",
+      "title": "dbSNP VCF",
+      "checks": [
+        {
+          "statement": "dbsnp_vcf는 선언하지 않아도 되지만, 선언했다면 읽을 수 있어야 합니다. 선언된 값이 의도한 파일인지 확인합니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ]
+    },
+    {
+      "role": "reference_fasta",
+      "title": "참조 FASTA",
+      "checks": [
+        {
+          "statement": "참조 FASTA는 다른 리소스가 맞춰야 하는 기준입니다. 선언된 FASTA가 참조 자료 묶음 설정이 가리키는 참조 유전체 버전(assembly)인지 확인합니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ]
+    },
+    {
+      "role": "reference_fai",
+      "title": "참조 FASTA 색인 (.fai)",
+      "checks": [
+        {
+          "statement": ".fai는 samtools faidx가 참조 FASTA에서 만드는 색인입니다. 같은 FASTA에서 만들어진 파일인지 확인합니다.",
+          "sourceIds": ["samtools-faidx", "main-sh-resource-bundle"]
+        }
+      ]
+    },
+    {
+      "role": "reference_dict",
+      "title": "참조 sequence dictionary (.dict)",
+      "checks": [
+        {
+          "statement": ".dict는 참조의 contig 이름과 길이를 담은 파일입니다. .fai와 같은 FASTA에서 만들어졌는지 확인합니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ]
+    },
+    {
+      "role": "bwa_index",
+      "title": "BWA 색인",
+      "checks": [
+        {
+          "statement": "BWA 색인은 정렬 단계에서 bwa가 읽는 참조 색인 파일 묶음입니다. 참조 FASTA와 같은 이름을 기준으로 놓여 있는지 확인합니다.",
+          "sourceIds": ["main-sh-resource-bundle"]
+        }
+      ]
+    }
+  ]
+}

@@ -53,6 +53,7 @@ from app import config, db
 from app.services.explanation import deterministic, run_context
 from app.services.explanation.deterministic import RunExplanation
 
+from . import local_data
 from .agent_cases import isolated_environment
 
 # The original process's argv. Not evidence, and it carries absolute paths.
@@ -75,8 +76,8 @@ REAL_RUNS: dict[str, RealRun] = {
     "real_cba73e": RealRun(
         name="real_cba73e",
         intent="실제 완주 Run -- completed_with_warnings, 경고 3종이 04/05/06에 하나씩",
-        capture_dir=config.ROOT / ".capture_success_cba73e",
-        run_id="wes-20260918-222933-cba73e",
+        capture_dir=local_data.source_path("captureDir", case="real_cba73e"),
+        run_id=local_data.run_id("real_cba73e"),
         split="dev",
     ),
 }
@@ -113,11 +114,79 @@ def payload_hash(payload: object) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-# A Windows drive path, or a POSIX path under a typical server root. In JSON
-# text a backslash is escaped, hence both separators.
-_ABSOLUTE_PATH = re.compile(
-    r"[A-Za-z]:(?:\\\\|\\|/)|(?<![\w.])/(?:home|root|mnt|data|tmp|Users|var|opt|srv)/"
+# Absolute paths in the forms a run, a log or a model answer can carry them.
+# It mirrors what the app's redactor removes (app/services/agent/privacy.py:
+# drive paths, UNC, any rooted POSIX path of two or more segments), so a gap in
+# the redactor shows up here instead of passing unseen. Each alternative:
+#
+#   C:\  C:\\  C:/   a drive path, also JSON-escaped -- but not the "s:/" of
+#                    "https://" (letter or digit right before) nor "x://"
+#   \\server\x      UNC, raw or JSON-escaped; not the second half of "C:\\"
+#   file://          a file URI (its path follows a third slash)
+#   /a/b             a rooted POSIX path, 2+ segments whose names may hold any
+#                    character but whitespace, quotes, "<>|" -- not "PASS/FAIL",
+#                    "<path>/x", a relative "dir/file", "2026/11/15" or the
+#                    "//host/a" of a URL (word char, ".", ":", "/", ">", "~" before)
+#   /a<path>         a rooted fragment the app redactor left in front of its
+#                    placeholder ("/lab+private<path>", Codex review r2)
+#   ~/x              a home-relative path
+#
+# Segment names exclude "(", ")" and "*" so algebra and markdown such as
+# "/(A+B)/(C+D)" or "/**PASS**/**FAIL**" are not paths (Codex review r2).
+# Known ambiguity kept: a leading unit like "/kg/day" still counts.
+#
+# Before matching, JSON's optional "\/" escape is undone, so "\/home\/x" counts.
+_PATH_PATTERN = (
+    r"(?<![A-Za-z0-9])[A-Za-z]:(?:\\\\|\\|/)(?!/)"
+    r"|(?<![\\\w:])(?:\\\\){1,2}[\w.$\-]+(?:\\){1,2}[\w.$\-]"
+    r"|file:/{2,3}"
+    r"|(?<![\w.:/<>~\-])/[^\s/\"'<>|()*]+/[^\s/\"'<>|()*]+"
+    r"|(?<![\w.:/<>~\-])/[^\s/\"'<>|()*]+(?=<path>)"
+    r"|(?<![\w.])~/[\w.\-]+"
 )
+_ABSOLUTE_PATH = re.compile(_PATH_PATTERN)
+# The same, extended over the rest of the path, for masking terminal output.
+_PATH_TOKEN = re.compile(rf"(?:{_PATH_PATTERN})[^\s\"'<>|,;)\]]*")
+
+
+def _unescape_slashes(text: str) -> str:
+    return text.replace("\\/", "/")
+
+
+def count_paths(text: str) -> int:
+    """How many absolute paths `text` carries. A count, never the matches."""
+    return len(_ABSOLUTE_PATH.findall(_unescape_slashes(text)))
+
+
+def mask_paths(text: str) -> str:
+    """`text` with every absolute path replaced by <path>."""
+    return _PATH_TOKEN.sub("<path>", _unescape_slashes(text))
+
+
+def _literal_forms(literal: str) -> set[str]:
+    """A literal as written, and as it appears inside JSON text."""
+    return {
+        literal,
+        json.dumps(literal)[1:-1],
+        json.dumps(literal, ensure_ascii=False)[1:-1],
+    }
+
+
+def literal_hits(text: str, literals: Iterable[str]) -> int:
+    """How many of `literals` occur in `text`, raw or JSON-escaped."""
+    return sum(
+        1
+        for literal in literals
+        if literal and any(form in text for form in _literal_forms(str(literal)))
+    )
+
+
+def mask_literals(text: str, literals: Iterable[str]) -> str:
+    """`text` with each literal (raw or JSON-escaped) replaced by <redacted>."""
+    for literal in sorted({str(v) for v in literals if v}, key=len, reverse=True):
+        for form in sorted(_literal_forms(literal), key=len, reverse=True):
+            text = text.replace(form, "<redacted>")
+    return text
 
 
 def forbidden_literals(run: RealRun) -> list[str]:
@@ -141,8 +210,7 @@ def count_leaks(text: str, run: RealRun, extra: Iterable[str] = ()) -> int:
     put the sample name or a path into a log.
     """
     literals = [*forbidden_literals(run), *(str(value) for value in extra)]
-    hits = sum(1 for literal in literals if literal and literal in text)
-    return hits + len(_ABSOLUTE_PATH.findall(text))
+    return literal_hits(text, literals) + count_paths(text)
 
 
 def _read_job_row(run: RealRun) -> dict[str, object]:

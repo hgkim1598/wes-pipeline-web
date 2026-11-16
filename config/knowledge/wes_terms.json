@@ -167,7 +167,7 @@
       "id": "vcf",
       "label": "VCF",
       "aliases": ["VCF 파일", "변이 기록 파일"],
-      "plain": "참조 유전체와 다른 위치를 한 줄에 하나씩 모아 기록한 파일입니다.",
+      "plain": "변이 기록을 한 줄에 하나씩 담는 텍스트 파일 형식입니다. 이 파이프라인이 만든 결과 파일뿐 아니라 known sites 같은 참조 자료(이미 알려진 변이 목록)도 이 형식입니다.",
       "definition": {
         "statement": "VCF 명세는 VCF를 텍스트 형식으로 정의하며, 각 데이터 행은 유전체의 한 위치에 대한 정보를 담습니다.",
         "sourceIds": ["vcf-spec"]
@@ -241,6 +241,28 @@
         "failures": []
       },
       "mentions": ["NM", "MD"]
+    },
+    {
+      "id": "bed",
+      "label": "BED",
+      "aliases": ["BED 파일", "구간 파일"],
+      "plain": "분석하거나 집계할 유전체 구간을 한 줄에 하나씩 적은 텍스트 파일입니다.",
+      "definition": {
+        "statement": "BED 형식은 각 줄에 염색체 이름, 시작 위치, 끝 위치를 필수로 적습니다. 시작 위치는 0부터 세고 끝 위치는 구간에 포함하지 않습니다.",
+        "sourceIds": ["ucsc-bed-format", "ga4gh-bed-spec"]
+      },
+      "misreadings": [
+        {
+          "statement": "이 파이프라인의 target BED와 coverage BED는 따로 선언되는 별개의 파일입니다. 하나가 정상이어도 다른 하나는 따로 확인해야 합니다.",
+          "sourceIds": ["main-sh-resource-bundle", "main-sh-capture-kit"]
+        }
+      ],
+      "usedWhen": {
+        "sections": ["coverage"],
+        "diagnostics": ["ZERO_COVERAGE_TARGET_BASES", "UNCOVERED_TARGETS", "LOW_MEAN_COVERAGE"],
+        "failures": ["resource_bundle"]
+      },
+      "mentions": ["BED"]
     }
   ]
 }

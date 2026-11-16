@@ -95,6 +95,7 @@ decide whether a rewrite is asked for.
 
 from __future__ import annotations
 
+import copy
 import logging
 from collections.abc import Callable
 from contextlib import nullcontext
@@ -199,6 +200,7 @@ def build_run_synthesis(
     run_provider=None,
     on_tool_use: Callable[[tools.ToolUse], None] | None = None,
     on_trace: Callable[[trace.SynthesisTrace], None] | None = None,
+    on_rejection: Callable[[dict[str, Any]], None] | None = None,
     offer_tools: bool = True,
     repair: bool | None = None,
 ) -> SynthesisResult:
@@ -226,6 +228,14 @@ def build_run_synthesis(
     observers carry different things on purpose: `on_tool_use` hands over the
     tool's RESULTS, which an eval needs in memory and which must never be
     stored; `on_trace` hands over only what may be kept.
+
+    `on_rejection` is the third, for evaluation only -- the route never passes
+    it. When a gate discards an answer, the caller still gets the same
+    unavailable result; this hands the observer the discarded answer and the
+    gate findings, so a rejection can be read and reproduced instead of
+    guessed at. Without it the only trace of a false positive in a gate is
+    its category. It fires at most once, for the answer that was finally
+    discarded, and never for one that was served.
 
     `run_provider` defaults to None and is resolved here rather than in the
     signature. A default of `provider.run_structured` would bind the function
@@ -283,6 +293,30 @@ def build_run_synthesis(
                 )
             )
         return outcome
+
+    def discarded(verdict: _Verdict, *, attempt: int) -> SynthesisResult:
+        """The usual rejection; the discarded answer goes to the observer only."""
+        if on_rejection is not None:
+            # A deep copy: the observer may keep or change it; the verdict is ours.
+            # A failing observer must not turn a rejection into an exception or
+            # cost the trace -- only its type is logged, since the message could
+            # quote the discarded answer.
+            try:
+                on_rejection(
+                    copy.deepcopy(
+                        {
+                            "attempt": attempt,
+                            "category": verdict.category,
+                            "findings": list(verdict.findings),
+                            "answer": None
+                            if verdict.parsed is None
+                            else verdict.parsed.model_dump(),
+                        }
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001 -- see above
+                log.warning("rejection observer failed: %s", type(exc).__name__)
+        return _rejected(verdict)
 
     def served(synthesis: contract.RunSynthesis) -> SynthesisResult:
         return emit(
@@ -382,7 +416,7 @@ def build_run_synthesis(
 
     first_rejection = first.category
     if not repair_enabled:
-        return emit(_rejected(first))
+        return emit(discarded(first, attempt=1))
 
     # The one rewrite. Same provider, same model, same payload, same schema; no
     # tool channel (the `with` block above has closed it); the fact set and the
@@ -424,7 +458,7 @@ def build_run_synthesis(
         log.info("synthesis rewrite passed every gate")
         return served(second.synthesis)
     log.warning("synthesis rewrite rejected by %s; discarded", second.category)
-    return emit(_rejected(second))
+    return emit(discarded(second, attempt=2))
 
 
 def _add(total: int | None, more: int | None) -> int | None:

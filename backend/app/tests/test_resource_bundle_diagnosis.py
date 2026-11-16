@@ -299,6 +299,34 @@ def test_agent_parity_also_holds_without_a_sample(client, make_job, run):
     assert evidence.resourceBundleDiagnosis.model_dump(mode="json") == api
 
 
+def test_agent_gets_curated_checks_per_distinct_cause_through_the_tool_path(client, make_job, run):
+    # P1. The fixture's four sentences classify as target_bed missing,
+    # coverage_bed missing, bcftools unavailable, and one unknown sentence.
+    failed_precheck(run)
+    make_job(RUN_ID, sample_id=SAMPLE)
+    evidence = read_step_evidence(run_scope.for_job(RUN_ID), STEP)
+    keys = [(g.kind, g.resourceRole) for g in evidence.causeGuidance]
+    assert keys == [
+        ("resource_missing_or_empty", "target_bed"),
+        ("resource_missing_or_empty", "coverage_bed"),
+        ("vcf_tool_unavailable", "unknown"),
+    ]
+    for guidance in evidence.causeGuidance:
+        assert guidance.checks and guidance.sources
+        for text in [guidance.title, *guidance.checks, *guidance.cautions, *guidance.sources]:
+            assert not PATHISH.search(text), text
+            assert SAMPLE.lower() not in text.lower()
+    # The public step detail is unchanged: the guidance is agent input only.
+    assert "causeGuidance" not in get_step(client)
+
+
+def test_agent_gets_no_curated_checks_for_a_step_without_a_diagnosis(make_job, run):
+    builder = failed_precheck(run)
+    builder.step("01_raw_qc", status="completed")
+    make_job(RUN_ID, sample_id=SAMPLE, run_mode="full")
+    assert read_step_evidence(run_scope.for_job(RUN_ID), "01_raw_qc").causeGuidance == []
+
+
 def test_agent_null_for_other_steps(make_job, run):
     builder = failed_precheck(run)
     builder.step("01_raw_qc", status="completed")
@@ -333,10 +361,12 @@ def test_internal_value_is_not_a_response_model():
 
 # --- real runs through the API and the agent ---------------------------------
 
-ARCHIVE = config.ROOT / "wes_failure_evidence_20261112.tar.gz"
+from evals import local_data
+
+ARCHIVE = local_data.source_path("archive")
 real = pytest.mark.skipif(
-    not ARCHIVE.is_file(),
-    reason="real-run archive wes_failure_evidence_20261112.tar.gz is not present",
+    not ARCHIVE.is_file() or not all(local_data.run_id(c) for c in ("real_3a22c5", "real_b94559", "real_68aa20")),
+    reason="private real-run source or local registration is absent",
 )
 FULL_PLAN = [
     "00_input_validation", "01_raw_qc", "02_preprocessing", "03_alignment",
@@ -354,14 +384,17 @@ def evidence(tmp_path_factory) -> Path:
 
 @real
 @pytest.mark.parametrize(
-    ("run_id", "sample", "count"),
+    ("case", "count"),
     [
-        # sample ids as the run's own log names them; the archive has no DB.
-        ("wes-20260904-194645-3a22c5", "DEMO_WES", 2),
-        ("wes-20260917-223800-b94559", "SRR2962669.tail_5M", 4),
+        ("real_3a22c5", 2),
+        ("real_b94559", 4),
     ],
 )
-def test_real_runs_through_api_and_agent(client, make_job, evidence, run_id, sample, count):
+def test_real_runs_through_api_and_agent(client, make_job, evidence, case, count):
+    run_id = local_data.run_id(case)
+    sample = json.loads(
+        (evidence / run_id / "metrics" / "00_input_validation.json").read_text(encoding="utf-8")
+    )["metrics"]["sample"]
     make_job(run_id, sample_id=sample, run_mode="full", planned=FULL_PLAN,
              run_dir=evidence / run_id)
     body = get_step(client, job=run_id)
@@ -371,15 +404,18 @@ def test_real_runs_through_api_and_agent(client, make_job, evidence, run_id, sam
     assert len(diagnosis["causes"]) == count
     assert diagnosis["withheldTextCount"] == 0
     assert all(c["evidenceText"] for c in diagnosis["causes"])
-    assert_nothing_identifying(diagnosis, sample, run_id, "vboxuser", "/home")
+    assert_nothing_identifying(diagnosis, sample, run_id, "/home")
     evidence_value = read_step_evidence(run_scope.for_job(run_id), STEP)
     assert evidence_value.resourceBundleDiagnosis.model_dump(mode="json") == diagnosis
 
 
 @real
 def test_real_68aa20_through_api_is_not_applicable(client, make_job, evidence):
-    run_id = "wes-20260904-172826-68aa20"
-    make_job(run_id, sample_id="DEMO_WES", run_mode="full", planned=FULL_PLAN,
+    run_id = local_data.run_id("real_68aa20")
+    sample = json.loads(
+        (evidence / run_id / "metrics" / "00_input_validation.json").read_text(encoding="utf-8")
+    )["metrics"]["sample"]
+    make_job(run_id, sample_id=sample, run_mode="full", planned=FULL_PLAN,
              run_dir=evidence / run_id)
     diagnosis = get_step(client, job=run_id)["resourceBundleDiagnosis"]
     assert diagnosis["state"] == "not_applicable"

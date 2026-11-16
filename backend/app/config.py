@@ -77,6 +77,32 @@ CONCEPT_KNOWLEDGE = KNOWLEDGE_DIR / "wes_concepts.json"
 # the concepts above, which are interpretation boundaries; each term says which
 # payload sections and codes need it, so only those are sent.
 TERM_KNOWLEDGE = KNOWLEDGE_DIR / "wes_terms.json"
+# Read-only checks for each classified resource_bundle cause kind and resource
+# role (P1). Looked up by exact key from the step detail tool; nothing is
+# searched or ranked.
+CAUSE_KIND_KNOWLEDGE = KNOWLEDGE_DIR / "wes_cause_kinds.json"
+# Verified official-document excerpts (local RAG, log 18). Searched only INSIDE
+# a cause kind the rule table already classified, so a passage can explain a
+# cause but never name one.
+# Preserve the existing local corpus byte-for-byte. A clean checkout has only
+# the empty public corpus; no private content is needed to start the service.
+PUBLIC_DOC_PASSAGES = KNOWLEDGE_DIR / "wes_doc_passages.public.json"
+_LOCAL_DOC_PASSAGES = KNOWLEDGE_DIR / "wes_doc_passages.json"
+
+
+def document_passage_path(knowledge_dir: Path, override: str = "") -> Path:
+    if override:
+        path = Path(override)
+        return path if path.is_absolute() else ROOT / path
+    local = knowledge_dir / "wes_doc_passages.json"
+    return local if local.is_file() else knowledge_dir / "wes_doc_passages.public.json"
+
+
+DOC_PASSAGE_KNOWLEDGE = document_passage_path(KNOWLEDGE_DIR, _env("WES_DOC_PASSAGES_FILE"))
+# Off by default: whether the excerpts help is what the v3 / v3rag eval compares,
+# and nothing has been measured yet. WES_DOC_RAG=1 turns it on (the agent's MCP
+# server receives the same value -- agent_mcp/launch.py).
+DOC_RAG = _env("WES_DOC_RAG", "0") == "1"
 
 # Model for AI synthesis, as a config value rather than a constant in the domain
 # layer -- swapping it must not touch a schema.
@@ -95,7 +121,7 @@ SYNTHESIS_MODEL = _env("WES_SYNTHESIS_MODEL", "sonnet") or None
 # pass/fail thresholds for coverage or depth; this is an operational limit on
 # one child process and has nothing to do with judging a run.
 #
-# 300, not the original 120: a real full run (wes-20260907-014650-fcb1c2, three
+# 300, not the original 120: a real full run (a preserved development run, three
 # diagnostics plus coverage and variant sections) took 160.7 seconds and the
 # 120s limit killed a call that was working. The bound exists to stop a wedged
 # CLI holding a worker thread, so it should sit well above a normal generation
