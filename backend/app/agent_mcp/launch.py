@@ -72,13 +72,17 @@ def build_mcp_config(
                     JOB_ID_ENV: job_id,
                     SINK_PATH_ENV: str(sink.path),
                     MAX_STEPS_ENV: str(max_distinct_steps),
-                    "WES_DB_PATH": str(config.DB_PATH),
-                    "WES_RUNS_ROOT": str(config.RUNS_ROOT),
+                    # Absolute: the CLI starts this server in ITS working
+                    # directory, which is a per-call temporary directory
+                    # (provider._run_child). A relative WES_DB_PATH from
+                    # backend/.env would otherwise point somewhere else.
+                    "WES_DB_PATH": str(Path(config.DB_PATH).resolve()),
+                    "WES_RUNS_ROOT": str(Path(config.RUNS_ROOT).resolve()),
                     # The server process reads config from this env, not from
                     # the parent's module state: without it an eval that turns
                     # the excerpts on in-process would get a server without them.
                     "WES_DOC_RAG": "1" if config.DOC_RAG else "0",
-                    "WES_DOC_PASSAGES_FILE": str(config.DOC_PASSAGE_KNOWLEDGE),
+                    "WES_DOC_PASSAGES_FILE": str(Path(config.DOC_PASSAGE_KNOWLEDGE).resolve()),
                 },
             }
         }

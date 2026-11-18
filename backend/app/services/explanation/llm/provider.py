@@ -57,7 +57,9 @@ import json
 import logging
 import os
 import shutil
+import signal
 import subprocess
+import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -110,6 +112,37 @@ class ProviderResult:
     numTurns: int | None = None
 
 
+# Context the CLI would otherwise add on its own, switched off by the names its
+# documentation gives (code.claude.com/docs/en/env-vars.md, read 2026-11-17).
+# Set AFTER the CLAUDE_CODE_* strip below, so a parent value cannot win and no
+# parent session identifier comes back with them.
+#
+#   CLAUDE_CODE_DISABLE_CLAUDE_MDS       no CLAUDE.md of any scope (user,
+#                                        project, auto memory)
+#   CLAUDE_CODE_DISABLE_AUTO_MEMORY      auto memory neither loaded nor created
+#   CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS no git workflow text and no git status
+#                                        snapshot of the working directory
+#   ENABLE_CLAUDEAI_MCP_SERVERS=false    no claude.ai connectors; a claude.ai
+#                                        login loads them otherwise, and
+#                                        --strict-mcp-config is not documented
+#                                        to cover them
+#
+# None of them touches the login or the --mcp-config server: the docs mention
+# neither for these names, and the fake-CLI E2E runs the real MCP server with
+# them set. Whether the real CLI's context is in fact smaller is NOT verified
+# without a real call -- see the development log, chapter 25.
+_ISOLATION_ENV = {
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+    "CLAUDE_CODE_DISABLE_CLAUDE_MDS": "1",
+    "CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS": "1",
+    "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+}
+
+# After a timeout, how long the killed tree gets to release its pipes. Not the
+# timeout itself: that stays config.SYNTHESIS_TIMEOUT_SECONDS.
+_KILL_GRACE_SECONDS = 5
+
+
 def _child_environment() -> dict[str, str]:
     """A clean environment for the child process.
 
@@ -131,7 +164,101 @@ def _child_environment() -> dict[str, str]:
         if key not in _METERED_AUTH_ENV and not key.startswith("CLAUDE_CODE_")
     }
     env.pop("CLAUDECODE", None)
+    env.update(_ISOLATION_ENV)
     return env
+
+
+def _kill_tree(proc: subprocess.Popen) -> None:
+    """Stop the child AND everything it started.
+
+    `Popen.kill` reaches only the direct child. On Windows that is cmd.exe
+    (claude.CMD), and the CLI and its MCP server live on underneath it with
+    the pipes still open; on Linux the CLI's MCP server is the same case one
+    level down. Reproduced: a 3s timeout returned after 12s, when the
+    grandchild finished on its own (development log, chapter 25).
+
+    Windows: `taskkill /T /F` walks the tree from the child's pid. It cannot
+    find a grandchild whose parent has already exited, which is why this runs
+    before anything else touches the child.
+    POSIX: the child was started in its own session, so its process group is
+    the tree; SIGTERM first so the CLI can exit cleanly, then SIGKILL for
+    whatever is left.
+    """
+    if os.name == "nt":
+        taskkill = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "taskkill.exe")
+        try:
+            subprocess.run(
+                [taskkill, "/T", "/F", "/PID", str(proc.pid)],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=_KILL_GRACE_SECONDS,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            log.warning("taskkill failed: %s", type(exc).__name__)
+        proc.kill()
+        return
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    try:
+        proc.wait(timeout=_KILL_GRACE_SECONDS)
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+
+
+def _run_child(
+    argv: Sequence[str],
+    *,
+    input_text: str | None,
+    timeout: float,
+    env: dict[str, str],
+) -> subprocess.CompletedProcess[str]:
+    """Run one CLI process in an empty temporary directory, tree-killed on timeout.
+
+    The working directory is a fresh directory outside the repository, removed
+    afterwards. The CLI reads CLAUDE.md from its working directory and every
+    parent, and takes a git status snapshot of it; the backend's own directory
+    is inside this repository. An empty directory gives it nothing to find.
+
+    Raises subprocess.TimeoutExpired after the whole tree has been stopped,
+    so the caller's timeout is the time the request actually waits (plus the
+    short kill grace), not the time the slowest grandchild happens to take.
+    """
+    with tempfile.TemporaryDirectory(prefix="wes-synthesis-", ignore_cleanup_errors=True) as workdir:
+        proc = subprocess.Popen(
+            list(argv),
+            stdin=subprocess.PIPE if input_text is not None else subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            # The CLI writes UTF-8 and the payload is Korean; without this the
+            # child is decoded with the Windows ANSI codepage and the JSON
+            # envelope comes back mangled.
+            encoding="utf-8",
+            errors="replace",
+            env=env,
+            cwd=workdir,
+            # Its own process group, so a timeout can stop the whole tree.
+            start_new_session=os.name == "posix",
+        )
+        try:
+            stdout, stderr = proc.communicate(input=input_text, timeout=timeout)
+        except BaseException:
+            # TimeoutExpired, and also an interrupt: never leave the tree behind.
+            _kill_tree(proc)
+            try:
+                proc.communicate(timeout=_KILL_GRACE_SECONDS)
+            except subprocess.TimeoutExpired:
+                log.warning("provider process tree still held its pipes after kill")
+            raise
+        return subprocess.CompletedProcess(list(argv), proc.returncode, stdout, stderr)
 
 
 def _preflight(executable: str) -> str:
@@ -162,15 +289,11 @@ def _preflight(executable: str) -> str:
         )
 
     try:
-        completed = subprocess.run(
+        completed = _run_child(
             [resolved, "auth", "status"],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
+            input_text=None,
             timeout=30,
             env=_child_environment(),
-            check=False,
         )
     except (subprocess.TimeoutExpired, OSError) as exc:
         raise ProviderError(
@@ -242,7 +365,9 @@ def run_structured(
                                   server configured on the box is ignored
         --setting-sources ""      ignore user/project/local settings, so the
                                   result does not depend on the developer's
-                                  machine
+                                  machine. The CLI reference does not say
+                                  what an EMPTY value does to CLAUDE.md (the
+                                  SDK docs do); _ISOLATION_ENV covers that
         --no-session-persistence  nothing about a user's run is written to the
                                   CLI's session store
 
@@ -289,19 +414,11 @@ def run_structured(
         argv += ["--model", model]
 
     try:
-        completed = subprocess.run(
+        completed = _run_child(
             argv,
-            input=user_prompt,
-            capture_output=True,
-            text=True,
-            # The CLI writes UTF-8 and the payload is Korean; without this the
-            # child is decoded with the Windows ANSI codepage and the JSON
-            # envelope comes back mangled.
-            encoding="utf-8",
-            errors="replace",
+            input_text=user_prompt,
             timeout=timeout_seconds,
             env=_child_environment(),
-            check=False,
         )
     except subprocess.TimeoutExpired as exc:
         raise ProviderError(
