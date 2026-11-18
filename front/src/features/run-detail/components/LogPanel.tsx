@@ -16,6 +16,11 @@ import { SectionHeader } from '@/components/ui/SectionHeader'
   줄을 파싱해 색을 입히지 않는다. main.sh의 로그 형식은 계약이 아니고, 화면이
   정규식으로 그것을 해석하기 시작하면 형식이 바뀔 때 조용히 깨진다. 여기서는
   서버가 준 줄을 그대로 등폭으로 보여준다.
+
+  가리기는 여기서 하지 않는다 (2026-11-17). 서버 경로와 샘플·실행 식별자는
+  backend가 응답을 만들 때 이미 <path>·<file>·<sample>·<run>으로 바꿔 보낸다
+  (backend/app/services/public_text.py). 화면에서 가리면 원문이 응답과 DOM에
+  남으므로 보호가 아니다. 캡션은 그 사실만 알린다.
 */
 
 export interface LogPanelProps {
@@ -60,8 +65,10 @@ export function LogPanel({ lines }: LogPanelProps) {
             ))}
           </div>
           <p className="text-caption text-text-muted">
-            파이프라인 로그의 마지막 200줄입니다. 전체 로그는 서버의 run
-            디렉터리에 있습니다.
+            파이프라인 로그의 마지막 200줄입니다. 서버 경로와 샘플·실행 식별자는{' '}
+            <code className="font-mono">&lt;path&gt;</code>·
+            <code className="font-mono">&lt;sample&gt;</code> 등으로 바꿔 표시합니다.
+            전체 원본 로그는 서버의 run 디렉터리에 있습니다.
           </p>
         </>
       )}

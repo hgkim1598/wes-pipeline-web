@@ -1,5 +1,5 @@
 import { fileURLToPath, URL } from 'node:url'
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import tailwindcss from '@tailwindcss/vite'
@@ -8,10 +8,28 @@ import { defineConfig, loadEnv } from 'vite'
 
 const DEFAULT_API_TARGET = 'http://127.0.0.1:8000'
 
+/*
+  이 설정 파일 기준 경로를 디스크에 실제로 적힌 철자(예: C:\...)로 돌려준다.
+
+  왜 (2026-11-17, 개발판단기록 23장)
+    Windows에서 작업 폴더가 소문자 드라이브(c:\...)로 잡힌 채 `npm run build`를
+    하면(VS Code가 c:\...로 연 폴더에서 시작한 셸 등) Vite가 이 파일을
+    c:\... 경로로 읽고, import.meta.url과 아래 별칭(@, @shared)도 c:\...가
+    된다. 그런데 node_modules는 C:\...로 풀려서, src/를 거쳐 들어온 react와
+    다른 경로로 들어온 react가 서로 다른 모듈로 취급돼 번들에 React가 두 번
+    들어갔다(화면 전체가 비고 콘솔에 "reading 'useContext'" 오류).
+    realpathSync.native는 입력 철자와 상관없이 실제 철자를 돌려주므로 셸이
+    무엇이든 별칭 경로가 node_modules와 같은 철자가 된다.
+  존재하는 경로에만 쓴다(없으면 예외).
+*/
+function fromHere(path: string): string {
+  return realpathSync.native(fileURLToPath(new URL(path, import.meta.url)))
+}
+
 // The release build always uses the public corpus. Local excerpts can be
 // served during development, but are never silently bundled into a release.
 function passageCorpus(command: string, mode: string): string {
-  const repo = fileURLToPath(new URL('..', import.meta.url))
+  const repo = fromHere('..')
   const publicFile = resolve(repo, 'config/knowledge/wes_doc_passages.public.json')
   if (command !== 'serve') return publicFile
   const env = loadEnv(mode, process.cwd(), 'WES_')
@@ -61,13 +79,13 @@ export default defineConfig(({ command, mode }) => ({
   resolve: {
     alias: {
       '@shared/knowledge/wes_doc_passages.public.json': passageCorpus(command, mode),
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@': fromHere('./src'),
       /*
         저장소 최상위의 공용 도메인 지식. frontend와 backend가 **같은 파일**을
         읽는다(backend는 app/services/explanation/knowledge.py).
         front/ 아래로 복사하지 않는다 — 사본이 생기면 언젠가 어긋난다.
       */
-      '@shared': fileURLToPath(new URL('../config', import.meta.url)),
+      '@shared': fromHere('../config'),
     },
   },
   server: {
@@ -79,7 +97,7 @@ export default defineConfig(({ command, mode }) => ({
       build에는 영향이 없다 — rollup이 번들에 인라인한다.
     */
     fs: {
-      allow: [fileURLToPath(new URL('..', import.meta.url))],
+      allow: [fromHere('..')],
     },
     proxy: {
       // Dev-only proxy. build 산출물에는 영향이 없다(fetch는 상대경로 /api).

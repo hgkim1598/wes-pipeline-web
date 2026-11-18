@@ -9,10 +9,12 @@ import { SectionHeader } from '@/components/ui/SectionHeader'
 import { TabsList, TabsPanel, TabsRoot, TabsTab } from '@/components/ui/Tabs'
 import { ArtifactsView } from '@/features/run-detail/components/ArtifactsView'
 import { DeveloperDetails } from '@/features/run-detail/components/DeveloperDetails'
+import { DocEvidenceSection } from '@/features/run-detail/components/DocEvidenceSection'
 import { LogPanel } from '@/features/run-detail/components/LogPanel'
 import { ResultsView } from '@/features/run-detail/components/ResultsView'
 import { AttentionSection } from '@/features/run-detail/components/AttentionSection'
 import { RunHeader } from '@/features/run-detail/components/RunHeader'
+import { ResourceCauseSection } from '@/features/run-detail/components/ResourceCauseSection'
 import { RunLimitations } from '@/features/run-detail/components/RunLimitations'
 import { RunSynthesisPanel } from '@/features/run-detail/components/RunSynthesisPanel'
 import { artifactLabelMap } from '@/features/run-detail/locators'
@@ -73,6 +75,9 @@ import { describeStep } from '@/registries/steps'
   사전 점검에서 멈춘 실행은 보여줄 것이 다르다.
 */
 
+/** 리소스 검사(resource_bundle)를 담당하는 단계. P0-1 원인은 이 단계 상세에만 있다. */
+const VALIDATION_STEP_ID = '00_input_validation'
+
 export function RunDetailPage() {
   const { jobId = '', tab } = useParams<{ jobId: string; tab?: string }>()
   const navigate = useNavigate()
@@ -93,6 +98,18 @@ export function RunDetailPage() {
   const artifacts = useArtifactsQuery(jobId, job?.status)
   const explanation = useExplanationQuery(jobId, job?.status)
   const cancel = useCancelJobMutation(jobId)
+
+  /*
+    리소스 검사 실패 원인(P0-1)은 입력 검증 단계의 상세에만 실려 온다. 그
+    단계가 실패했을 때만 한 번 읽는다(GET, 모델 호출 없음). 레일에서 같은 단계를
+    선택하면 같은 query key라 다시 요청하지 않는다.
+  */
+  const validationStep = job?.steps.find((s) => s.stepId === VALIDATION_STEP_ID)
+  const validationDetail = useStepDetailQuery(
+    jobId,
+    validationStep?.status === 'failed' ? VALIDATION_STEP_ID : null,
+    validationStep?.status,
+  )
 
   /*
     탭은 응답이 실제로 무엇을 담고 있는지로 정해진다. `/runs/{id}/results`를
@@ -144,11 +161,26 @@ export function RunDetailPage() {
       ? fromResults
       : collectFromExplanation(explanation.data.diagnostics)
 
+  /*
+    요약 띠의 건수. AttentionSection과 같은 입력에서 센다 — 실패는 구조화된
+    failures(없으면 원문 error 한 건), 확인 필요·참고는 진단의 kind다.
+  */
+  const failureCount =
+    explanation.data?.failures.length ||
+    diagnostics.counts.failure ||
+    (job.error && job.status !== 'cancelled' ? 1 : 0)
+  const issues = {
+    failures: failureCount,
+    attention: diagnostics.counts.attention,
+    notes: diagnostics.counts.repaired + diagnostics.counts.note,
+  }
+
   return (
     <Shell wide>
       <RunHeader
         job={job}
         listItem={listItem}
+        issues={issues}
         polling={{
           updatedAt: detail.dataUpdatedAt,
           failureCount: detail.failureCount,
@@ -207,6 +239,17 @@ export function RunDetailPage() {
         />
       ) : null}
 
+      {/*
+        실패 카드 바로 아래 — "무엇이 실패했나" 다음에 "왜, 그리고 무엇을 볼까".
+        리소스 검사 원인이 분류되지 않았거나 읽지 못하면 스스로 null이다.
+        읽기 실패는 화면을 깨지 않는다: 위 실패 카드가 이미 사실을 말한다.
+      */}
+      {job.status !== 'cancelled' ? (
+        <ResourceCauseSection
+          diagnosis={validationDetail.data?.resourceBundleDiagnosis}
+        />
+      ) : null}
+
       {job.unsupportedOptions.length > 0 ? (
         <MessageBlock
           tone="warning"
@@ -226,6 +269,13 @@ export function RunDetailPage() {
       {explanation.data ? (
         <RunLimitations limitations={explanation.data.limitations} />
       ) : null}
+
+      {/*
+        실패와 관련된 공식 문서 검색(개발판단기록 26장). 모델을 부르지 않는다.
+        이 Run의 관측 사실(위) 다음, AI 설명(아래) 앞에 둔다 — 검색 결과가 AI
+        설명의 일부로 읽히지 않게 별도 구획으로 분리한다.
+      */}
+      <DocEvidenceSection jobId={jobId} />
 
       {/*
         AI 종합 설명. 탭 바깥, 결정론적 설명 바로 아래에 둔다 — 위의 사실들을
@@ -271,8 +321,9 @@ export function RunDetailPage() {
               {/*
                 시안에는 여기에 라벨이 붙은 lg RunTape가 하나 더 있었지만
                 뺐다. 바로 아래 표가 같은 8단계를 이름·상태·소요시간까지
-                포함해 보여주고, 헤더에도 md 띠가 이미 있다. 한 화면에 같은
-                정보를 세 번 그리는 것은 UI chrome이지 정보가 아니다.
+                포함해 보여주고, 헤더에도 라벨 붙은 lg 띠가 있다(2026-11-17에
+                md에서 올림). 한 화면에 같은 정보를 세 번 그리는 것은 UI
+                chrome이지 정보가 아니다.
               */}
               <section className="flex flex-col gap-4">
                 <SectionHeader

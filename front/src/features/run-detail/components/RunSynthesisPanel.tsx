@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Sparkles } from 'lucide-react'
 
 import { ApiError } from '@/api/client'
@@ -123,11 +123,20 @@ export function RunSynthesisPanel({
     경과 시간이 잠깐 남는 문제도 생긴다.
   */
   const [startedAt, setStartedAt] = useState<number | null>(null)
+  const queryClient = useQueryClient()
   const synthesis = useMutation({
     mutationFn: () => createSynthesis(jobId),
     onMutate: () => setStartedAt(Date.now()),
     // 재시도 없음. 위 주석 참고.
     retry: false,
+    /*
+      서버 설정(WES_AGENT_DOC_EVIDENCE)이 켜져 있으면 이 요청이 문서 검색을
+      하나 저장한다(개발판단기록 27장). 문서 구획이 그 기록을 다시 읽게 한다.
+      GET 한 번이며 모델 호출이 아니다.
+    */
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['runs', jobId, 'doc-search'] })
+    },
   })
 
   const result = synthesis.data
@@ -249,6 +258,8 @@ const GATE_REJECTIONS: ReadonlySet<string> = new Set([
   'internalFieldName',
   'runFactMismatch',
   'evidenceMismatch',
+  'sensitiveOutput',
+  'docEvidenceMisuse',
 ])
 
 /**

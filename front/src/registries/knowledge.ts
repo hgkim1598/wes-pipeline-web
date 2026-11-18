@@ -30,6 +30,7 @@
 
 import { z } from 'zod'
 
+import causeKindsDoc from '@shared/knowledge/wes_cause_kinds.json'
 import conceptsDoc from '@shared/knowledge/wes_concepts.json'
 import diagnosticsDoc from '@shared/knowledge/wes_diagnostics.json'
 import failuresDoc from '@shared/knowledge/wes_failures.json'
@@ -363,4 +364,80 @@ export function docPassageKnowledge(id: string): DocPassageKnowledge | undefined
   const source = row ? SOURCE_BY_ID.get(row.sourceId) : undefined
   if (!row || !source) return undefined
   return { id: row.id, heading: row.heading, quote: row.quote, source }
+}
+
+/*
+  리소스 검사 실패 원인 종류별 점검 지식 (`wes_cause_kinds.json`, P1).
+
+  backend는 같은 파일을 Agent의 단계 근거(causeGuidance)에 넣는다. 화면은
+  단계 상세의 resourceBundleDiagnosis가 준 kind·resourceRole을 **키로 그대로
+  찾기만** 한다 — 검색도 순위도 없다. 문장을 화면에서 다시 쓰지 않는다.
+
+  cautions·remedies는 모든 종류에 있지 않다. 1차 근거가 없는 종류는 파일이
+  일부러 비워 두었으므로(파일 _comment) 없음은 빈 배열로 읽는다.
+*/
+const CauseStatementSchema = z.object({
+  statement: z.string().min(1),
+  sourceIds: z.array(z.string().min(1)),
+})
+
+export type CauseStatement = z.infer<typeof CauseStatementSchema>
+
+const CauseRemedySchema = CauseStatementSchema.extend({
+  /** 무엇을 바꾸는 일인가. */
+  changes: z.string().min(1),
+  /** 누가 승인하는가. Agent·화면은 제안만 한다. */
+  approval: z.string().min(1),
+})
+
+export type CauseRemedy = z.infer<typeof CauseRemedySchema>
+
+const CauseKindKnowledgeSchema = z.object({
+  kind: z.string().min(1),
+  title: z.string().min(1),
+  checks: z.array(CauseStatementSchema),
+  cautions: z.array(CauseStatementSchema).optional(),
+  remedies: z.array(CauseRemedySchema).optional(),
+})
+
+export type CauseKindKnowledge = z.infer<typeof CauseKindKnowledgeSchema>
+
+const CauseRoleKnowledgeSchema = z.object({
+  role: z.string().min(1),
+  title: z.string().min(1),
+  checks: z.array(CauseStatementSchema),
+})
+
+export type CauseRoleKnowledge = z.infer<typeof CauseRoleKnowledgeSchema>
+
+const CauseKindsDocSchema = z.object({
+  schemaVersion: z.string(),
+  causeKinds: z.array(CauseKindKnowledgeSchema),
+  roles: z.array(CauseRoleKnowledgeSchema),
+})
+
+const causeKinds = parseOrThrow(
+  CauseKindsDocSchema,
+  causeKindsDoc,
+  'config/knowledge/wes_cause_kinds.json',
+)
+const CAUSE_KIND_BY_KIND = indexBy(
+  causeKinds.causeKinds,
+  (row) => row.kind,
+  'wes_cause_kinds.json causeKinds',
+)
+const CAUSE_ROLE_BY_ROLE = indexBy(
+  causeKinds.roles,
+  (row) => row.role,
+  'wes_cause_kinds.json roles',
+)
+
+/** 원인 종류의 점검 지식. `unknown`이나 미등록 종류는 undefined. */
+export function causeKindKnowledge(kind: string): CauseKindKnowledge | undefined {
+  return CAUSE_KIND_BY_KIND.get(kind)
+}
+
+/** 대상 리소스의 점검 지식. `unknown`이나 미등록 역할은 undefined. */
+export function causeRoleKnowledge(role: string): CauseRoleKnowledge | undefined {
+  return CAUSE_ROLE_BY_ROLE.get(role)
 }

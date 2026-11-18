@@ -10,6 +10,8 @@ import { cx } from '@/lib/cx'
  *    구분선 · 현재 단계는 하단 4px 정적 바 · 선택 단계는 상단 2px 점선."
  *   lg 셀 높이 40 + 라벨 + 소요시간 (파이프라인 탭)
  *   md 셀 높이 12, 라벨 없음        (run header)
+ *   2026-11-17: run header가 lg(라벨 + 상태·소요시간)로 바뀌었다. 지금 lg의
+ *   유일한 호출부다. md는 남겨 둔다.
  *
  * 형태 탐색 근거 (docs/design/archive/progress-indicator.html)
  *   T4 "연속 바형"은 채택하지 않았다. 시안 자신의 평가가 `"진행 바" 인상이
@@ -96,7 +98,12 @@ export function RunTape({ cells, size = 'lg', className }: RunTapeProps) {
             </span>
           ) : null}
           {size === 'lg' && cell.meta ? (
-            <span className="w-full truncate text-center font-mono text-caption text-text-muted">
+            /*
+              mono가 아니다. meta는 이제 "실패 · 1초"처럼 한글 상태어를 담고
+              (run header, 2026-11-17), 한글을 mono로 그리면 낱자가 흩어진다.
+              숫자 폭은 tabular-nums로 맞춘다.
+            */
+            <span className="w-full truncate text-center text-caption text-text-muted tabular-nums">
               {cell.meta}
             </span>
           ) : null}

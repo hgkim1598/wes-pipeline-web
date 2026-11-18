@@ -187,6 +187,44 @@ export const StepIOSchema = z.object({
   path: z.string(),
 })
 
+/*
+  리소스 검사(resource_bundle) 실패 원인 — P0-1, ADR-001.
+
+  backend/app/schemas.py ResourceBundleDiagnosis의 **외부용 모양**이다. 원문은
+  backend가 이미 가리고(redact) 공개 규칙을 적용한 뒤에만 온다. 공개할 수 없던
+  문장은 evidenceText가 null이고, 그 개수가 withheldTextCount다.
+
+  이전에는 이 필드를 선언하지 않아 Zod가 조용히 버렸다. backend가 분류한 원인이
+  화면에 한 번도 나오지 않은 이유다.
+
+  kind·resourceRole·state는 z.string()으로 받는다(이 파일 규칙 1). 모르는 값은
+  화면이 원문으로 보여준다.
+*/
+export const ResourceBundleCauseSchema = z.object({
+  /** 규칙표의 고정 어휘. 맞는 규칙이 없으면 "unknown". */
+  kind: z.string(),
+  resourceRole: z.string(),
+  tool: z.string().nullable(),
+  ruleId: z.string().nullable(),
+  /** 정리·가림 처리된 원인 문장. 공개할 수 없으면 null. */
+  evidenceText: z.string().nullable(),
+})
+
+export type ResourceBundleCause = z.infer<typeof ResourceBundleCauseSchema>
+
+export const ResourceBundleDiagnosisSchema = z.object({
+  /** parsed일 때만 causes가 의미를 가진다. */
+  state: z.string(),
+  source: z.string().nullable(),
+  causes: z.array(ResourceBundleCauseSchema),
+  unparsedExcerpt: z.string().nullable(),
+  /** true면 목록이 잘렸을 수 있다. "없는 원인"으로 읽으면 안 된다. */
+  truncated: z.boolean(),
+  withheldTextCount: z.number(),
+})
+
+export type ResourceBundleDiagnosis = z.infer<typeof ResourceBundleDiagnosisSchema>
+
 export const StepDetailSchema = z.object({
   jobId: z.string(),
   runId: z.string(),
@@ -209,6 +247,8 @@ export const StepDetailSchema = z.object({
   failures: z.array(PipelineFailureSchema),
   /** main.sh gate_next_step()의 판단. 실패 진단에 쓴다. */
   nextStepReady: z.boolean(),
+  /** 00_input_validation에서만 값이 있다. 다른 단계는 null. */
+  resourceBundleDiagnosis: ResourceBundleDiagnosisSchema.nullable(),
 })
 
 export type StepDetail = z.infer<typeof StepDetailSchema>
@@ -558,5 +598,155 @@ export async function createSynthesis(
     SynthesisResultSchema,
     payload,
     'AI 설명 응답이 예상한 형식과 다릅니다.',
+  )
+}
+
+/*
+  공식 문서 검색 — GET/POST /api/jobs/{id}/doc-search (개발판단기록 26장)
+
+  근거: backend/app/services/doc_search/models.py
+
+  모델을 부르지 않는다. 이 Run의 기록된 실패(원인 종류·도구·명령)로 로컬 공식
+  문서 자료를 검색하고, 그 검색을 Trace로 저장한다. 사용량 소모가 없으므로
+  GET은 query로 읽어도 된다. POST는 Trace를 하나 더 쌓으므로 버튼으로만 부른다.
+
+  usage의 사실들은 서로 다르다. Run 상세 버튼으로 한 검색(purpose
+  userRequest)에서 기록되는 것은 returnedBySearch 하나뿐이다. AI 설명 요청이
+  자기 입력을 만들려고 한 검색(agentRequest, 27장)에서는 후보 선정·요청 입력
+  포함이 기록되고, 답변 인용은 검사를 모두 통과해 제공된 답변에서만 true/false
+  가 된다. readByModel은 언제나 null이다. 화면은 null을 "아니오"로도 "예"로도
+  바꾸지 않는다.
+
+  relation·matchedBy·origin은 z.string()으로 받는다(이 파일 규칙 1).
+*/
+
+const ObservedCommandSchema = z.object({
+  tool: z.string(),
+  subcommand: z.string().nullable(),
+  options: z.array(z.string()),
+  display: z.string(),
+  /** pipeline 코드의 어느 검사가 이 명령을 실행하나. */
+  recordedBy: z.string(),
+})
+
+const DocSearchInputSchema = z.object({
+  inputId: z.string(),
+  origin: z.string(),
+  stepId: z.string(),
+  kind: z.string(),
+  tool: z.string().nullable(),
+  ruleId: z.string().nullable(),
+  occurrences: z.number(),
+  command: ObservedCommandSchema.nullable(),
+  queryTerms: z.array(z.string()),
+  skipped: z.array(z.object({ corpus: z.string(), reason: z.string() })),
+})
+
+export type DocSearchInput = z.infer<typeof DocSearchInputSchema>
+
+const DocCorpusSchema = z.object({
+  corpusId: z.string(),
+  title: z.string(),
+  available: z.boolean(),
+  itemCount: z.number(),
+  excludedItems: z.number(),
+  version: z.string().nullable(),
+  snapshot: z.string().nullable(),
+  officialStatus: z.string(),
+  note: z.string().nullable(),
+})
+
+export type DocCorpus = z.infer<typeof DocCorpusSchema>
+
+const DocSearchHitSchema = z.object({
+  inputId: z.string(),
+  corpus: z.string(),
+  rank: z.number(),
+  evidenceId: z.string(),
+  relation: z.string(),
+  matchedBy: z.array(z.string()),
+  sourceTitle: z.string(),
+  sourceUrl: z.string().nullable(),
+  location: z.string(),
+  version: z.string().nullable(),
+  checkedOn: z.string().nullable(),
+  /** 현재 자료에서 다시 읽은 본문. 자료가 없어졌으면 null. */
+  excerpt: z.string().nullable(),
+  note: z.string().nullable(),
+  limits: z.string().nullable(),
+  /** 검색 당시 본문과 지금 본문이 같은가. null = 확인할 자료가 없음. */
+  sourceMatches: z.boolean().nullable(),
+  usage: z.object({
+    returnedBySearch: z.boolean(),
+    /** 구조 규칙으로 Agent 입력 후보가 되었나. null = 이 검색은 Agent 요청과 무관. */
+    selectedForAgent: z.boolean().nullable(),
+    selectionReason: z.string().nullable(),
+    /** 실제로 만들어진 요청 입력에 들어갔나. 모델이 읽었다는 뜻이 아니다. */
+    inAgentInput: z.boolean().nullable(),
+    readByModel: z.boolean().nullable(),
+    /** 제공된 답변에서 검증된 인용인가. null = 답변이 없거나 거부되어 알 수 없음. */
+    citedInAnswer: z.boolean().nullable(),
+  }),
+})
+
+export type DocSearchHit = z.infer<typeof DocSearchHitSchema>
+
+const AgentRequestSchema = z.object({
+  requestedAt: z.string(),
+  /** answerServed · answerRejected · noAnswer */
+  outcome: z.string(),
+  errorCategory: z.string().nullable(),
+  candidateCount: z.number(),
+  inPayloadCount: z.number(),
+  citedCount: z.number().nullable(),
+})
+
+export type AgentRequest = z.infer<typeof AgentRequestSchema>
+
+const DocSearchRunSchema = z.object({
+  searchId: z.string(),
+  /** userRequest(Run 상세 버튼) · agentRequest(AI 설명 요청이 만든 검색) */
+  purpose: z.string(),
+  agentRequest: AgentRequestSchema.nullable(),
+  createdAt: z.string(),
+  method: z.string(),
+  modelCalled: z.boolean(),
+  durationMs: z.number().nullable(),
+  corpora: z.array(DocCorpusSchema),
+  inputs: z.array(DocSearchInputSchema),
+  excludedObservations: z.array(
+    z.object({ stepId: z.string(), kind: z.string(), reason: z.string() }),
+  ),
+  hits: z.array(DocSearchHitSchema),
+  resultCount: z.number(),
+  errorCategory: z.string().nullable(),
+  errorMessage: z.string().nullable(),
+})
+
+export type DocSearchRun = z.infer<typeof DocSearchRunSchema>
+
+const DocSearchListSchema = z.object({ runs: z.array(DocSearchRunSchema) })
+
+export async function fetchDocSearches(
+  jobId: string,
+  signal?: AbortSignal,
+): Promise<DocSearchRun[]> {
+  const payload = await getJson(`${jobPath(jobId)}/doc-search`, { signal })
+  return parse(
+    DocSearchListSchema,
+    payload,
+    '문서 검색 기록 응답이 예상한 형식과 다릅니다.',
+  ).runs
+}
+
+export async function createDocSearch(
+  jobId: string,
+  signal?: AbortSignal,
+): Promise<DocSearchRun> {
+  const payload = await postJson(`${jobPath(jobId)}/doc-search`, null, { signal })
+  return parse(
+    DocSearchRunSchema,
+    payload,
+    '문서 검색 응답이 예상한 형식과 다릅니다.',
   )
 }

@@ -64,6 +64,7 @@ export interface EvidenceView {
     | '용어 설명'
     | '참고 자료'
     | '공식 문서 발췌'
+    | '공식 매뉴얼 구간'
     | '알 수 없음'
   known: boolean
   /** 항상 원본 id. 기술 정보에서 그대로 보여준다. */
@@ -162,6 +163,23 @@ export function describeEvidenceRef(ref: string): EvidenceView {
             // https만 링크로 만든다. 다른 scheme(javascript: 등)은 링크 없이 이름만 보인다.
             href: entry.source.locator.startsWith('https://') ? entry.source.locator : undefined,
             quote: entry.quote,
+          }
+        : unknown(ref)
+    }
+    case 'manual': {
+      /*
+        도구 매뉴얼 스냅샷의 구간(개발판단기록 27장). 본문과 링크는 frontend에
+        없다 — 매뉴얼은 재배포하지 않는 로컬 자료다. backend 검사 3이 이 요청에
+        실제로 넣은 id인지 확인한 뒤에만 답변에 남는다. 이름은 id의 절 표식에서
+        만든다: 'bcftools-manual#_output_options_2#00' → 'bcftools 매뉴얼 · _output_options_2'.
+      */
+      const [source, section] = key.split('#')
+      return source && section
+        ? {
+            label: `${source.replace(/-manual$/, '')} 매뉴얼 · ${section}`,
+            group: '공식 매뉴얼 구간',
+            known: true,
+            id: ref,
           }
         : unknown(ref)
     }
