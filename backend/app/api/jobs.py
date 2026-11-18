@@ -27,6 +27,8 @@ from ..schemas import (
     StepState,
 )
 from ..services import config_builder, pipeline_executor, run_status_reader, worker
+from ..services.agent.run_scope import redactor_for_row
+from ..services.public_text import project_error, project_lines
 from . import uploads
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
@@ -237,7 +239,8 @@ def list_jobs() -> JobListResponse:
                 createdAt=row["created_at"],
                 startedAt=row["started_at"],
                 finishedAt=row["finished_at"],
-                error=row["error"],
+                # Free text that may carry executor.log lines; see public_text.
+                error=project_error(row["error"], redactor_for_row(row)),
                 plannedStepCount=len(planned),
                 completedStepCount=completed,
             )
@@ -254,6 +257,10 @@ def get_job(job_id: str) -> JobStateResponse:
     unsupported: list[str] = db.loads(row["unsupported_options"], [])
 
     adapted = run_status_reader.read(run_dir, planned, row["run_mode"])
+    # Everything below that main.sh or executor.log wrote as free text --
+    # logTail, error, steps[].messages -- leaves through this redactor, the
+    # same one the step detail endpoint and the agent use (public_text.py).
+    redactor = redactor_for_row(row)
 
     if adapted is None:
         # No run_status.json yet. Report the backend's own state; never guess a
@@ -275,7 +282,7 @@ def get_job(job_id: str) -> JobStateResponse:
             logTail=[],
             startedAt=row["started_at"],
             finishedAt=row["finished_at"],
-            error=error,
+            error=project_error(error, redactor),
             runMode=row["run_mode"],
             pipelineStatus=None,
             currentStep=None,
@@ -294,11 +301,14 @@ def get_job(job_id: str) -> JobStateResponse:
         profileId=row["profile_id"],
         status=status,
         progress=adapted["progress"],
-        steps=[StepState(**step) for step in adapted["steps"]],
-        logTail=run_status_reader.read_log_tail(run_dir),
+        steps=[
+            StepState(**{**step, "messages": project_lines(step.get("messages") or [], redactor)})
+            for step in adapted["steps"]
+        ],
+        logTail=project_lines(run_status_reader.read_log_tail(run_dir), redactor),
         startedAt=row["started_at"],
         finishedAt=row["finished_at"],
-        error=adapted["error"] or row["error"],
+        error=project_error(adapted["error"] or row["error"], redactor),
         runMode=row["run_mode"],
         pipelineStatus=adapted["pipelineStatus"],
         currentStep=adapted["currentStep"],

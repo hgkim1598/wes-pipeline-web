@@ -39,9 +39,11 @@ Deliberately excluded
 ---------------------
 
 logTail, absolute server paths, artifact contents, run directory listings,
-environment and secrets. ``logTail`` in particular is the one place this API
-leaks server paths (``/home/vboxuser/...``); sanitised log evidence is a
-separate, later concern.
+environment and secrets. ``logTail`` was the one place this API leaked server
+paths (``/home/vboxuser/...``). Since 2026-11-17 GET /api/jobs/{id} sends it
+through the job redactor (services/public_text.py), but it is still not
+evidence for an explanation: a redacted log line is a record to read, not a
+fact to cite.
 """
 
 from __future__ import annotations

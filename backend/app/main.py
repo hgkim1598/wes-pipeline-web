@@ -18,7 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import config, db
-from .api import explanations, jobs, results, steps, synthesis, uploads
+from .api import doc_search, explanations, jobs, results, steps, synthesis, uploads
 from .services import worker
 
 
@@ -64,6 +64,8 @@ app.include_router(explanations.router)
 # route that consumes the operator's Claude subscription usage: it is POST-only
 # and is never reached by the three-second polling that Run Detail runs.
 app.include_router(synthesis.router)
+# Official-document search: model-free, reads run records and local corpora only.
+app.include_router(doc_search.router)
 
 
 @app.get("/api/health", tags=["health"])

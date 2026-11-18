@@ -104,6 +104,24 @@ DOC_PASSAGE_KNOWLEDGE = document_passage_path(KNOWLEDGE_DIR, _env("WES_DOC_PASSA
 # server receives the same value -- agent_mcp/launch.py).
 DOC_RAG = _env("WES_DOC_RAG", "0") == "1"
 
+# Official-document search on the run page (services/doc_search, log 26). The
+# full tool manual is an OPTIONAL local corpus: chunk JSONL produced by the
+# separate wes-rag-lab experiment (one fetched snapshot, sha256-addressed). It is
+# not redistributable, so it is never copied into this repository; point this at
+# the file on the machine that has it. Empty = the manual corpus is reported as
+# unavailable and only the curated excerpts above are searched. A relative path
+# is taken from the repository root.
+DOC_MANUAL_CHUNKS = _env("WES_DOC_MANUAL_CHUNKS")
+
+# Search results as agent input (services/doc_search/agent_input.py, log 27).
+# On: each POST /synthesis first runs and stores a fresh document search for the
+# run, places the structurally related hits in the request payload as
+# `officialDocs`, and links search -> payload -> verified citation in
+# agent_doc_evidence. Off (default): the request payload is byte-identical to
+# before. Off until a real-model check has been approved and run -- nothing in
+# this repository has measured whether a model answers better with it.
+AGENT_DOC_EVIDENCE = _env("WES_AGENT_DOC_EVIDENCE", "0") == "1"
+
 # Model for AI synthesis, as a config value rather than a constant in the domain
 # layer -- swapping it must not touch a schema.
 #

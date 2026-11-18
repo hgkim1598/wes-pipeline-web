@@ -199,6 +199,10 @@ YOU MUST NOT:
 - Say that resolving one recorded failure will let the analysis start, finish
   or succeed when the run recorded more than one failure. Each recorded failure
   stops the run on its own; report each as its own finding.
+- Promise that any action will make the run, or a rerun, finish or succeed --
+  even when only one failure was recorded. The steps after a failure never
+  ran, so whether they would pass is unknown. Say what the action changes, as
+  the grounding states it, and nothing about the outcome of a future run.
 - Invent a diagnostic code, a check, or a step.
 
 EVIDENCE REFERENCES

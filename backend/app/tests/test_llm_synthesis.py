@@ -662,6 +662,8 @@ def test_every_error_category_has_a_curated_message():
         "internalFieldName",
         "runFactMismatch",
         "evidenceMismatch",
+        "sensitiveOutput",
+        "docEvidenceMisuse",  # gate 8, log 27
     }
     assert raised | domain == set(llm_synthesis._SAFE_MESSAGES)
     assert prov.ProviderError("timeout", "x").category == "timeout"

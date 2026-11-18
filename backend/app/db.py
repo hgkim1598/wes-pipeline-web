@@ -14,6 +14,8 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any
 
@@ -83,6 +85,70 @@ CREATE TABLE IF NOT EXISTS synthesis_traces (
 CREATE INDEX IF NOT EXISTS idx_synthesis_traces_job
     ON synthesis_traces (job_id, created_at);
 
+-- Official-document searches (services/doc_search, log 26). NOT a model trace:
+-- no model runs on this path, and model_called is stored as 0 to say so in the
+-- row itself. Kept apart from synthesis_traces so "the search returned it" can
+-- never be read as "the agent used it". Stored: kinds, tool/command, query
+-- words from already-redacted text, ids, ranks, structural relations, hashes.
+-- No evidence sentence, no excerpt, no path, no sample name. Additive only:
+-- CREATE ... IF NOT EXISTS leaves every existing table and row untouched.
+CREATE TABLE IF NOT EXISTS doc_search_runs (
+    search_id      TEXT PRIMARY KEY,
+    job_id         TEXT NOT NULL,      -- internal linkage, never in a response
+    created_at     TEXT NOT NULL,
+    method         TEXT NOT NULL,
+    duration_ms    INTEGER,
+    corpora        TEXT NOT NULL,      -- JSON: what was searchable, versions, hashes
+    inputs         TEXT NOT NULL,      -- JSON: one query per recorded failure
+    excluded       TEXT NOT NULL,      -- JSON: recorded observations not searched, with reason
+    result_count   INTEGER NOT NULL,
+    error_category TEXT,
+    model_called   INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_doc_search_runs_job
+    ON doc_search_runs (job_id, created_at);
+
+CREATE TABLE IF NOT EXISTS doc_search_hits (
+    search_id    TEXT NOT NULL,
+    input_id     TEXT NOT NULL,
+    corpus       TEXT NOT NULL,        -- curated | manual
+    rank         INTEGER NOT NULL,     -- 1-based within (input, corpus)
+    evidence_id  TEXT NOT NULL,        -- doc:<id> | manual:<chunk id>
+    relation     TEXT NOT NULL,        -- structural, see doc_search/models.py
+    matched_by   TEXT NOT NULL,        -- JSON array
+    source_title TEXT NOT NULL,
+    source_url   TEXT,
+    location     TEXT NOT NULL,
+    version      TEXT,
+    checked_on   TEXT,
+    item_sha256  TEXT NOT NULL,        -- the returned text's hash at search time
+    PRIMARY KEY (search_id, input_id, corpus, rank)
+);
+
+-- Which returned document went into which agent request, and was it cited
+-- (services/doc_search/agent_link.py, log 27). One row per distinct evidence
+-- id of the search a synthesis request was built from. Ids, decisions and
+-- 0/1 only: no excerpt, no prompt, no path, no sample name.
+--   selected   the structural candidate rule kept it (0 + selection_reason if not)
+--   in_payload the request payload actually built carried it
+--   cited      1/0 only when an answer was SERVED (every gate passed);
+--              NULL = unknown: no answer, or an answer the gates rejected
+-- Whether the model READ a document is not a column: nothing observes it.
+CREATE TABLE IF NOT EXISTS agent_doc_evidence (
+    trace_id         TEXT NOT NULL,    -- synthesis_traces.trace_id
+    search_id        TEXT NOT NULL,    -- doc_search_runs.search_id
+    evidence_id      TEXT NOT NULL,
+    selected         INTEGER NOT NULL,
+    selection_reason TEXT,
+    in_payload       INTEGER NOT NULL,
+    cited            INTEGER,
+    PRIMARY KEY (trace_id, evidence_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_doc_evidence_search
+    ON agent_doc_evidence (search_id);
+
 CREATE TABLE IF NOT EXISTS uploads (
     upload_id         TEXT PRIMARY KEY,
     original_filename TEXT NOT NULL,
@@ -120,6 +186,10 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "attempts": "INTEGER",
         "first_rejection": "TEXT",
     },
+    # Why a document search ran (log 27): 'agentRequest' for one a synthesis
+    # request made for itself. NULL = the run page's button, and every row
+    # from before the column existed.
+    "doc_search_runs": {"purpose": "TEXT"},
 }
 
 
@@ -154,6 +224,25 @@ def execute(sql: str, params: tuple = ()) -> sqlite3.Cursor:
         cur = conn.execute(sql, params)
         conn.commit()
         return cur
+
+
+@contextmanager
+def transaction() -> Iterator[sqlite3.Connection]:
+    """Several statements as one transaction, under the same lock as execute().
+
+    The connection is shared with the worker thread, so a transaction opened
+    without _LOCK is not ours alone: the worker's commit would commit our
+    half-written rows, and our rollback could undo its uncommitted update
+    (development log 29). Inside the lock nobody else has a statement
+    pending, so commit and rollback cover exactly the statements issued here.
+
+    _LOCK is not re-entrant: do not call execute/query_* inside the block --
+    use the yielded connection.
+    """
+    conn = connect()
+    with _LOCK:
+        with conn:  # commit on success, rollback on any exception
+            yield conn
 
 
 def query_one(sql: str, params: tuple = ()) -> sqlite3.Row | None:

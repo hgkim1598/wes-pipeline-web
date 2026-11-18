@@ -356,9 +356,12 @@ class Redactor:
         orders disagree, an identifier interacted with a shape and neither
         result is trusted. After that, any word that still looks like part of
         a path is replaced whole; if the string still fails the check, or
-        still holds a known identifier, none of it is sent. Only the agent's
-        model path calls this; the user's own step detail API does not redact
-        (it shows the user their own run).
+        still holds a known identifier, none of it is sent. The agent's model
+        path calls this, and since 2026-11-17 so does the job API for the free
+        text it sends a browser -- logTail, error, steps[].messages -- one
+        line at a time (services/public_text.py). The step detail endpoint's
+        structured fields (check detail, failure message) are still sent
+        unredacted; only its resourceBundleDiagnosis goes through `text`.
         """
         out, other = self._render(value)
         if out != other:

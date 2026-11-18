@@ -9,7 +9,8 @@ The question this answers, days later, is narrow:
 That is an execution record. It is **not** a transcript. The model's reasoning,
 the prompt, the tool results, the generated text and the evidence sink are all
 absent by construction -- not filtered out afterwards, but never assembled into
-the record in the first place. `SynthesisTrace` has nine fields and no room for
+the record in the first place. `SynthesisTrace` has eleven fields (nine until
+log 27 added the two document fields below) and no room for
 anything else, so "we could also store..." is a schema change someone has to
 make on purpose.
 
@@ -37,6 +38,21 @@ Why the fields are the ones they are
                      passed or never arrived. Kept whether or not repair was
                      on, so "how often does the first answer fail" stays
                      answerable after the feature is enabled
+    docEvidenceIds   official-document ids placed in this request's payload
+                     (log 27), read from the payload actually built -- not
+                     from what the route meant to send
+    citedDocEvidenceIds
+                     document ids a SERVED answer cites, after every gate
+                     passed. None when nothing was served: a rejected or
+                     missing answer verifies no citation, and None says
+                     "unknown", not "not cited"
+
+The two document fields are not columns of synthesis_traces. The route
+stores them in agent_doc_evidence, one row per hit of the document search
+the request was built from (services/doc_search/agent_link.py), because the
+question they answer -- which returned document went into which request, and
+was it cited -- is about the search as much as about the call. Whether the
+model READ a document is recorded nowhere: nothing observable says so.
 
 With a rewrite, `models` is both calls' models in order of first appearance,
 and `durationMs` and `numTurns` are the two calls added together -- what one
@@ -92,6 +108,8 @@ class SynthesisTrace:
     repairEnabled: bool = False
     attempts: int = 1
     firstRejection: str | None = None
+    docEvidenceIds: tuple[str, ...] = ()
+    citedDocEvidenceIds: tuple[str, ...] | None = None
 
     @property
     def toolUsed(self) -> bool:

@@ -23,7 +23,8 @@ rejected as invented; with it, a number from a step nobody opened still is.
 Validation is not a formality
 -----------------------------
 
-Seven gates, in order, and the model has to pass all of them:
+Eight gates, in order, and the model has to pass all of them (seven until
+log 27 added the eighth):
 
     1. the CLI shapes the output against SYNTHESIS_JSON_SCHEMA
     2. Pydantic re-validates it here -- the CLI is not a trusted validator
@@ -34,6 +35,9 @@ Seven gates, in order, and the model has to pass all of them:
        warned must agree with the payload's own fields (claims.py)
     7. a statement about a diagnostic-only topic cites that diagnostic's
        evidence, and a qualified fact has its qualification cited (claims.py)
+    8. an importantFindings item that cites an official document also cites a
+       record of this run (doc_citations.py) -- a document is general
+       knowledge and cannot by itself show what happened in this run
 
 Gates 4 and 5 ask whether a token is anywhere in the facts, so a real value
 attached to the wrong subject passed them ("평균 깊이는 1420배": 1420 is a
@@ -106,8 +110,9 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from .... import config
+from ...agent.privacy import Redactor
 from ..deterministic import RunExplanation
-from . import claims, contract, prompt, provider, tools, trace, validation
+from . import claims, contract, doc_citations, prompt, provider, tools, trace, validation
 
 log = logging.getLogger(__name__)
 
@@ -178,6 +183,8 @@ _SAFE_MESSAGES: dict[str, str] = {
     "internalFieldName": "생성된 설명에 내부 필드 이름이 노출되어 폐기했습니다.",
     "runFactMismatch": "생성된 설명의 수치나 경고 단계가 실행 기록과 맞지 않아 폐기했습니다.",
     "evidenceMismatch": "생성된 설명이 내용과 맞지 않는 근거를 인용해 폐기했습니다.",
+    "sensitiveOutput": "생성된 설명에 샘플 식별자나 파일 경로 같은 민감한 값이 있어 폐기했습니다.",
+    "docEvidenceMisuse": "생성된 설명이 이 실행의 기록 없이 공식 문서만 근거로 실행 결과를 말해 폐기했습니다.",
 }
 
 _FALLBACK_MESSAGE = "AI 설명을 생성하지 못했습니다."
@@ -203,6 +210,8 @@ def build_run_synthesis(
     on_rejection: Callable[[dict[str, Any]], None] | None = None,
     offer_tools: bool = True,
     repair: bool | None = None,
+    redactor: Redactor | None = None,
+    official_docs: dict[str, Any] | None = None,
 ) -> SynthesisResult:
     """Summarise one already-built deterministic explanation.
 
@@ -254,10 +263,26 @@ def build_run_synthesis(
     module docstring). None, the default and what the route passes, means
     config.SYNTHESIS_REPAIR. The eval harness passes False so its records stay
     single-generation measurements whatever the server is configured to do.
+
+    `redactor` is the job's own identifiers for the run-written text in the
+    payload (contract.build_payload). The route passes it; None applies the
+    shape rules only, which is what the eval fixtures were recorded with.
+
+    `official_docs` is the `officialDocs` section the route built from a stored
+    document search (services/doc_search/agent_input.py, log 27), or None --
+    the default, and what every caller passed before -- for a payload
+    byte-identical to the one without it. The trace reports which document ids
+    the payload actually carried, read from the payload built here, and which
+    of them a SERVED answer cites; a rejected or missing answer verifies none.
     """
     call = run_provider or provider.run_structured
     repair_enabled = config.SYNTHESIS_REPAIR if repair is None else repair
-    payload, initial_refs = contract.build_payload(explanation)
+    payload, initial_refs = contract.build_payload(
+        explanation, redactor=redactor, official_docs=official_docs
+    )
+    doc_ids = tuple(
+        item["evidenceId"] for item in (payload.get("officialDocs") or {}).get("items", [])
+    )
 
     # Filled in as the call progresses, so a failure part-way through still
     # reports what had happened by then -- a provider timeout after the agent
@@ -290,6 +315,16 @@ def build_run_synthesis(
                     repairEnabled=repair_enabled,
                     attempts=attempts,
                     firstRejection=first_rejection,
+                    docEvidenceIds=doc_ids,
+                    # Only an answer that passed every gate verifies a
+                    # citation; gate 3 has then checked each id was supplied.
+                    citedDocEvidenceIds=(
+                        doc_citations.cited_doc_refs(
+                            outcome.synthesis.model_dump(), claims.GROUPS
+                        )
+                        if outcome.available and outcome.synthesis is not None
+                        else None
+                    ),
                 )
             )
         return outcome
@@ -410,12 +445,14 @@ def build_run_synthesis(
             ),
         )
 
-    first = _check(result.payload, facts, allowed_refs)
+    first = _check(result.payload, facts, allowed_refs, redactor)
     if first.synthesis is not None:
         return served(first.synthesis)
 
     first_rejection = first.category
-    if not repair_enabled:
+    # A rewrite request quotes the previous answer back to the model. An answer
+    # that holds the sample name or a path is not sent out a second time.
+    if not repair_enabled or first.category == "sensitiveOutput":
         return emit(discarded(first, attempt=1))
 
     # The one rewrite. Same provider, same model, same payload, same schema; no
@@ -453,7 +490,7 @@ def build_run_synthesis(
     duration_ms = _add(duration_ms, rewrite.durationMs)
     num_turns = _add(num_turns, rewrite.numTurns)
 
-    second = _check(_splice(first, rewrite.payload), facts, allowed_refs)
+    second = _check(_splice(first, rewrite.payload), facts, allowed_refs, redactor)
     if second.synthesis is not None:
         log.info("synthesis rewrite passed every gate")
         return served(second.synthesis)
@@ -501,10 +538,17 @@ class _Verdict:
 
 
 def _check(
-    raw: Any, facts: list[Any], allowed_refs: set[str]
+    raw: Any,
+    facts: list[Any],
+    allowed_refs: set[str],
+    redactor: Redactor | None = None,
 ) -> _Verdict:
     """Gates 2 to 7 on one structured output. Used for the first answer and the
-    rewrite alike, which is what makes the rewrite's gates the same gates."""
+    rewrite alike, which is what makes the rewrite's gates the same gates.
+
+    The sensitive-value gate runs first among the content gates, so its
+    category wins: an answer that names the sample is reported as that, and
+    is never offered for a rewrite (see the caller)."""
     try:
         synthesis = contract.RunSynthesis.model_validate(raw)
     except ValidationError as exc:
@@ -526,6 +570,29 @@ def _check(
     findings: list[dict[str, Any]] = []
     answer = synthesis.model_dump()
     pieces = claims.units(answer)
+
+    contains_identifier = redactor.contains_literal if redactor is not None else None
+    sensitive = [
+        (u.location, kinds)
+        for u in pieces
+        if (kinds := validation.find_sensitive_output(u.text, contains_identifier))
+    ]
+    if sensitive:
+        # Kinds and locations only. The value itself goes nowhere: not to the
+        # log, not to the trace, not to a rewrite request.
+        log.warning(
+            "synthesis held sensitive values: %s",
+            [(location, kinds) for location, kinds in sensitive],
+        )
+        findings.append(
+            {
+                "check": "sensitiveOutput",
+                "problem": "These items contain an identifier of this run, a "
+                "file system path or an address.",
+                "values": sorted({kind for _, kinds in sensitive for kind in kinds}),
+                "locations": [location for location, _ in sensitive],
+            }
+        )
 
     unknown = _unknown_refs(synthesis, allowed_refs)
     if unknown:
@@ -620,6 +687,25 @@ def _check(
                 "they say. Each problem names the ids that would fit.",
                 "values": [p for m in mismatched for p in m["problems"]],
                 "locations": [m["location"] for m in mismatched],
+            }
+        )
+
+    # Gate 8 (log 27): ids only; see doc_citations.py.
+    doc_only = doc_citations.find_doc_only_findings(answer)
+    if doc_only:
+        log.warning("synthesis rested run findings on documents only: %s", doc_only)
+        findings.append(
+            {
+                "check": "docEvidenceMisuse",
+                "problem": "These findings or limitations about this run cite "
+                "only official documents. A document is general knowledge about "
+                "a tool and does not show what happened in this run: cite the "
+                "record of this run (an id starting with run:, dx:, fail:, lim: "
+                "or step:) and keep the document beside it, or move the "
+                "statement to nextChecks or uncertainties if it is about the "
+                "tool in general.",
+                "values": sorted({r for d in doc_only for r in d["refs"]}),
+                "locations": [d["location"] for d in doc_only],
             }
         )
 

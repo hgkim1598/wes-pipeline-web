@@ -638,6 +638,9 @@ def _forbid_model(monkeypatch, run_eval):
     monkeypatch.setattr(run_eval.synthesis, "build_run_synthesis", must_not_call)
     monkeypatch.setattr(provider, "run_structured", must_not_call)
     monkeypatch.setattr(provider.subprocess, "run", must_not_call)
+    # The CLI is started with Popen since P3 (tree kill on timeout); guarding
+    # `run` alone would no longer stop it.
+    monkeypatch.setattr(provider.subprocess, "Popen", must_not_call)
     monkeypatch.setattr("builtins.input", must_not_call)
 
 

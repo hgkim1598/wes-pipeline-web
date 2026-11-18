@@ -1074,7 +1074,7 @@ def test_a_frozen_case_records_its_variant_and_the_prompt_it_sent(monkeypatch):
     assert (v1["variant"], v1["toolsOffered"]) == ("v1", False)
     assert (v3["variant"], v3["toolsOffered"]) == ("v3", True)
     assert v1["promptHash"] == run_eval._hash(prompt.CONSTRAINTS_NO_TOOL)
-    assert v3["promptHash"] == run_eval._hash(prompt.CONSTRAINTS) == "b6f820f352b929c7"  # app/tests/test_tool_toggle.py history (17.4)
+    assert v3["promptHash"] == run_eval._hash(prompt.CONSTRAINTS) == "2098337802ae4b1d"  # app/tests/test_tool_toggle.py history (P5, log 25; b6f820f3 at 17.4)
 
 
 def test_an_agent_case_passes_the_variant_to_both_runtime_and_scoring(monkeypatch):
@@ -1130,7 +1130,7 @@ def test_baseline_names_carry_the_variant():
     assert v1.name.startswith("2026-11-02_agent_failed_step_v1_")
     assert v3.name.startswith("2026-11-02_agent_failed_step_v3_")
     assert v1.name.endswith(f"_{run_eval._prompt_hash('v1')}.json")
-    assert v3.name.endswith("_b6f820f352b929c7.json")  # 17.4
+    assert v3.name.endswith("_2098337802ae4b1d.json")  # P5, log 25 (b6f820f3 at 17.4)
 
 
 def test_an_existing_baseline_is_never_overwritten(tmp_path):
@@ -1277,6 +1277,10 @@ def test_an_agent_record_keeps_trace_tool_use_and_evidence_use(monkeypatch):
         "repairEnabled": False,
         "attempts": 1,
         "firstRejection": None,
+        # Log 27's document fields at their defaults: run_eval never passes
+        # official_docs, so no document was sent and no citation verified.
+        "docEvidenceIds": [],
+        "citedDocEvidenceIds": None,
     }
     assert record["toolUse"]["callCount"] == 3
     assert record["toolUse"]["refusals"] == [{"stepId": None, "reason": "unknownStep"}]

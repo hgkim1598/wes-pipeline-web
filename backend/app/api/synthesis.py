@@ -44,10 +44,15 @@ from __future__ import annotations
 
 import logging
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 
+from .. import config
 from ..api.jobs import JOB_ID_RE
 from ..services import result_reader
+from ..services.agent import run_scope
+from ..services.doc_search import agent_link
 from ..services.explanation import deterministic, run_context
 from ..services.explanation.llm import synthesis as llm_synthesis
 from ..services.explanation.llm import trace
@@ -100,6 +105,35 @@ def create_synthesis(job_id: str) -> SynthesisResult:
     # where the job id lives, and because the record is about a REQUEST: the
     # service explains an explanation and does not know it was asked over HTTP.
     # Nothing of it reaches the response -- see services/.../llm/trace.py.
-    return llm_synthesis.build_run_synthesis(
-        explanation, on_trace=trace.recorder(job_id)
+    # The job's own identifiers, so run-written text in the payload has its
+    # sample, run and job ids replaced before it leaves the machine (P1). The
+    # identity was read from the jobs row, the same row run_scope.for_job uses
+    # for get_step_detail, so both channels redact with the same literals.
+    identity = explanation.identity
+    redactor = run_scope.redactor_for_row(
+        {
+            "sample_id": identity.sampleId,
+            "run_id": identity.runId,
+            "job_id": identity.jobId,
+        }
     )
+    # Official documents as agent input (log 27), off by default. A fresh
+    # search for this request, stored before the call so the trace can name
+    # it; any failure there leaves `prepared` None and the request goes on
+    # exactly as it does with the flag off.
+    prepared = agent_link.prepare(job_id, redactor) if config.AGENT_DOC_EVIDENCE else None
+    captured: dict[str, Any] = {}
+
+    def on_trace(record: trace.SynthesisTrace) -> None:
+        captured["trace"] = record
+        captured["trace_id"] = trace.record(job_id, record)
+
+    result = llm_synthesis.build_run_synthesis(
+        explanation,
+        on_trace=on_trace,
+        redactor=redactor,
+        official_docs=prepared.input.section if prepared is not None else None,
+    )
+    if prepared is not None:
+        agent_link.link(captured.get("trace_id"), prepared, captured.get("trace"))
+    return result

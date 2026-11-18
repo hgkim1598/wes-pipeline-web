@@ -82,13 +82,19 @@ FULL_PLAN = [
 #                     who approves; never as done or as making the run succeed.
 #                     Shipped with the remedies themselves (wes_cause_kinds.json)
 #                     and the BED term / VCF wording, so these are confounded
-V3_CONSTRAINTS_HASH = "b6f820f352b929c7"
+#   2098337802ae4b1d  P5 (log 25, 2026-11-18), _HEAD only: YOU MUST NOT promise
+#                     that any action makes the run or a rerun finish or
+#                     succeed, even with ONE recorded failure (the steps after
+#                     a failure never ran). _STEP_TOOL, _STEP_NAMES, _TAIL
+#                     unchanged. Not yet evaluated against a real model: every
+#                     A/B result and baseline recorded so far is for b6f820f3
+V3_CONSTRAINTS_HASH = "2098337802ae4b1d"
 
 # The pieces the beginner rules did not touch, pinned on their own: the
 # evidence boundary and prohibitions (_HEAD), and the tool's instructions and
 # their no-tool replacement. A change to what the model may claim, or to when
 # it may call the tool, must not ride along with a change of tone.
-HEAD_HASH = "1c7dbebfa5d2c330"  # P1: multi-failure rule
+HEAD_HASH = "b6aebdd86c3bac2b"  # P1: multi-failure rule; P5 (log 25): no success promise even for one failure
 STEP_TOOL_HASH = "ab3d527da7888feb"  # P1: failed-step trigger, causeGuidance; 17.4: remedies
 STEP_NAMES_HASH = "23540799b847a7a4"
 
@@ -246,7 +252,7 @@ def test_both_variants_use_the_same_schema_model_and_timeout(explanation):
 def test_v3_prompt_text_is_pinned():
     assert _sha16(prompt.CONSTRAINTS) == V3_CONSTRAINTS_HASH
     # 9484 before the second beginner revision.
-    assert len(prompt.CONSTRAINTS) == 13583  # 13154 before 17.4, 12847 before P2, 11825 before P1
+    assert len(prompt.CONSTRAINTS) == 13888  # 13583 before P5 (log 25), 13154 before 17.4, 12847 before P2, 11825 before P1
     assert prompt.constraints_for(offer_tools=True) is prompt.CONSTRAINTS
 
 

@@ -29,10 +29,12 @@ failure rather than a plausible-looking reference nobody checks.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Annotated, Any
 
 from pydantic import AfterValidator, BaseModel, Field
 
+from ...agent.privacy import Redactor
 from .. import knowledge
 from ..deterministic import RunExplanation
 
@@ -231,14 +233,20 @@ _COVERAGE_FIELDS = (
 )
 
 
-def _pick(model: BaseModel, fields: tuple[str, ...]) -> dict[str, Any]:
+def _pick(
+    model: BaseModel,
+    fields: tuple[str, ...],
+    each: Callable[[Any], Any] = lambda value: value,
+) -> dict[str, Any]:
     """Exactly the named fields, and nothing else.
 
     Indexes rather than `.get`: a name that no longer exists on the model raises
     here instead of silently dropping a fact the prompt was written to include.
+    `each` is applied to every picked value; build_payload passes the run-text
+    redaction, since these sections carry pipeline-written strings.
     """
     dumped = model.model_dump()
-    return {name: dumped[name] for name in fields}
+    return {name: each(dumped[name]) for name in fields}
 
 
 def _diagnostic_grounding(code: str) -> dict[str, Any] | None:
@@ -439,30 +447,85 @@ def _term_entry(term: knowledge.TermKnowledge) -> dict[str, Any]:
     return out
 
 
-def build_payload(explanation: RunExplanation) -> tuple[dict[str, Any], set[str]]:
+def _public_codes(codes: list[str], scrub: Redactor) -> dict[str, str]:
+    """raw code -> the code as it may appear in the payload and its evidence id.
+
+    A failure code is not a closed set: main.sh composes some from run values
+    (`sort_order_<sample>.L001`), so the raw code can carry the sample name into
+    an evidence id. `text`, not `release`: a withheld code would collapse every
+    such code onto one "<withheld>" id. Codes that collapse to the same public
+    form (or that still look like a path) get a positional fallback so every id
+    stays unique and citable. A registered code is unchanged by this.
+    """
+    out: dict[str, str] = {}
+    used: set[str] = set()
+    for index, code in enumerate(codes):
+        if code in out:
+            continue
+        public = scrub.text(code)
+        if scrub.has_residual(public) or scrub.contains_literal(public):
+            public = f"code_{index + 1}"
+        candidate, n = public, 2
+        while candidate in used:
+            candidate, n = f"{public}#{n}", n + 1
+        used.add(candidate)
+        out[code] = candidate
+    return out
+
+
+def build_payload(
+    explanation: RunExplanation,
+    *,
+    redactor: Redactor | None = None,
+    official_docs: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], set[str]]:
     """The prompt's data block, and the set of ids that may be cited.
 
     Returns both together because they must agree by construction. Building the
     allowed-id set by walking the payload -- rather than by listing ids
     separately -- means a field cannot be added to the prompt without becoming
     citable, nor an id allowed without being visible to the model.
+
+    Run-written text goes through `redactor.release` (P1, 2026-11-17)
+    -----------------------------------------------------------------
+
+    Every string the PIPELINE wrote -- a failure message, a check detail, a
+    limitation statement, a coverage note -- can carry an absolute path or the
+    sample name, and this payload is what leaves the machine. Those strings pass
+    through the same fail-closed `Redactor.release` that `get_step_detail` and
+    the browser log already use. Text from the knowledge layer (titles,
+    meanings, grounding, sources, terms), step ids, enums and numbers are this
+    project's own words and are left byte-for-byte unchanged.
+
+    `redactor` carries the job's own identifiers (run_scope.redactor_for_row).
+    Without one -- evals, older callers -- the shape rules still apply, so no
+    caller can send a raw path by forgetting the argument.
     """
+    scrub = redactor if redactor is not None else Redactor()
+
+    def free(value: Any) -> Any:
+        """One run-written value: strings are released, everything else kept."""
+        return scrub.release(value) if isinstance(value, str) else value
+
+    dx_code = _public_codes([item.code for item in explanation.diagnostics], scrub)
+    fail_code = _public_codes([item.code for item in explanation.failures], scrub)
+
     allowed: set[str] = set()
 
     # --- runtime facts, straight from the deterministic layer ---------------
     diagnostics: list[dict[str, Any]] = []
     for item in explanation.diagnostics:
-        ref = f"dx:{item.code}"
+        ref = f"dx:{dx_code[item.code]}"
         allowed.add(ref)
         diagnostics.append(
             {
                 "evidenceId": ref,
-                "code": item.code,
-                "occurredAtStep": item.actualStepLabel or item.actualStepId,
+                "code": dx_code[item.code],
+                "occurredAtStep": free(item.actualStepLabel or item.actualStepId),
                 # The pipeline's own words for THIS occurrence. Data, not
                 # instructions -- the system prompt says so explicitly.
-                "messageFromPipeline": item.message,
-                "impactFromPipeline": item.impact,
+                "messageFromPipeline": free(item.message),
+                "impactFromPipeline": free(item.impact),
                 "severity": item.severity,
                 "resolution": item.resolution,
                 "title": item.title,
@@ -473,14 +536,14 @@ def build_payload(explanation: RunExplanation) -> tuple[dict[str, Any], set[str]
 
     failures: list[dict[str, Any]] = []
     for item in explanation.failures:
-        ref = f"fail:{item.code}"
+        ref = f"fail:{fail_code[item.code]}"
         allowed.add(ref)
         failures.append(
             {
                 "evidenceId": ref,
-                "code": item.code,
-                "occurredAtStep": item.actualStepLabel or item.actualStepId,
-                "messageFromPipeline": item.message,
+                "code": fail_code[item.code],
+                "occurredAtStep": free(item.actualStepLabel or item.actualStepId),
+                "messageFromPipeline": free(item.message),
             }
         )
 
@@ -492,7 +555,8 @@ def build_payload(explanation: RunExplanation) -> tuple[dict[str, Any], set[str]
             {
                 "evidenceId": ref,
                 "code": item.code,
-                "statement": item.statement,
+                "statement": free(item.statement),
+                # A field path written by deterministic.py, not by the run.
                 "basis": item.basis,
             }
         )
@@ -510,7 +574,8 @@ def build_payload(explanation: RunExplanation) -> tuple[dict[str, Any], set[str]
         entry = _diagnostic_grounding(code)
         if entry is None:
             continue
-        grounding[f"dx:{code}"] = {"evidenceId": f"dx:{code}", **entry}
+        # Looked up by the raw code, cited by the public one.
+        grounding[f"dx:{dx_code[code]}"] = {"evidenceId": f"dx:{dx_code[code]}", **entry}
         for bucket in ("possibleCauses", "scope", "checks", "actions"):
             for claim in entry.get(bucket, []):
                 cited_sources.update(claim.get("sourceIds", []))
@@ -519,7 +584,10 @@ def build_payload(explanation: RunExplanation) -> tuple[dict[str, Any], set[str]
         entry = _failure_grounding(code)
         if entry is None:
             continue
-        grounding[f"fail:{code}"] = {"evidenceId": f"fail:{code}", **entry}
+        grounding[f"fail:{fail_code[code]}"] = {
+            "evidenceId": f"fail:{fail_code[code]}",
+            **entry,
+        }
         for bucket in ("possibleCauses", "scope", "checks", "actions"):
             for claim in entry.get(bucket, []):
                 cited_sources.update(claim.get("sourceIds", []))
@@ -573,14 +641,14 @@ def build_payload(explanation: RunExplanation) -> tuple[dict[str, Any], set[str]
             "status": explanation.status,
             "runMode": explanation.identity.runMode,
             "resultsAvailable": explanation.resultsAvailable,
-            "resultsUnavailableReason": explanation.resultsUnavailableReason,
+            "resultsUnavailableReason": free(explanation.resultsUnavailableReason),
         },
         "checkSummary": {
             "evidenceId": check_ref,
             "total": explanation.checkSummary.total,
             "counts": explanation.checkSummary.counts,
             "notable": [
-                {"name": row.name, "status": row.status, "detail": row.detail}
+                {"name": free(row.name), "status": free(row.status), "detail": free(row.detail)}
                 for row in explanation.checkSummary.notable
             ],
         },
@@ -604,21 +672,21 @@ def build_payload(explanation: RunExplanation) -> tuple[dict[str, Any], set[str]
         allowed.add(ref)
         payload["coverage"] = {
             "evidenceId": ref,
-            **_pick(explanation.coverage, _COVERAGE_FIELDS),
+            **_pick(explanation.coverage, _COVERAGE_FIELDS, free),
         }
     if explanation.variantCalling is not None:
         ref = "run:variantCalling"
         allowed.add(ref)
         payload["variantCalling"] = {
             "evidenceId": ref,
-            **_pick(explanation.variantCalling, _VARIANT_FIELDS),
+            **_pick(explanation.variantCalling, _VARIANT_FIELDS, free),
         }
     if explanation.intendedUse:
         ref = "run:intendedUse"
         allowed.add(ref)
         payload["intendedUse"] = {
             "evidenceId": ref,
-            "statement": explanation.intendedUse,
+            "statement": free(explanation.intendedUse),
         }
 
     def cite_sources(claims: list[dict[str, Any]]) -> None:
@@ -682,6 +750,17 @@ def build_payload(explanation: RunExplanation) -> tuple[dict[str, Any], set[str]
         # `sources` was already placed in the payload by reference, but re-sort
         # so the added entries are not simply appended out of order.
         payload["sources"] = sorted(sources, key=lambda row: row["id"])
+
+    # Official documents (log 27): only when the route passes a section built
+    # from a stored search (config.AGENT_DOC_EVIDENCE). Absent -- not empty --
+    # otherwise, so the payload is byte-identical to the one before. Each
+    # item's id becomes citable here, by the same walk as every other section;
+    # a hit the search returned but did not select is not in it, so gate 3
+    # rejects a citation of it.
+    if official_docs:
+        payload["officialDocs"] = official_docs
+        for item in official_docs.get("items", []):
+            allowed.add(item["evidenceId"])
 
     # Deliberately absent: jobId, runId, sampleId, the biological sample name,
     # artifact paths, absolute paths, log tails and artifact contents. The model

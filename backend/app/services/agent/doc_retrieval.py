@@ -29,6 +29,7 @@ passage itself -- one place decides what a source is called and where it is.
 
 from __future__ import annotations
 
+import logging
 import re
 import sqlite3
 from functools import lru_cache
@@ -37,6 +38,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app import config
 from app.services.explanation import knowledge
+
+log = logging.getLogger(__name__)
 
 # At most this many excerpts per cause. 5 is every passage any kind has today:
 # with 21 passages a cut at 3 dropped the tabix input requirement (sorted, bgzip)
@@ -162,9 +165,17 @@ def _scores(text: str) -> dict[str, float]:
     query = match_query(text)
     if query is None:
         return {}
-    rows = _index().execute(
-        "SELECT pid, bm25(passages) FROM passages WHERE passages MATCH ?", (query,)
-    ).fetchall()
+    try:
+        rows = _index().execute(
+            "SELECT pid, bm25(passages) FROM passages WHERE passages MATCH ?", (query,)
+        ).fetchall()
+    except sqlite3.Error as exc:
+        # A Python build without FTS5 (log 29). FTS5 only ORDERS here -- the
+        # cause-kind key does the selecting -- so the excerpts keep their file
+        # order, exactly as when no word matches. Logged, never raised: the
+        # run page's search and the step tool must not fail over an ordering.
+        log.warning("excerpt ranking unavailable: %s: %s", type(exc).__name__, exc)
+        return {}
     return {pid: score for pid, score in rows}
 
 

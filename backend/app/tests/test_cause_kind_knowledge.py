@@ -248,6 +248,15 @@ def test_both_variants_forbid_one_fix_unblocking_a_multi_failure_run():
     assert rule in prompt.CONSTRAINTS and rule in prompt.CONSTRAINTS_NO_TOOL
 
 
+def test_both_variants_forbid_promising_success_even_for_one_failure():
+    """P5 (log 25): the multi-failure rule left the one-failure case open, and a
+    test-double answer promising "fix this one thing and the pipeline completes"
+    was served. The rule is a prompt rule, not a gate: a sentence-level check
+    for promises would also reject the grounding's own "this check passes"."""
+    rule = "Promise that any action will make the run, or a rerun, finish or succeed"
+    assert rule in prompt.CONSTRAINTS and rule in prompt.CONSTRAINTS_NO_TOOL
+
+
 def test_required_tools_effect_no_longer_promises_the_analysis_starts():
     (action,) = knowledge.failure("required_tools").grounding.actions
     assert "다른 실패" in action.effect

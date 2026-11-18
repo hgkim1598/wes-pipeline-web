@@ -47,6 +47,7 @@ by this module; only the implementation is now shared.)
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from typing import Any
 
 # Numbers as they appear in prose: 52,379 · 10.9967 · 7.2115 · 36,458,262.
@@ -178,6 +179,43 @@ def camel_case_property_names(payload: Any) -> set[str]:
     not only which ones leaked.
     """
     return {name for name in collect_property_names(payload) if _CAMEL.fullmatch(name)}
+
+
+# --- sensitive values in the answer (P4, 2026-11-17) --------------------------
+#
+# Narrow on purpose. privacy._RESIDUAL is tuned for pipeline text and treats any
+# word with two "/" as a path, which in an explanation is "PASS/WARN/FAIL" or
+# "입력/출력/로그". A gate that discards a correct answer for that is a false
+# positive the reader cannot act on, so only unambiguous shapes are matched.
+_SENSITIVE_SHAPES: tuple[tuple[str, re.Pattern[str]], ...] = (
+    # C:\x, C:/x -- a drive letter not glued to a word ("ABC:/x" is not one).
+    ("windowsPath", re.compile(r"(?<![\w])[A-Za-z]:[\\/]")),
+    # \\server\share
+    ("uncPath", re.compile(r"\\\\[\w.\-]+[\\/]")),
+    # ~/x and ~\x
+    ("homePath", re.compile(r"(?<![\w])~[\\/]")),
+    # /a/b: rooted, two segments or more, the "/" not following a word, a "/"
+    # or ":" -- so "R1/R2", "3/4" and the "//host/x" of a URL do not match.
+    ("posixPath", re.compile(r"(?<![\w/:.\-])/[\w.\-@%+~]+/[\w.\-@%+~]+")),
+    ("emailAddress", re.compile(r"[\w.+\-]+@[\w\-]+(?:\.[\w\-]+)*\.[A-Za-z]{2,}")),
+)
+
+
+def find_sensitive_output(
+    text: str, contains_identifier: Callable[[str], bool] | None = None
+) -> list[str]:
+    """The KINDS of sensitive value in one piece of answer prose, never the value.
+
+    `contains_identifier` is the job's own literal check (Redactor.contains_literal):
+    the sample, run and job id. Without one only the shapes are checked.
+    Returning kinds rather than matches is the point -- the finding goes to a
+    log, a trace and possibly a rewrite request, and none of them may carry
+    the value it is about.
+    """
+    kinds = [name for name, pattern in _SENSITIVE_SHAPES if pattern.search(text)]
+    if contains_identifier is not None and contains_identifier(text):
+        kinds.append("runIdentifier")
+    return kinds
 
 
 def find_exposed_property_names(statements: list[str], payload: Any) -> list[str]:
