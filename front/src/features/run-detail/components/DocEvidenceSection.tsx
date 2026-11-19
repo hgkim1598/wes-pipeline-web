@@ -74,6 +74,7 @@ const RELATION_ORDER = [
 const MATCHED_BY_LABEL: Record<string, string> = {
   causeKindKey: '원인 종류로 조회',
   optionLookup: '명령 옵션으로 조회',
+  sectionIntro: '실행된 명령 구간의 첫 설명',
   fts5: '전문 검색',
 }
 

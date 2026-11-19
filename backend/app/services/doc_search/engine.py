@@ -9,7 +9,9 @@
              | key: cause kind (exact, as the agent's   | only when the input's tool is the
              | tool does; doc_retrieval.retrieve)       | manual's tool and a subcommand is known
              |                                          |   1. option lookup in that command's section
-             |                                          |   2. FTS5 bm25 over every chunk, the
+             |                                          |   2. that section's opening chunk (what the
+             |                                          |      command does and requires; log 31)
+             |                                          |   3. FTS5 bm25 over every chunk, the
              |                                          |      command's own section first
              +-----------+------------------------------+
                          v
@@ -289,6 +291,13 @@ def _search_manual(item: SearchInput, corpus: manual_corpus.ManualCorpus,
     found: dict[str, list[str]] = {}
     for cid in corpus.option_lookup(cmd.subcommand, tuple(cmd.options)):
         found.setdefault(cid, []).append("optionLookup")
+    # The section's opening paragraph, after the recorded options and before
+    # FTS (log 31). Chosen on the dev questions only: it added the relevant
+    # text for one dev question that FTS missed, changed no other dev result,
+    # and moved no relevant hit out of the agent input on dev or test.
+    intro = corpus.section_intro(cmd.subcommand)
+    if intro is not None:
+        found.setdefault(intro, []).append("sectionIntro")
     engine = retriever or corpus
     # FTS candidates from the recorded command's own section are taken before
     # those of other commands (log 27). Measured on the lab questions that match

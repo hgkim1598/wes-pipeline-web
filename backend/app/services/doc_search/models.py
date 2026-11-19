@@ -22,7 +22,8 @@ Relation = Literal[
     "otherCommandSection",
     "generalSection",
 ]
-MatchedBy = Literal["causeKindKey", "optionLookup", "fts5"]
+# sectionIntro: the opening chunk of the recorded command's section (log 31).
+MatchedBy = Literal["causeKindKey", "optionLookup", "sectionIntro", "fts5"]
 
 
 class _Model(BaseModel):

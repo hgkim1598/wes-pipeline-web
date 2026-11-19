@@ -77,6 +77,22 @@ class ManualCorpus:
         ).fetchall()
         return [cid for (cid,) in rows]
 
+    def section_intro(self, subcommand: str) -> str | None:
+        """The first chunk of `subcommand`'s own section, in manual order.
+
+        Structural, like option_lookup: every command section of the manual opens
+        with what the command does and what it requires of its input ("Creates
+        index for bgzip compressed VCF/BCF files ...", "All source files must have
+        the same sample columns ..."). An error sentence often shares no word with
+        that paragraph, so FTS can rank it low or miss it (log 31: on the lab
+        questions it was missing for one dev question and ranked 4th, past the
+        per-failure cap, for one test question).
+        """
+        for cid in self.order:
+            if self.chunks[cid].section_command == subcommand:
+                return cid
+        return None
+
     def option_lookup(self, subcommand: str, options: tuple[str, ...]) -> list[str]:
         """Chunks in `subcommand`'s own section that list one of `options`.
 

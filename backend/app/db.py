@@ -190,6 +190,11 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     # request made for itself. NULL = the run page's button, and every row
     # from before the column existed.
     "doc_search_runs": {"purpose": "TEXT"},
+    # The full matchedBy list when it holds a reason that `matched_by` must not
+    # (log 32): `matched_by` keeps only the vocabulary every release reads
+    # strictly, so a rollback can still serve the row. NULL = `matched_by` is
+    # the whole list (every row from before the column, and most rows after).
+    "doc_search_hits": {"matched_by_full": "TEXT"},
 }
 
 

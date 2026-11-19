@@ -44,6 +44,23 @@ GATE_CATEGORIES = frozenset({
     "runFactMismatch", "evidenceMismatch", "sensitiveOutput", "docEvidenceMisuse",
 })
 
+# matchedBy values every released reader validates strictly (92c7e12 rejects any
+# other value and fails the whole GET doc-search for the job, log 32). FROZEN:
+# a new reason never enters `matched_by`; it is kept in `matched_by_full`.
+LEGACY_MATCHED_BY = ("causeKindKey", "optionLookup", "fts5")
+
+
+def _matched_by_columns(how: list[str]) -> tuple[str, str | None]:
+    """(matched_by, matched_by_full): the readable-by-all subset, and the full list if it differs."""
+    legacy = [m for m in how if m in LEGACY_MATCHED_BY]
+    return json.dumps(legacy), (json.dumps(how) if legacy != how else None)
+
+
+def _matched_by(row: Any) -> list[str]:
+    full = row["matched_by_full"]  # column added on connect (db._ADDED_COLUMNS)
+    return json.loads(full if full is not None else row["matched_by"])
+
+
 _ERROR_MESSAGES = {
     "runRecordUnreadable": "실행 기록을 읽지 못해 검색하지 않았습니다.",
     "noCorpusAvailable": "검색할 공식 문서 자료가 이 서버에 없습니다.",
@@ -67,11 +84,11 @@ def save(job_id: str, record: engine.SearchRecord, *, purpose: str | None = None
         )
         conn.executemany(
             "INSERT INTO doc_search_hits (search_id, input_id, corpus, rank, evidence_id, relation, "
-            "matched_by, source_title, source_url, location, version, checked_on, item_sha256) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "matched_by, matched_by_full, source_title, source_url, location, version, checked_on, "
+            "item_sha256) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 (search_id, h.input_id, h.corpus, h.rank, h.evidence_id, h.relation,
-                 json.dumps(h.matched_by), h.source_title, h.source_url, h.location,
+                 *_matched_by_columns(h.matched_by), h.source_title, h.source_url, h.location,
                  h.version, h.checked_on, h.item_sha256)
                 for h in record.hits
             ],
@@ -154,7 +171,7 @@ def _run(row: Any, hits: list[Any], manual) -> DocSearchRun:
     for h in hits:
         resolved.append(SearchHit(
             inputId=h["input_id"], corpus=h["corpus"], rank=h["rank"], evidenceId=h["evidence_id"],
-            relation=h["relation"], matchedBy=json.loads(h["matched_by"]),
+            relation=h["relation"], matchedBy=_matched_by(h),
             sourceTitle=h["source_title"], sourceUrl=h["source_url"], location=h["location"],
             version=h["version"], checkedOn=h["checked_on"], **_resolve(h, manual),
             usage=_usage(links.get(h["evidence_id"])),
