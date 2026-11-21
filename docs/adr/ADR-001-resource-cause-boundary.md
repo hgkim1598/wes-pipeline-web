@@ -380,3 +380,4 @@ ADR(Architecture Decision Record)은 설계 결정을 이유와 함께 남기는
 |---|---|
 | 2026-11-13 | 제안 작성. 구현·테스트 없음 |
 | 2026-11-13 | 사용자가 B 수용. 정책 P1–P6 반영(D2 공개 조건, §6 Q-A 해소). 구현·로컬 검증 결과 §10 추가. 상태를 채택(구현됨, 최종 승인 대기)으로 변경 |
+| 2026-11-17 | §8에서 별도 과제로 미룬 `logTail` 경로 노출을 처리했다(AI 구현, 사용자 최종 승인 전). `GET /api/jobs`·`GET /api/jobs/{id}`의 자유 텍스트(`logTail`, `error`, `steps[].messages`)를 같은 `redactor_for_row` + `Redactor.release`로 한 줄씩 투영한다(`services/public_text.py`). `read_log_tail()`과 `Redactor` 규칙은 바꾸지 않았다. 이로써 `app/api/jobs.py`가 `services.agent`를 쓰는 두 번째 API 모듈이 되어 **§9 재검토 조건에 해당**한다. `privacy.py` 이동은 하지 않았고 판단 대기다. 단계 상세의 check `detail`·failure `message`는 여전히 원문이다(F6 일부 미해결) |
