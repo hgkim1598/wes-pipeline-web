@@ -9,6 +9,8 @@ import { SectionHeader } from '@/components/ui/SectionHeader'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { TabsList, TabsPanel, TabsRoot, TabsTab } from '@/components/ui/Tabs'
 import { HealthCheckPage } from '@/features/health/HealthCheckPage'
+import { EvalCompareListPage, EvalComparePage } from '@/features/eval-compare/EvalComparePage'
+import { EvalGradePage } from '@/features/eval-compare/EvalGradePage'
 import { SetupGuidePage } from '@/features/help/SetupGuidePage'
 import { NewAnalysisPage } from '@/features/new-analysis/NewAnalysisPage'
 import { RunDetailPage } from '@/features/run-detail/RunDetailPage'
@@ -181,6 +183,15 @@ function App() {
         저장소를 열 수 없다.
       */}
       <Route path="/help/setup" element={<SetupGuidePage />} />
+
+      {/*
+        평가자 전용 A/B 비교(같은 Run · 두 코드 경로 · 실제 Claude 답변). backend가
+        WES_EVAL_COMPARE=1일 때만 데이터를 준다. 꺼져 있으면 화면이 그렇게 말한다.
+        모델을 부르지 않는다 — 답변은 승인 후 runner CLI(evals/ab_compare)가 만든다.
+      */}
+      <Route path="/eval/compare" element={<EvalCompareListPage />} />
+      <Route path="/eval/compare/:experimentId" element={<EvalComparePage />} />
+      <Route path="/eval/compare/:experimentId/grade" element={<EvalGradePage />} />
     </Routes>
     </AppShell>
   )

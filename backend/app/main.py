@@ -18,7 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import config, db
-from .api import doc_search, explanations, jobs, results, steps, synthesis, uploads
+from .api import doc_search, eval_compare, explanations, jobs, results, steps, synthesis, uploads
 from .services import worker
 
 
@@ -66,6 +66,9 @@ app.include_router(explanations.router)
 app.include_router(synthesis.router)
 # Official-document search: model-free, reads run records and local corpora only.
 app.include_router(doc_search.router)
+# Evaluator-only A/B comparison data. Every route is 404 unless WES_EVAL_COMPARE=1;
+# it only reads what evals/ab_compare stored and never calls a model.
+app.include_router(eval_compare.router)
 
 
 @app.get("/api/health", tags=["health"])

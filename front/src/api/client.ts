@@ -157,11 +157,11 @@ async function readJson(response: Response): Promise<unknown> {
 /** JSON GET 요청 하나. */
 export async function getJson(
   path: string,
-  options?: { signal?: AbortSignal },
+  options?: { signal?: AbortSignal; headers?: Record<string, string> },
 ): Promise<unknown> {
   const response = await send(
     path,
-    { method: 'GET', headers: { Accept: 'application/json' } },
+    { method: 'GET', headers: { ...options?.headers, Accept: 'application/json' } },
     options?.signal,
   )
   return readJson(response)
@@ -171,13 +171,13 @@ export async function getJson(
 export async function postJson(
   path: string,
   body: unknown,
-  options?: { signal?: AbortSignal },
+  options?: { signal?: AbortSignal; headers?: Record<string, string> },
 ): Promise<unknown> {
   const response = await send(
     path,
     {
       method: 'POST',
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      headers: { ...options?.headers, Accept: 'application/json', 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     },
     options?.signal,

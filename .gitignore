@@ -53,6 +53,8 @@ backend/evals/baselines/*_real_*.json
 backend/evals/baselines/*_agent_resource_*.json
 backend/evals/expectations/real_*.json
 backend/evals/experiments/ab_*/
+# A/B comparison store: code snapshots, payloads, real answers, grades (evals/ab_compare).
+backend/evals/ab_store/
 
 # Unreleased document content and frozen research queries, not implementation.
 /config/knowledge/wes_doc_passages.json

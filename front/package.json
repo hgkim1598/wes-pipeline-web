@@ -14,6 +14,7 @@
     "test:docview": "node --experimental-strip-types --test scripts/doc-hit-view.test.mjs",
     "test:workspace": "node --experimental-strip-types --test scripts/workspace-view.test.mjs",
     "test:facts": "node --experimental-strip-types --test scripts/fact-applicability.test.mjs",
+    "test:compare": "node --experimental-strip-types --test scripts/eval-compare.test.mjs",
     "typecheck": "tsc -b --force",
     "lint": "oxlint",
     "preview": "vite preview"

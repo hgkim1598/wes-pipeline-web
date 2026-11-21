@@ -122,6 +122,18 @@ DOC_MANUAL_CHUNKS = _env("WES_DOC_MANUAL_CHUNKS")
 # this repository has measured whether a model answers better with it.
 AGENT_DOC_EVIDENCE = _env("WES_AGENT_DOC_EVIDENCE", "0") == "1"
 
+# Evaluator-only A/B comparison screen (api/eval_compare.py, evals/ab_compare).
+# Off by default: every /api/eval/compare route answers 404, so a normal
+# deployment exposes neither the stored answers nor the gate-rejected ones.
+# The routes only READ the store (and append human grades); no route calls a
+# model or switches any safeguard off -- the calls are made by the runner CLI.
+EVAL_COMPARE = _env("WES_EVAL_COMPARE", "0") == "1"
+EVAL_AB_STORE = Path(_env("WES_EVAL_AB_STORE") or (BACKEND_DIR / "evals" / "ab_store"))
+# Shared secret the evaluator screen sends with every request. Required when
+# EVAL_COMPARE is on (no token -> 503); the routes also refuse any peer that is
+# not this machine. See api/eval_compare.py "Access".
+EVAL_COMPARE_TOKEN = _env("WES_EVAL_COMPARE_TOKEN") or ""
+
 # Model for AI synthesis, as a config value rather than a constant in the domain
 # layer -- swapping it must not touch a schema.
 #

@@ -4,6 +4,7 @@ import { NavLink, useLocation } from 'react-router'
 import type { LucideIcon } from 'lucide-react'
 import {
   BookOpenCheck,
+  GitCompareArrows,
   Activity,
   ListChecks,
   Menu,
@@ -12,6 +13,7 @@ import {
   X,
 } from 'lucide-react'
 
+import { useEvalCompareAvailable } from '@/features/eval-compare/queries'
 import { useHealthQuery } from '@/features/health/useHealthQuery'
 import { cx } from '@/lib/cx'
 
@@ -53,6 +55,12 @@ const NAV: readonly NavItem[] = [
   { to: '/health', label: '서버 상태', icon: Activity },
   { to: '/help/setup', label: '준비 안내', icon: BookOpenCheck },
 ]
+
+/*
+  평가자 전용 항목. backend가 WES_EVAL_COMPARE=1로 비교 데이터를 줄 때만 보인다
+  (GET /api/eval/compare가 404면 그리지 않는다). 일반 서비스에는 나타나지 않는다.
+*/
+const EVAL_NAV: NavItem = { to: '/eval/compare', label: '비교 분석', icon: GitCompareArrows, matchPrefix: true }
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false)
@@ -135,7 +143,7 @@ function Brand({ compact = false }: { compact?: boolean }) {
 
 function NavList() {
   const { pathname } = useLocation()
-  const items = NAV
+  const items = useEvalCompareAvailable() ? [...NAV, EVAL_NAV] : NAV
   return (
     <nav aria-label="서비스 이동" className="px-3 py-4">
       <ul className="flex flex-col gap-1">
