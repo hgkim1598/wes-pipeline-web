@@ -1,0 +1,115 @@
+{
+  "_comment": [
+    "구현 전(2026-11-21) 작성한 정답 키. 원본 기록(단계 문서, run_status.json, fixture의 기록 성격)으로 정했다.",
+    "steps: 단계별 기대 실행 상태. '*'는 나머지 계획 단계 전부. 'fromDocument'는 그 단계 문서의 status를",
+    "그대로 옮긴 값(completed->ranCompleted, warning->ranWarning, failed->ranFailed, skipped->skipped).",
+    "stepsKnown=false: 단계 목록 자체가 기록에 없어 단계별 판정을 만들면 안 되는 사례.",
+    "notExecuted: 모순 검출기를 켤 단계. 기록상 실행되지 않은(미실행 또는 계획 밖) 단계.",
+    "withholdAllowed: 보류해도 되는 문장 패턴(정규식). 여기 맞지 않는 보류는 '잘못 보류'로 센다.",
+    "unknownAllowed: 단계 판정이 불가능해 unknown 보류가 정당한 사례. 그 보류는 지표 9로 따로 센다.",
+    "mustRemain: 보류되면 안 되는 문장 패턴(정규식). 하나라도 보류되면 잘못 보류."
+  ],
+  "split": {
+    "dev": ["real_b94559", "precheck_failed", "agent_failed_step", "agent_warning_step"],
+    "heldout": ["real_3a22c5", "real_cba73e", "agent_resource_heldout", "agent_no_tool_needed",
+                "execution_failed", "full_completed_with_warnings", "in_progress",
+                "H1", "H2", "H3", "H4", "H5", "H6", "H7"]
+  },
+  "cases": {
+    "real_b94559": {
+      "steps": {"00_input_validation": "ranFailed", "*": "notRunAfterFailure"},
+      "notExecuted": ["01_raw_qc", "02_preprocessing", "03_alignment", "04_processing", "05_coverage_qc", "06_variant_calling", "99_finalization"],
+      "withholdAllowed": "FastQC", "unknownAllowed": false
+    },
+    "precheck_failed": {
+      "stepsKnown": false,
+      "notExecuted": ["01_raw_qc", "02_preprocessing", "03_alignment", "04_processing", "05_coverage_qc", "06_variant_calling"],
+      "withholdAllowed": "FastQC", "unknownAllowed": true
+    },
+    "agent_failed_step": {
+      "steps": {"00_input_validation": "ranCompleted", "01_raw_qc": "ranCompleted", "02_preprocessing": "ranCompleted",
+                "03_alignment": "ranCompleted", "04_processing": "ranFailed", "*": "notRunAfterFailure"},
+      "notExecuted": ["05_coverage_qc", "06_variant_calling", "99_finalization"],
+      "withholdAllowed": null, "unknownAllowed": false
+    },
+    "agent_warning_step": {
+      "steps": {"*": "fromDocument"},
+      "notExecuted": [],
+      "withholdAllowed": null, "unknownAllowed": false,
+      "mustRemain": ["FastQC"]
+    },
+    "real_3a22c5": {
+      "steps": {"00_input_validation": "ranFailed", "*": "notRunAfterFailure"},
+      "notExecuted": ["01_raw_qc", "02_preprocessing", "03_alignment", "04_processing", "05_coverage_qc", "06_variant_calling", "99_finalization"],
+      "withholdAllowed": "FastQC", "unknownAllowed": false
+    },
+    "real_cba73e": {
+      "steps": {"*": "fromDocument"},
+      "notExecuted": [],
+      "withholdAllowed": null, "unknownAllowed": false
+    },
+    "agent_resource_heldout": {
+      "steps": {"00_input_validation": "ranFailed", "*": "notRunAfterFailure"},
+      "notExecuted": ["01_raw_qc", "02_preprocessing", "03_alignment", "04_processing", "05_coverage_qc", "06_variant_calling", "99_finalization"],
+      "withholdAllowed": "FastQC", "unknownAllowed": false
+    },
+    "agent_no_tool_needed": {
+      "steps": {"*": "fromDocument"},
+      "notExecuted": [],
+      "withholdAllowed": null, "unknownAllowed": false
+    },
+    "execution_failed": {
+      "stepsKnown": false,
+      "notExecuted": ["04_processing", "05_coverage_qc", "06_variant_calling"],
+      "withholdAllowed": null, "unknownAllowed": true
+    },
+    "full_completed_with_warnings": {
+      "stepsKnown": false,
+      "notExecuted": [],
+      "withholdAllowed": null, "unknownAllowed": true
+    },
+    "in_progress": {
+      "stepsKnown": false,
+      "notExecuted": [],
+      "withholdAllowed": null, "unknownAllowed": true
+    },
+    "H1": {
+      "steps": {"00_input_validation": "ranCompleted", "01_raw_qc": "ranCompleted", "02_preprocessing": "ranCompleted",
+                "03_alignment": "unknown", "*": "notRunCancelled"},
+      "notExecuted": ["04_processing", "05_coverage_qc", "06_variant_calling", "99_finalization"],
+      "withholdAllowed": null, "unknownAllowed": false
+    },
+    "H2": {
+      "steps": {"00_input_validation": "ranCompleted", "01_raw_qc": "ranCompleted", "02_preprocessing": "ranCompleted",
+                "03_alignment": "ranCompleted", "*": "notRunAfterStop"},
+      "notExecuted": ["04_processing", "05_coverage_qc", "06_variant_calling", "99_finalization"],
+      "withholdAllowed": null, "unknownAllowed": false
+    },
+    "H3": {
+      "steps": {"05_coverage_qc": "ranWarning", "06_variant_calling": "ranFailed", "99_finalization": "notRunAfterFailure", "*": "ranCompleted"},
+      "notExecuted": ["99_finalization"],
+      "withholdAllowed": null, "unknownAllowed": false,
+      "mustRemain": ["variant calling proceeds"]
+    },
+    "H4": {
+      "steps": {"05_coverage_qc": "ranFailed", "06_variant_calling": "notRunAfterFailure", "99_finalization": "notRunAfterFailure", "*": "ranCompleted"},
+      "notExecuted": ["06_variant_calling", "99_finalization"],
+      "withholdAllowed": "variant calling proceeds|변이 검출", "unknownAllowed": false
+    },
+    "H5": {
+      "steps": {"05_coverage_qc": "unknown", "*": "ranCompleted"},
+      "notExecuted": [],
+      "withholdAllowed": null, "unknownAllowed": true
+    },
+    "H6": {
+      "stepsKnown": false,
+      "notExecuted": [],
+      "withholdAllowed": null, "unknownAllowed": true
+    },
+    "H7": {
+      "steps": {"00_input_validation": "ranFailed"},
+      "notExecuted": ["01_raw_qc"],
+      "withholdAllowed": "FastQC", "unknownAllowed": false
+    }
+  }
+}

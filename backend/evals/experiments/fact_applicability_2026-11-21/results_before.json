@@ -1,0 +1,957 @@
+{
+  "summary": {
+    "label": "before",
+    "evaluable": "18/18",
+    "notEvaluable": [],
+    "stepStates": {
+      "dev": "0/24",
+      "heldout": "0/73"
+    },
+    "noStepListCasesRecognised": "0/5",
+    "payloadContradictions": 12,
+    "displayContradictions": 8,
+    "guaranteeSentences": 6,
+    "decisions": 0,
+    "withheld": 0,
+    "falseWithhold": 0,
+    "unknownDecisions": 0,
+    "unknownWithhold": 0,
+    "unknownTreatedApplicable": 0,
+    "unregisteredPipelineTexts": 0,
+    "noStepListCases": 5,
+    "msMedianMax": 3.182
+  },
+  "cases": [
+    {
+      "case": "real_b94559",
+      "split": "dev",
+      "evaluable": true,
+      "kind": "archive",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 0,
+        "total": 8,
+        "wrong": {
+          "00_input_validation": {
+            "expected": "ranFailed",
+            "got": null
+          },
+          "01_raw_qc": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "02_preprocessing": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "03_alignment": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "04_processing": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "05_coverage_qc": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "06_variant_calling": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "99_finalization": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          }
+        }
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [
+        {
+          "rule": "C-FASTQC",
+          "excerpt": "Per-lane FastQC still runs; only the aggregate"
+        },
+        {
+          "rule": "C-FASTQC",
+          "excerpt": "로 모아 보여주는 도구입니다. 개별 FastQC 리포트는 정상적으로 생성되었습니다."
+        },
+        {
+          "rule": "C-FASTQC",
+          "excerpt": "로 모아 보여주는 도구입니다. 개별 FastQC 리포트는 정상적으로 생성되었습니다."
+        }
+      ],
+      "displayContradictions": [
+        {
+          "rule": "C-FASTQC",
+          "excerpt": "로 모아 보여주는 도구입니다. 개별 FastQC 리포트는 정상적으로 생성되었습니다."
+        },
+        {
+          "rule": "C-FASTQC",
+          "excerpt": "Per-lane FastQC still runs; only the aggregate"
+        }
+      ],
+      "guaranteeSentences": 1,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 2.733
+    },
+    {
+      "case": "precheck_failed",
+      "split": "dev",
+      "evaluable": true,
+      "kind": "fixture",
+      "plannedSteps": 0,
+      "steps": {
+        "expected": "no step list",
+        "stepsKnown": null,
+        "correct": 0,
+        "total": 0,
+        "stepsKnownCorrect": false
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [
+        {
+          "rule": "C-FASTQC",
+          "excerpt": "Per-lane FastQC still runs; only the aggregate"
+        },
+        {
+          "rule": "C-FASTQC",
+          "excerpt": "로 모아 보여주는 도구입니다. 개별 FastQC 리포트는 정상적으로 생성되었습니다."
+        },
+        {
+          "rule": "C-FASTQC",
+          "excerpt": "로 모아 보여주는 도구입니다. 개별 FastQC 리포트는 정상적으로 생성되었습니다."
+        }
+      ],
+      "displayContradictions": [
+        {
+          "rule": "C-FASTQC",
+          "excerpt": "로 모아 보여주는 도구입니다. 개별 FastQC 리포트는 정상적으로 생성되었습니다."
+        },
+        {
+          "rule": "C-FASTQC",
+          "excerpt": "Per-lane FastQC still runs; only the aggregate"
+        }
+      ],
+      "guaranteeSentences": 1,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 1.869
+    },
+    {
+      "case": "agent_failed_step",
+      "split": "dev",
+      "evaluable": true,
+      "kind": "synthetic",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 0,
+        "total": 8,
+        "wrong": {
+          "00_input_validation": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "01_raw_qc": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "02_preprocessing": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "03_alignment": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "04_processing": {
+            "expected": "ranFailed",
+            "got": null
+          },
+          "05_coverage_qc": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "06_variant_calling": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "99_finalization": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          }
+        }
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 0.533
+    },
+    {
+      "case": "agent_warning_step",
+      "split": "dev",
+      "evaluable": true,
+      "kind": "synthetic",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 0,
+        "total": 8,
+        "wrong": {
+          "00_input_validation": {
+            "expected": "unknown",
+            "got": null
+          },
+          "01_raw_qc": {
+            "expected": "unknown",
+            "got": null
+          },
+          "02_preprocessing": {
+            "expected": "unknown",
+            "got": null
+          },
+          "03_alignment": {
+            "expected": "unknown",
+            "got": null
+          },
+          "04_processing": {
+            "expected": "unknown",
+            "got": null
+          },
+          "05_coverage_qc": {
+            "expected": "unknown",
+            "got": null
+          },
+          "06_variant_calling": {
+            "expected": "unknown",
+            "got": null
+          },
+          "99_finalization": {
+            "expected": "unknown",
+            "got": null
+          }
+        }
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 1.42
+    },
+    {
+      "case": "real_3a22c5",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "archive",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 0,
+        "total": 8,
+        "wrong": {
+          "00_input_validation": {
+            "expected": "ranFailed",
+            "got": null
+          },
+          "01_raw_qc": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "02_preprocessing": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "03_alignment": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "04_processing": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "05_coverage_qc": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "06_variant_calling": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "99_finalization": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          }
+        }
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 0.48
+    },
+    {
+      "case": "real_cba73e",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "capture",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 0,
+        "total": 8,
+        "wrong": {
+          "00_input_validation": {
+            "expected": "unknown",
+            "got": null
+          },
+          "01_raw_qc": {
+            "expected": "unknown",
+            "got": null
+          },
+          "02_preprocessing": {
+            "expected": "unknown",
+            "got": null
+          },
+          "03_alignment": {
+            "expected": "unknown",
+            "got": null
+          },
+          "04_processing": {
+            "expected": "unknown",
+            "got": null
+          },
+          "05_coverage_qc": {
+            "expected": "unknown",
+            "got": null
+          },
+          "06_variant_calling": {
+            "expected": "unknown",
+            "got": null
+          },
+          "99_finalization": {
+            "expected": "unknown",
+            "got": null
+          }
+        }
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 1,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 2.321
+    },
+    {
+      "case": "agent_resource_heldout",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 0,
+        "total": 8,
+        "wrong": {
+          "00_input_validation": {
+            "expected": "ranFailed",
+            "got": null
+          },
+          "01_raw_qc": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "02_preprocessing": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "03_alignment": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "04_processing": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "05_coverage_qc": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "06_variant_calling": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "99_finalization": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          }
+        }
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 0.665
+    },
+    {
+      "case": "agent_no_tool_needed",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 0,
+        "total": 8,
+        "wrong": {
+          "00_input_validation": {
+            "expected": "unknown",
+            "got": null
+          },
+          "01_raw_qc": {
+            "expected": "unknown",
+            "got": null
+          },
+          "02_preprocessing": {
+            "expected": "unknown",
+            "got": null
+          },
+          "03_alignment": {
+            "expected": "unknown",
+            "got": null
+          },
+          "04_processing": {
+            "expected": "unknown",
+            "got": null
+          },
+          "05_coverage_qc": {
+            "expected": "unknown",
+            "got": null
+          },
+          "06_variant_calling": {
+            "expected": "unknown",
+            "got": null
+          },
+          "99_finalization": {
+            "expected": "unknown",
+            "got": null
+          }
+        }
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 1.22
+    },
+    {
+      "case": "execution_failed",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "fixture",
+      "plannedSteps": 0,
+      "steps": {
+        "expected": "no step list",
+        "stepsKnown": null,
+        "correct": 0,
+        "total": 0,
+        "stepsKnownCorrect": false
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 0.38
+    },
+    {
+      "case": "full_completed_with_warnings",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "fixture",
+      "plannedSteps": 0,
+      "steps": {
+        "expected": "no step list",
+        "stepsKnown": null,
+        "correct": 0,
+        "total": 0,
+        "stepsKnownCorrect": false
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 1,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 3.182
+    },
+    {
+      "case": "in_progress",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "fixture",
+      "plannedSteps": 0,
+      "steps": {
+        "expected": "no step list",
+        "stepsKnown": null,
+        "correct": 0,
+        "total": 0,
+        "stepsKnownCorrect": false
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 0.25
+    },
+    {
+      "case": "H1",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic-heldout",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 0,
+        "total": 8,
+        "wrong": {
+          "00_input_validation": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "01_raw_qc": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "02_preprocessing": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "03_alignment": {
+            "expected": "unknown",
+            "got": null
+          },
+          "04_processing": {
+            "expected": "notRunCancelled",
+            "got": null
+          },
+          "05_coverage_qc": {
+            "expected": "notRunCancelled",
+            "got": null
+          },
+          "06_variant_calling": {
+            "expected": "notRunCancelled",
+            "got": null
+          },
+          "99_finalization": {
+            "expected": "notRunCancelled",
+            "got": null
+          }
+        }
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 0.171
+    },
+    {
+      "case": "H2",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic-heldout",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 0,
+        "total": 8,
+        "wrong": {
+          "00_input_validation": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "01_raw_qc": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "02_preprocessing": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "03_alignment": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "04_processing": {
+            "expected": "notRunAfterStop",
+            "got": null
+          },
+          "05_coverage_qc": {
+            "expected": "notRunAfterStop",
+            "got": null
+          },
+          "06_variant_calling": {
+            "expected": "notRunAfterStop",
+            "got": null
+          },
+          "99_finalization": {
+            "expected": "notRunAfterStop",
+            "got": null
+          }
+        }
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 0.199
+    },
+    {
+      "case": "H3",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic-heldout",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 0,
+        "total": 8,
+        "wrong": {
+          "00_input_validation": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "01_raw_qc": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "02_preprocessing": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "03_alignment": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "04_processing": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "05_coverage_qc": {
+            "expected": "ranWarning",
+            "got": null
+          },
+          "06_variant_calling": {
+            "expected": "ranFailed",
+            "got": null
+          },
+          "99_finalization": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          }
+        }
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 0.722
+    },
+    {
+      "case": "H4",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic-heldout",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 0,
+        "total": 8,
+        "wrong": {
+          "00_input_validation": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "01_raw_qc": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "02_preprocessing": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "03_alignment": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "04_processing": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "05_coverage_qc": {
+            "expected": "ranFailed",
+            "got": null
+          },
+          "06_variant_calling": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          },
+          "99_finalization": {
+            "expected": "notRunAfterFailure",
+            "got": null
+          }
+        }
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [
+        {
+          "rule": "C-CALLING",
+          "excerpt": "e run continues and variant calling proceeds"
+        },
+        {
+          "rule": "C-CALLING",
+          "excerpt": "는 변이를 놓칠 가능성이 커집니다. 분석은 그대로 진행되었습니다."
+        },
+        {
+          "rule": "C-CALLING",
+          "excerpt": "는 변이를 놓칠 가능성이 커집니다. 분석은 그대로 진행되었습니다."
+        }
+      ],
+      "displayContradictions": [
+        {
+          "rule": "C-CALLING",
+          "excerpt": "는 변이를 놓칠 가능성이 커집니다. 분석은 그대로 진행되었습니다."
+        },
+        {
+          "rule": "C-CALLING",
+          "excerpt": "e run continues and variant calling proceeds"
+        }
+      ],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 0.926
+    },
+    {
+      "case": "H5",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic-heldout",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 0,
+        "total": 8,
+        "wrong": {
+          "00_input_validation": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "01_raw_qc": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "02_preprocessing": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "03_alignment": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "04_processing": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "05_coverage_qc": {
+            "expected": "unknown",
+            "got": null
+          },
+          "06_variant_calling": {
+            "expected": "ranCompleted",
+            "got": null
+          },
+          "99_finalization": {
+            "expected": "ranCompleted",
+            "got": null
+          }
+        }
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 1,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 2.152
+    },
+    {
+      "case": "H6",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic-heldout",
+      "plannedSteps": 0,
+      "steps": {
+        "expected": "no step list",
+        "stepsKnown": null,
+        "correct": 0,
+        "total": 0,
+        "stepsKnownCorrect": false
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 0.177
+    },
+    {
+      "case": "H7",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic-heldout",
+      "plannedSteps": 1,
+      "steps": {
+        "correct": 0,
+        "total": 1,
+        "wrong": {
+          "00_input_validation": {
+            "expected": "ranFailed",
+            "got": null
+          }
+        }
+      },
+      "ledgerPresent": false,
+      "payloadContradictions": [
+        {
+          "rule": "C-FASTQC",
+          "excerpt": "Per-lane FastQC still runs; only the aggregate"
+        },
+        {
+          "rule": "C-FASTQC",
+          "excerpt": "로 모아 보여주는 도구입니다. 개별 FastQC 리포트는 정상적으로 생성되었습니다."
+        },
+        {
+          "rule": "C-FASTQC",
+          "excerpt": "로 모아 보여주는 도구입니다. 개별 FastQC 리포트는 정상적으로 생성되었습니다."
+        }
+      ],
+      "displayContradictions": [
+        {
+          "rule": "C-FASTQC",
+          "excerpt": "로 모아 보여주는 도구입니다. 개별 FastQC 리포트는 정상적으로 생성되었습니다."
+        },
+        {
+          "rule": "C-FASTQC",
+          "excerpt": "Per-lane FastQC still runs; only the aggregate"
+        }
+      ],
+      "guaranteeSentences": 1,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 0.575
+    }
+  ]
+}

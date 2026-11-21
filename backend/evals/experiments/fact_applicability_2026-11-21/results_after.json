@@ -1,0 +1,492 @@
+{
+  "summary": {
+    "label": "after",
+    "evaluable": "18/18",
+    "notEvaluable": [],
+    "stepStates": {
+      "dev": "24/24",
+      "heldout": "73/73"
+    },
+    "noStepListCasesRecognised": "5/5",
+    "payloadContradictions": 0,
+    "displayContradictions": 0,
+    "guaranteeSentences": 0,
+    "decisions": 155,
+    "withheld": 10,
+    "falseWithhold": 1,
+    "unknownDecisions": 5,
+    "unknownWithhold": 4,
+    "unknownTreatedApplicable": 0,
+    "unregisteredPipelineTexts": 2,
+    "noStepListCases": 5,
+    "msMedianMax": 5.053
+  },
+  "cases": [
+    {
+      "case": "real_b94559",
+      "split": "dev",
+      "evaluable": true,
+      "kind": "archive",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 8,
+        "total": 8,
+        "wrong": {}
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 26,
+      "withheld": 2,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 4.107
+    },
+    {
+      "case": "precheck_failed",
+      "split": "dev",
+      "evaluable": true,
+      "kind": "fixture",
+      "plannedSteps": 0,
+      "steps": {
+        "expected": "no step list",
+        "stepsKnown": false,
+        "correct": 0,
+        "total": 0,
+        "stepsKnownCorrect": true
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 27,
+      "withheld": 3,
+      "unknownDecisions": 3,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [
+        {
+          "part": "recordedMeaning",
+          "target": "diagnostics/MULTIQC_MISSING/meaning"
+        },
+        {
+          "part": "grounding.scope.2",
+          "target": "diagnostics/MULTIQC_MISSING/grounding/scope/2"
+        },
+        {
+          "part": "impact",
+          "target": "pipeline/MULTIQC_MISSING/c5c4d9874dcf"
+        }
+      ],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 3.639
+    },
+    {
+      "case": "agent_failed_step",
+      "split": "dev",
+      "evaluable": true,
+      "kind": "synthetic",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 8,
+        "total": 8,
+        "wrong": {}
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 0.892
+    },
+    {
+      "case": "agent_warning_step",
+      "split": "dev",
+      "evaluable": true,
+      "kind": "synthetic",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 8,
+        "total": 8,
+        "wrong": {}
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 2,
+      "withheld": 1,
+      "unknownDecisions": 1,
+      "unregisteredPipelineTexts": 1,
+      "falseWithhold": [
+        {
+          "part": "impact",
+          "target": null,
+          "decision": "unknown"
+        }
+      ],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 2.263
+    },
+    {
+      "case": "real_3a22c5",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "archive",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 8,
+        "total": 8,
+        "wrong": {}
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 9,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 1.302
+    },
+    {
+      "case": "real_cba73e",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "capture",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 8,
+        "total": 8,
+        "wrong": {}
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 28,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 5.053
+    },
+    {
+      "case": "agent_resource_heldout",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 8,
+        "total": 8,
+        "wrong": {}
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 9,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 1.58
+    },
+    {
+      "case": "agent_no_tool_needed",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 8,
+        "total": 8,
+        "wrong": {}
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 1.862
+    },
+    {
+      "case": "execution_failed",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "fixture",
+      "plannedSteps": 0,
+      "steps": {
+        "expected": "no step list",
+        "stepsKnown": false,
+        "correct": 0,
+        "total": 0,
+        "stepsKnownCorrect": true
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 0.518
+    },
+    {
+      "case": "full_completed_with_warnings",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "fixture",
+      "plannedSteps": 0,
+      "steps": {
+        "expected": "no step list",
+        "stepsKnown": false,
+        "correct": 0,
+        "total": 0,
+        "stepsKnownCorrect": true
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 23,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 4.763
+    },
+    {
+      "case": "in_progress",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "fixture",
+      "plannedSteps": 0,
+      "steps": {
+        "expected": "no step list",
+        "stepsKnown": false,
+        "correct": 0,
+        "total": 0,
+        "stepsKnownCorrect": true
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 0.273
+    },
+    {
+      "case": "H1",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic-heldout",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 8,
+        "total": 8,
+        "wrong": {}
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 0.399
+    },
+    {
+      "case": "H2",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic-heldout",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 8,
+        "total": 8,
+        "wrong": {}
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 0.497
+    },
+    {
+      "case": "H3",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic-heldout",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 8,
+        "total": 8,
+        "wrong": {}
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 2,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 1.587
+    },
+    {
+      "case": "H4",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic-heldout",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 8,
+        "total": 8,
+        "wrong": {}
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 2,
+      "withheld": 1,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 1.381
+    },
+    {
+      "case": "H5",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic-heldout",
+      "plannedSteps": 8,
+      "steps": {
+        "correct": 8,
+        "total": 8,
+        "wrong": {}
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 10,
+      "withheld": 1,
+      "unknownDecisions": 1,
+      "unregisteredPipelineTexts": 1,
+      "falseWithhold": [],
+      "unknownWithhold": [
+        {
+          "part": "impact",
+          "target": null
+        }
+      ],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 3.411
+    },
+    {
+      "case": "H6",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic-heldout",
+      "plannedSteps": 0,
+      "steps": {
+        "expected": "no step list",
+        "stepsKnown": false,
+        "correct": 0,
+        "total": 0,
+        "stepsKnownCorrect": true
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 0,
+      "withheld": 0,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 0.204
+    },
+    {
+      "case": "H7",
+      "split": "heldout",
+      "evaluable": true,
+      "kind": "synthetic-heldout",
+      "plannedSteps": 1,
+      "steps": {
+        "correct": 1,
+        "total": 1,
+        "wrong": {}
+      },
+      "ledgerPresent": true,
+      "payloadContradictions": [],
+      "displayContradictions": [],
+      "guaranteeSentences": 0,
+      "decisions": 17,
+      "withheld": 2,
+      "unknownDecisions": 0,
+      "unregisteredPipelineTexts": 0,
+      "falseWithhold": [],
+      "unknownWithhold": [],
+      "unknownTreatedApplicable": 0,
+      "msMedian": 1.908
+    }
+  ]
+}

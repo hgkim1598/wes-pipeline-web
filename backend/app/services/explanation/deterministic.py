@@ -35,9 +35,10 @@ layer.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
-from . import knowledge
+from . import applicability, knowledge
+from .applicability import KnowledgeDecision
 from .knowledge import DiagnosticResolution, DiagnosticSeverity, DiagnosticStatus
 from .run_context import (
     ContextKind,
@@ -48,6 +49,7 @@ from .run_context import (
     RunStepState,
     RunVariantCalling,
 )
+from .run_ledger import RunLedger, build_ledger
 
 # attention first, then codes we have no knowledge for, then info.
 #
@@ -161,6 +163,14 @@ class RunExplanation(BaseModel):
 
     contextKind: ContextKind
     status: str
+    # main.sh's own run state (run_status.json "status"), when there is one. Kept
+    # because one value the frontend status flattens matters for which steps
+    # ran: `stopped_at_requested_step` reads as "completed" there. None for
+    # explanations recorded before this field and for runs with no status doc.
+    pipelineStatus: str | None = None
+    # run_status.json's current_step as written, also for an ended run. The
+    # step it names started; without a document of its own it is not "not run".
+    recordedCurrentStep: str | None = None
     resultsAvailable: bool
     resultsUnavailableReason: str | None = None
 
@@ -185,6 +195,31 @@ class RunExplanation(BaseModel):
     limitations: list[Limitation] = Field(default_factory=list)
     intendedUse: str | None = None
     sources: dict[str, str] = Field(default_factory=dict)
+
+    # --- derived, never stored (2026-11-21) -------------------------------------
+    #
+    # Computed from the fields above on every read, so an explanation recorded
+    # before these existed (every eval fixture) gets them too, and the two can
+    # never disagree with the steps and diagnostics they are derived from.
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def executionLedger(self) -> RunLedger:
+        """Which planned steps ran, per the run's own records (run_ledger.py)."""
+        return build_ledger(
+            self.status,
+            self.pipelineStatus,
+            [(s.stepId, s.status) for s in self.steps],
+            recorded_current_step=self.recordedCurrentStep,
+        )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def knowledgeDecisions(self) -> list[KnowledgeDecision]:
+        """Does each registered sentence about these diagnostics and failures apply
+        to this run? Withheld ones stay listed, with the reason (applicability.py).
+        """
+        return applicability.decisions_for(self.diagnostics, self.failures, self.executionLedger)
 
 
 # --- assembly ---------------------------------------------------------------
@@ -354,6 +389,8 @@ def build_run_explanation(context: RunDiagnosticContext) -> RunExplanation:
     return RunExplanation(
         contextKind=context.contextKind,
         status=context.outcome.status,
+        pipelineStatus=context.outcome.pipelineStatus,
+        recordedCurrentStep=context.outcome.recordedCurrentStep,
         resultsAvailable=context.resultsAvailable,
         resultsUnavailableReason=context.resultsUnavailableReason,
         identity=context.identity,

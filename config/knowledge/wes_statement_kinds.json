@@ -1,0 +1,1995 @@
+{
+  "_comment": [
+    "각 지식 문장이 무엇인지(kind)와 이 Run에 대해 무엇을 주장하는지(runClaim), 조건부일 때 언제 맞는지(appliesWhen).",
+    "문장 원문은 각 지식 파일에 있다. 여기는 target과 원문 SHA-256 앞 12자리로 가리킨다 -- 원문이 바뀌면",
+    "test_statement_kinds.py가 실패하므로 분류를 다시 정해야 한다.",
+    "review: manual = 문장을 읽고 개별 판단, role = 필드 역할(점검 칸 -> checkOrAction 등)로 정함.",
+    "pipelineTexts: main.sh가 진단마다 쓰는 고정 영향 문구. current는 지금 main.sh, legacy는 예전 Run 기록에 남은 것.",
+    "조건 언어와 판정 규칙: backend/app/services/explanation/applicability.py 머리 주석.",
+    "작성 2026-11-21. 분류는 AI(Claude)가 했고 사람 검토 전이다."
+  ],
+  "schemaVersion": "1",
+  "conditionLanguage": "appliesWhen/v1",
+  "statements": [
+    {
+      "target": "diagnostics/NM_MD_REPAIRED/meaning",
+      "sha": "0228fa8d59c5",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "재검증이 CLEAN일 때만 기록된다(main.sh run_processing)."
+    },
+    {
+      "target": "diagnostics/NM_MD_REPAIRED/grounding/possibleCauses/0",
+      "sha": "06b6d3c3d540",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "manual",
+      "note": "possibleCauses 칸에 있지만 태그 정의다."
+    },
+    {
+      "target": "diagnostics/NM_MD_REPAIRED/grounding/possibleCauses/1",
+      "sha": "632863d5f444",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "manual",
+      "note": "SAM 명세 설명."
+    },
+    {
+      "target": "diagnostics/NM_MD_REPAIRED/grounding/possibleCauses/2",
+      "sha": "bba9bf40063a",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/NM_MD_REPAIRED/grounding/possibleCauses/3",
+      "sha": "4ea88c99ab67",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/NM_MD_REPAIRED/grounding/scope/0",
+      "sha": "bb657ac758d4",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/NM_MD_REPAIRED/grounding/scope/1",
+      "sha": "254613f1654a",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/NM_MD_REPAIRED/grounding/checks/0",
+      "sha": "567b4aa40029",
+      "kind": "checkOrAction",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "'이 진단이 기록된 실행에서는 ONLY_NM'은 발생 조건 그 자체다."
+    },
+    {
+      "target": "diagnostics/NM_MD_REPAIRED/grounding/checks/1",
+      "sha": "846c7d007307",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/NM_MD_REPAIRED/grounding/checks/2",
+      "sha": "a1c2568fd9aa",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/NM_MD_REPAIRED/grounding/checks/3",
+      "sha": "be8375135a43",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/BQSR_DIAG_FAILED/meaning",
+      "sha": "7881bdc4363a",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "보정(ApplyBQSR) 뒤 진단 단계에서만 기록된다."
+    },
+    {
+      "target": "diagnostics/RSCRIPT_MISSING/meaning",
+      "sha": "db6ac346d825",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "이 code가 기록됐다는 것 자체가 이 상황이다(main.sh가 이 상황에서만 기록)."
+    },
+    {
+      "target": "diagnostics/READ_NAME_MODE_UNKNOWN/meaning",
+      "sha": "01ab8cc79e66",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/ZERO_COVERAGE_TARGET_BASES/meaning",
+      "sha": "bd04bb542077",
+      "kind": "generalKnowledge",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "'0× 염기가 있습니다'는 기록 조건 그 자체다."
+    },
+    {
+      "target": "diagnostics/ZERO_COVERAGE_TARGET_BASES/grounding/scope/0",
+      "sha": "ecadc98587cf",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/ZERO_COVERAGE_TARGET_BASES/grounding/scope/1",
+      "sha": "0e846f8817cf",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/ZERO_COVERAGE_TARGET_BASES/grounding/checks/0",
+      "sha": "fdbc2f863af2",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/ZERO_COVERAGE_TARGET_BASES/grounding/checks/1",
+      "sha": "50871f86ddfc",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/ZERO_COVERAGE_TARGET_BASES/grounding/checks/2",
+      "sha": "7667fae36418",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/UNCOVERED_TARGETS/meaning",
+      "sha": "9a441a59ac51",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "legacy code. 기록됐다면 구간 비율을 기록한 것이다."
+    },
+    {
+      "target": "diagnostics/LOW_MEAN_COVERAGE/meaning",
+      "sha": "b02b6d37765b",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "manual",
+      "note": "2026-11-21 수정 전 '분석은 그대로 진행되었습니다'는 06 실행을 전제한 문장이었다. 일반 문장으로 바꿨다."
+    },
+    {
+      "target": "diagnostics/DBSNP_NOT_CONFIGURED/meaning",
+      "sha": "e7b8105cd6b1",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/DBSNP_NOT_CONFIGURED/grounding/possibleCauses/0",
+      "sha": "0c0e8939406f",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "dbsnp_vcf 미선언은 이 code의 기록 조건이다."
+    },
+    {
+      "target": "diagnostics/DBSNP_NOT_CONFIGURED/grounding/possibleCauses/1",
+      "sha": "58bbe7020ad0",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "manual",
+      "note": "GATK 문서 설명."
+    },
+    {
+      "target": "diagnostics/DBSNP_NOT_CONFIGURED/grounding/scope/0",
+      "sha": "dc0b9a71674f",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/DBSNP_NOT_CONFIGURED/grounding/scope/1",
+      "sha": "0ecf61713ed2",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/DBSNP_NOT_CONFIGURED/grounding/checks/0",
+      "sha": "73b691c7bc31",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/DBSNP_NOT_CONFIGURED/grounding/actions/0",
+      "sha": "275f763940b3",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual",
+      "note": "2026-11-21 '다음 실행부터 적용됩니다'(결과 보장형)를 바꿨다."
+    },
+    {
+      "target": "diagnostics/DBSNP_NOT_CONFIGURED/grounding/actions/0/effect",
+      "sha": "99dd731178ed",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual",
+      "note": "결과를 약속하지 않고 조건(변이 검출 단계를 마치면)을 적는다."
+    },
+    {
+      "target": "diagnostics/DBSNP_MISSING/meaning",
+      "sha": "8e46ab8d930a",
+      "kind": "possibleCause",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "파일을 열 수 없었다는 것은 기록 조건. '설정 오류일 가능성'은 원인 후보. 2026-11-21 '영향받지 않았습니다'(과거형 결과)를 일반 문장으로 바꿨다."
+    },
+    {
+      "target": "diagnostics/NO_VARIANTS_PASSED/meaning",
+      "sha": "90318d516b18",
+      "kind": "checkOrAction",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "이 code가 기록됐다는 것 자체가 이 상황이다(main.sh가 이 상황에서만 기록)."
+    },
+    {
+      "target": "diagnostics/BCFTOOLS_STATS_FAILED/meaning",
+      "sha": "0c961e60b6bc",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual",
+      "note": "2026-11-21 '정상적으로 생성되었습니다'(판정·과거형)를 바꿨다."
+    },
+    {
+      "target": "diagnostics/MULTIQC_MISSING/meaning",
+      "sha": "551be9a13e32",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "manual",
+      "note": "2026-11-21 수정 전 '개별 FastQC 리포트는 정상적으로 생성되었습니다'는 01 실행을 전제했다. 00에서 멈춘 실제 Run에서 거짓이었다."
+    },
+    {
+      "target": "diagnostics/MULTIQC_MISSING/grounding/possibleCauses/0",
+      "sha": "6349445378bb",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual",
+      "note": "원인 후보 칸이지만 필수 도구 목록이라는 파이프라인 성질이다."
+    },
+    {
+      "target": "diagnostics/MULTIQC_MISSING/grounding/possibleCauses/1",
+      "sha": "7265151ff20b",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/MULTIQC_MISSING/grounding/scope/0",
+      "sha": "a58670a97292",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual",
+      "note": "2026-11-21 '분석 결과에는 영향이 없습니다'를 계산 방식에 관한 일반 문장으로 바꿨다."
+    },
+    {
+      "target": "diagnostics/MULTIQC_MISSING/grounding/scope/1",
+      "sha": "3cbdaf19a9a4",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/MULTIQC_MISSING/grounding/scope/2",
+      "sha": "6173277d06a3",
+      "kind": "conditionalResult",
+      "runClaim": "conditional",
+      "review": "manual",
+      "appliesWhen": {
+        "any": [
+          {
+            "occurredAt": [
+              "01_raw_qc"
+            ]
+          },
+          {
+            "stepExecution": {
+              "step": "01_raw_qc",
+              "in": [
+                "ranCompleted",
+                "ranWarning"
+              ]
+            }
+          }
+        ]
+      },
+      "note": "개별 FastQC 리포트가 만들어졌다는 결과 문장. 01에서 기록됐거나(그때는 FastQC 산출물 확인 뒤에만 기록) 01이 끝난 실행에서만 참."
+    },
+    {
+      "target": "diagnostics/MULTIQC_MISSING/grounding/checks/0",
+      "sha": "c05e827939d9",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/MULTIQC_MISSING/grounding/actions/0",
+      "sha": "b21fb76065d9",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual",
+      "note": "2026-11-21 '다음 실행부터 생성됩니다'(결과 보장형)를 바꿨다."
+    },
+    {
+      "target": "diagnostics/MULTIQC_MISSING/grounding/actions/0/effect",
+      "sha": "ae358398adf6",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/MULTIQC_FAILED/meaning",
+      "sha": "27bdaa619a97",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "01에서 FastQC 산출물 확인 뒤에만 기록된다."
+    },
+    {
+      "target": "diagnostics/MULTIQC_NO_REPORT/meaning",
+      "sha": "27bdaa619a97",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "01에서 FastQC 산출물 확인 뒤에만 기록된다."
+    },
+    {
+      "target": "diagnostics/GZIP_MISSING/meaning",
+      "sha": "b4dc6fe5d2bc",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "이 code가 기록됐다는 것 자체가 이 상황이다(main.sh가 이 상황에서만 기록)."
+    },
+    {
+      "target": "diagnostics/DISK_UNKNOWN/meaning",
+      "sha": "94af8c028110",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "이 code가 기록됐다는 것 자체가 이 상황이다(main.sh가 이 상황에서만 기록)."
+    },
+    {
+      "target": "diagnostics/RAM_UNKNOWN/meaning",
+      "sha": "94af8c028110",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "이 code가 기록됐다는 것 자체가 이 상황이다(main.sh가 이 상황에서만 기록)."
+    },
+    {
+      "target": "diagnostics/SAMPLESHEET_INSIDE_RUN/meaning",
+      "sha": "0ab7522822a5",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "이 code가 기록됐다는 것 자체가 이 상황이다(main.sh가 이 상황에서만 기록)."
+    },
+    {
+      "target": "diagnostics/CLINVAR_NOT_CONFIGURED/meaning",
+      "sha": "9fbcd9232a5c",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/CLINVAR_MISSING/meaning",
+      "sha": "3e55d9725b8d",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/CLINVAR_INCOMPATIBLE/meaning",
+      "sha": "9673a4db1a9f",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "이 code가 기록됐다는 것 자체가 이 상황이다(main.sh가 이 상황에서만 기록)."
+    },
+    {
+      "target": "diagnostics/CLINVAR_ANNOTATE_FAILED/meaning",
+      "sha": "b43db55860a9",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "정규화 VCF를 만든 뒤 주석 단계에서 기록된다."
+    },
+    {
+      "target": "diagnostics/VEP_NOT_WIRED/meaning",
+      "sha": "6ec87f8cccbf",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "이 code가 기록됐다는 것 자체가 이 상황이다(main.sh가 이 상황에서만 기록)."
+    },
+    {
+      "target": "diagnostics/VEP_MISSING/meaning",
+      "sha": "44da862da8c8",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "이 code가 기록됐다는 것 자체가 이 상황이다(main.sh가 이 상황에서만 기록)."
+    },
+    {
+      "target": "diagnostics/AUTOMATED_EVIDENCE_ONLY/meaning",
+      "sha": "c27844ab56d6",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "diagnostics/TSV_FAILED/meaning",
+      "sha": "d96e680d9a48",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "주석 VCF를 만든 뒤 기록된다."
+    },
+    {
+      "target": "diagnostics/METHODS_DOCUMENT_INCOMPLETE/meaning",
+      "sha": "e25502391e4f",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual",
+      "note": "2026-11-21 '분석 결과와 산출물은 정상이며'(판정)를 바꿨다."
+    },
+    {
+      "target": "diagnostics/OPTIONAL_STEPS_FAILED/meaning",
+      "sha": "cfebd4bdaf90",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "2026-11-21 '핵심 분석은 모두 끝났고 결과 파일은 정상입니다'는 핵심 단계 완료를 전제했다. 일반 문장으로 바꿨다."
+    },
+    {
+      "target": "diagnostics/OPTIONAL_CMD_FAILED/meaning",
+      "sha": "a330fd2012a1",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "failures/required_tools/meaning",
+      "sha": "3dc935005d62",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "failures/required_tools/grounding/possibleCauses/0",
+      "sha": "ccd4e5ec95b8",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "review": "manual",
+      "note": "도구 미발견은 이 실패의 기록 조건이다."
+    },
+    {
+      "target": "failures/required_tools/grounding/possibleCauses/1",
+      "sha": "4be4510a4bb7",
+      "kind": "possibleCause",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "failures/required_tools/grounding/scope/0",
+      "sha": "839ad27314eb",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "failures/required_tools/grounding/checks/0",
+      "sha": "9aa27fe8ec37",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "failures/required_tools/grounding/actions/0",
+      "sha": "99127e72da3b",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "failures/required_tools/grounding/actions/0/effect",
+      "sha": "893db212b0b7",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual",
+      "note": "다른 실패가 있으면 시작되지 않는다고 조건을 적는다. 결과 보장 아님."
+    },
+    {
+      "target": "failures/resource_bundle/meaning",
+      "sha": "383d358acf9d",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "failures/resource_bundle/grounding/possibleCauses/0",
+      "sha": "0b834c95107b",
+      "kind": "possibleCause",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "failures/resource_bundle/grounding/possibleCauses/1",
+      "sha": "fa45e9347203",
+      "kind": "possibleCause",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "failures/resource_bundle/grounding/possibleCauses/2",
+      "sha": "f3de64a2d2ca",
+      "kind": "possibleCause",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "failures/resource_bundle/grounding/scope/0",
+      "sha": "76cef4a3acf9",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "failures/resource_bundle/grounding/checks/0",
+      "sha": "bcdcfa1d8b22",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "failures/resource_bundle/grounding/checks/1",
+      "sha": "da7dbed28243",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "failures/resource_bundle/grounding/actions/0",
+      "sha": "3cff670d0a0b",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "failures/resource_bundle/grounding/actions/0/effect",
+      "sha": "a3287039fc46",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "concepts/coverage-measurement-levels/summary",
+      "sha": "28526e6e500c",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "concepts/coverage-measurement-levels/grounding/scope/0",
+      "sha": "e97a3dce1d3c",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "concepts/coverage-measurement-levels/grounding/scope/1",
+      "sha": "15a602e57b51",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "concepts/coverage-measurement-levels/grounding/checks/0",
+      "sha": "c08b88de24b4",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "concepts/coverage-measurement-levels/grounding/checks/1",
+      "sha": "ac2da0d04521",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "concepts/unfiltered-variant-output/summary",
+      "sha": "1d59a0e2e922",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "concepts/unfiltered-variant-output/grounding/possibleCauses/0",
+      "sha": "eb537878ca38",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual",
+      "note": "원인 후보 칸이지만 파이프라인 성질이다."
+    },
+    {
+      "target": "concepts/unfiltered-variant-output/grounding/possibleCauses/1",
+      "sha": "afe14ac037da",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "concepts/unfiltered-variant-output/grounding/scope/0",
+      "sha": "e7edd1e18219",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "concepts/unfiltered-variant-output/grounding/checks/0",
+      "sha": "3bc95c90ff90",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "concepts/intended-use-ruo/summary",
+      "sha": "07fdf8827eb9",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "concepts/intended-use-ruo/grounding/scope/0",
+      "sha": "fca3eabdaa39",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "concepts/intended-use-ruo/grounding/scope/1",
+      "sha": "fa65e41d554e",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "concepts/intended-use-ruo/grounding/checks/0",
+      "sha": "e3a33c0bc277",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "manual"
+    },
+    {
+      "target": "terms/read/plain",
+      "sha": "56c5c9c234c4",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/read/definition",
+      "sha": "c5d57b43bac2",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/read/misreadings/0",
+      "sha": "ef06e671be84",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/target/plain",
+      "sha": "95a6bda557aa",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/target/definition",
+      "sha": "fc9faa0bfe1a",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/target/misreadings/0",
+      "sha": "5f6137220ade",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/target/misreadings/1",
+      "sha": "9f620b655c6e",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/depth/plain",
+      "sha": "4a6ebd976dae",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/depth/definition",
+      "sha": "8d010bbb7835",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/depth/misreadings/0",
+      "sha": "5bebaec300ea",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/zero-coverage/plain",
+      "sha": "d9593aee7353",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/zero-coverage/definition",
+      "sha": "22b09d63be98",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/zero-coverage/misreadings/0",
+      "sha": "e26cea7e41fc",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/bam/plain",
+      "sha": "b79ecf2d347a",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/bam/definition",
+      "sha": "dd841570f918",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/bam/misreadings/0",
+      "sha": "d495535b69da",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/vcf/plain",
+      "sha": "65939be63ea9",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/vcf/definition",
+      "sha": "2f7af6bda876",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/vcf/misreadings/0",
+      "sha": "476b1878e006",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/dbsnp-rsid/plain",
+      "sha": "60e159defaf3",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/dbsnp-rsid/definition",
+      "sha": "b0a1ccfef0e6",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/dbsnp-rsid/misreadings/0",
+      "sha": "f2951f9e5d8d",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/dbsnp-rsid/misreadings/1",
+      "sha": "0888b6f2ee19",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/nm-md-tags/plain",
+      "sha": "a03a5c768e86",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/nm-md-tags/definition",
+      "sha": "60df0ccb2551",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/nm-md-tags/misreadings/0",
+      "sha": "39a98414fe64",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/bed/plain",
+      "sha": "21df867dd562",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/bed/definition",
+      "sha": "ed37cfcf5338",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "terms/bed/misreadings/0",
+      "sha": "2d08270a64ac",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "steps/00_input_validation/purpose",
+      "sha": "8e323d1bf736",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "steps/01_raw_qc/purpose",
+      "sha": "dc30ccd3b5a7",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "steps/02_preprocessing/purpose",
+      "sha": "6e2c917d1181",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "steps/03_alignment/purpose",
+      "sha": "8504b0d8c848",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "steps/04_processing/purpose",
+      "sha": "083eace8f984",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "steps/05_coverage_qc/purpose",
+      "sha": "1e0a42942a49",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "steps/06_variant_calling/purpose",
+      "sha": "a06a86596fad",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "steps/08_filtering/purpose",
+      "sha": "18bd60f5b863",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "steps/10_annotation/purpose",
+      "sha": "9c00da6e95d1",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "steps/11_intervar/purpose",
+      "sha": "2ebed295949d",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "steps/99_finalization/purpose",
+      "sha": "2b6a57224bbb",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/resource_missing_or_empty/checks/0",
+      "sha": "e8e3f555dc44",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/resource_missing_or_empty/cautions/0",
+      "sha": "9bf4114da4c6",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/resource_not_declared/checks/0",
+      "sha": "90baebed6f78",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/bwa_index_incomplete/checks/0",
+      "sha": "47c81618bb15",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/bwa_index_incomplete/cautions/0",
+      "sha": "3ab097ca6aad",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/bwa_index_incomplete/remedies/0",
+      "sha": "7cb730277f0a",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/bwa_index_incomplete/remedies/0/changes",
+      "sha": "b87330600073",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/bwa_index_not_found/checks/0",
+      "sha": "b376c76dd603",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/bwa_index_not_found/cautions/0",
+      "sha": "e70d653e5da4",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/bwa_index_not_found/remedies/0",
+      "sha": "6eb7526f5c0e",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/bwa_index_not_found/remedies/0/changes",
+      "sha": "b87330600073",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/reference_index_mismatch/checks/0",
+      "sha": "2c88c186ed55",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/reference_index_mismatch/cautions/0",
+      "sha": "6053a5ecec3d",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/reference_index_mismatch/cautions/1",
+      "sha": "04b42da42e6a",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/reference_index_mismatch/remedies/0",
+      "sha": "5063a8052ce2",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/reference_index_mismatch/remedies/0/changes",
+      "sha": "399a68fad1f5",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/contig_style_mismatch/checks/0",
+      "sha": "e48a0ab669f2",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/contig_style_mismatch/cautions/0",
+      "sha": "5a8cdb2b5cf4",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/contig_style_mismatch/remedies/0",
+      "sha": "db658b44997e",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/contig_style_mismatch/remedies/0/changes",
+      "sha": "2e8b2565c70e",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/contig_style_unrecognised/checks/0",
+      "sha": "15ffc20fc167",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/known_sites_empty/checks/0",
+      "sha": "7b7a4a18d405",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/known_sites_empty/cautions/0",
+      "sha": "f100472ac109",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_header_unparseable/checks/0",
+      "sha": "11fc0992f9e6",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_tool_unavailable/checks/0",
+      "sha": "e19eab4a2846",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_tool_unavailable/checks/1",
+      "sha": "0323782b459c",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_tool_unavailable/checks/2",
+      "sha": "37c0c7847589",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_tool_unavailable/cautions/0",
+      "sha": "e122ac6a9457",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_tool_unavailable/remedies/0",
+      "sha": "866468b246c6",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_tool_unavailable/remedies/0/changes",
+      "sha": "7d1c73a624c2",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_contig_list_unreadable/checks/0",
+      "sha": "d35b41fcf16e",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_index_missing/checks/0",
+      "sha": "ace57f117445",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_index_missing/cautions/0",
+      "sha": "5a813cf0118d",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_index_missing/remedies/0",
+      "sha": "12df3b46bbc9",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_index_missing/remedies/0/changes",
+      "sha": "758a6e6ba17d",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_contig_length_mismatch/checks/0",
+      "sha": "4649354a49c3",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_contig_length_mismatch/cautions/0",
+      "sha": "08af93a7de50",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_contig_length_mismatch/remedies/0",
+      "sha": "1a7d7903aced",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_contig_length_mismatch/remedies/0/changes",
+      "sha": "aa0fa9bcfc9c",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_contigs_absent/checks/0",
+      "sha": "e404d2f25f18",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_contigs_absent/remedies/0",
+      "sha": "25571e53fa9c",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/vcf_contigs_absent/remedies/0/changes",
+      "sha": "aa0fa9bcfc9c",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/checksum_mismatch/checks/0",
+      "sha": "e3625584286c",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/checksum_mismatch/cautions/0",
+      "sha": "c9ff7cdfbe49",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/checksum_mismatch/remedies/0",
+      "sha": "b7bf5480e7fb",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/checksum_mismatch/remedies/0/changes",
+      "sha": "f3317c6c963b",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "causeKinds/bed_content_invalid/checks/0",
+      "sha": "49e01704d404",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "roles/target_bed/checks/0",
+      "sha": "f4cf82561ba6",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "roles/coverage_bed/checks/0",
+      "sha": "43310c565183",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "roles/known_sites/checks/0",
+      "sha": "415e3c771daf",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "roles/dbsnp_vcf/checks/0",
+      "sha": "c5e6c1d7f418",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "roles/reference_fasta/checks/0",
+      "sha": "73165a708a7b",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "roles/reference_fai/checks/0",
+      "sha": "e1727d65abe0",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "roles/reference_dict/checks/0",
+      "sha": "8f83aad95369",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "roles/bwa_index/checks/0",
+      "sha": "14d7948fa7d1",
+      "kind": "checkOrAction",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/tabix-input-sorted-bgzip/explains",
+      "sha": "d730e5530a09",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/tabix-input-sorted-bgzip/limits",
+      "sha": "133c4e747575",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/tabix-csi-option/explains",
+      "sha": "152500fbf3e7",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/tabix-csi-option/limits",
+      "sha": "9e756d7445cf",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/tabix-force-overwrite/explains",
+      "sha": "e09de5202aca",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/tabix-force-overwrite/limits",
+      "sha": "f8e91acf0086",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/bcftools-index-default-csi/explains",
+      "sha": "c7d94d079793",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/bcftools-index-default-csi/limits",
+      "sha": "419de0885f91",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/bcftools-index-tbi/explains",
+      "sha": "24af3af004e5",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/bcftools-index-tbi/limits",
+      "sha": "44d72552b26c",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/bcftools-rename-chrs/explains",
+      "sha": "0b1f15d83821",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/bcftools-rename-chrs/limits",
+      "sha": "b02c8371e5f6",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/faidx-creates-fai/explains",
+      "sha": "91277b8bf7a7",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/faidx-creates-fai/limits",
+      "sha": "c0c8c7484b90",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/picard-dict-from-fasta/explains",
+      "sha": "bd246796cc65",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/picard-dict-from-fasta/limits",
+      "sha": "5bfddf644891",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/picard-dict-no-overwrite/explains",
+      "sha": "b7cded305208",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/picard-dict-no-overwrite/limits",
+      "sha": "4f45d32c2f3b",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/vcf-contig-length-md5/explains",
+      "sha": "70f71769840b",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/vcf-contig-length-md5/limits",
+      "sha": "92e1599cd0a0",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/gatk-same-name-different-length/explains",
+      "sha": "8e69732fc22d",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/gatk-same-name-different-length/limits",
+      "sha": "0ab2c1cdea9c",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/gatk-no-overlapping-contigs/explains",
+      "sha": "b56d5aca304f",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/gatk-no-overlapping-contigs/limits",
+      "sha": "0cdd7e0b46c4",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/gatk-disable-validation-risk/explains",
+      "sha": "2290099661fd",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/gatk-disable-validation-risk/limits",
+      "sha": "e6f9b67338f0",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/bwa-index-bwtsw/explains",
+      "sha": "567a6515a5b3",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/bwa-index-bwtsw/limits",
+      "sha": "6faae7adee64",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/bwa-index-default-is-limit/explains",
+      "sha": "47ce2e23512a",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/bwa-index-default-is-limit/limits",
+      "sha": "a5eeb0429951",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/bwa-index-resources/explains",
+      "sha": "0fd61933f221",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/bwa-index-resources/limits",
+      "sha": "f7befb7943aa",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/cwl-file-checksum/explains",
+      "sha": "fc880240e81e",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/cwl-file-checksum/limits",
+      "sha": "0fd9685b0747",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/htslib-provides-tabix/explains",
+      "sha": "91925baced0c",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/htslib-provides-tabix/limits",
+      "sha": "7bc5afe1966a",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/bed-three-mandatory-fields/explains",
+      "sha": "a8e0ef90326f",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/bed-three-mandatory-fields/limits",
+      "sha": "90ce02e46d3b",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/bed-zero-based-half-open/explains",
+      "sha": "0021cfabe26b",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/bed-zero-based-half-open/limits",
+      "sha": "711ce2992faf",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/ucsc-bed-first-base-zero/explains",
+      "sha": "2f809d519733",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    },
+    {
+      "target": "docPassages/ucsc-bed-first-base-zero/limits",
+      "sha": "d76505a4c66c",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "review": "role"
+    }
+  ],
+  "pipelineTexts": [
+    {
+      "code": "OPTIONAL_CMD_FAILED",
+      "text": "This command is optional; core results are unaffected",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "emittedBy": "main.sh run_optional_cmd()",
+      "status": "current"
+    },
+    {
+      "code": "MULTIQC_MISSING",
+      "text": "MultiQC is optional: per-lane FastQC in 01_raw_qc does not need it; only the aggregated report depends on it",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "emittedBy": "main.sh validate_tools()",
+      "status": "current",
+      "note": "2026-11-21 사전 점검용 문구. FastQC 실행을 전제하지 않는다."
+    },
+    {
+      "code": "GZIP_MISSING",
+      "text": "Only the gzip magic number was checked",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "emittedBy": "main.sh validate_fastq_integrity()",
+      "status": "current"
+    },
+    {
+      "code": "DISK_UNKNOWN",
+      "text": "A long run may fail late if the filesystem fills up",
+      "kind": "unconfirmed",
+      "runClaim": "none",
+      "emittedBy": "main.sh validate_compute_resources()",
+      "status": "current"
+    },
+    {
+      "code": "RAM_UNKNOWN",
+      "text": "GATK steps may fail if the host has less memory than java_mem_gb",
+      "kind": "unconfirmed",
+      "runClaim": "none",
+      "emittedBy": "main.sh validate_compute_resources()",
+      "status": "current"
+    },
+    {
+      "code": "SAMPLESHEET_INSIDE_RUN",
+      "text": "Resuming after deleting the run directory will also delete the samplesheet",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "emittedBy": "main.sh validate_output_root()",
+      "status": "current"
+    },
+    {
+      "code": "MULTIQC_FAILED",
+      "text": "Per-lane FastQC results remain; only the aggregated report is missing",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "emittedBy": "main.sh run_raw_qc()",
+      "status": "current"
+    },
+    {
+      "code": "MULTIQC_NO_REPORT",
+      "text": "Aggregated QC report unavailable; per-lane FastQC is unaffected",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "emittedBy": "main.sh run_raw_qc()",
+      "status": "current"
+    },
+    {
+      "code": "MULTIQC_MISSING",
+      "text": "Aggregated QC report is not produced; per-lane FastQC is unaffected",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "emittedBy": "main.sh run_raw_qc()",
+      "status": "current",
+      "note": "01에서 FastQC 산출물 확인 뒤에만 기록된다."
+    },
+    {
+      "code": "READ_NAME_MODE_UNKNOWN",
+      "text": "MarkDuplicates uses the Picard default optical-duplicate regex",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "emittedBy": "main.sh run_processing()",
+      "status": "current"
+    },
+    {
+      "code": "NM_MD_REPAIRED",
+      "text": "Only the NM and MD tags changed; read sequence, CIGAR, coordinates and duplicate flags are preserved",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "emittedBy": "main.sh run_processing()",
+      "status": "current"
+    },
+    {
+      "code": "BQSR_DIAG_FAILED",
+      "text": "The diagnostic plot is missing; recalibration itself is unaffected",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "emittedBy": "main.sh run_processing()",
+      "status": "current"
+    },
+    {
+      "code": "RSCRIPT_MISSING",
+      "text": "Core recalibration is unaffected",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "emittedBy": "main.sh run_processing()",
+      "status": "current"
+    },
+    {
+      "code": "LOW_MEAN_COVERAGE",
+      "text": "Variant sensitivity may be reduced in low-coverage targets; this warning alone does not stop the run",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "emittedBy": "main.sh run_coverage_qc()",
+      "status": "current"
+    },
+    {
+      "code": "ZERO_COVERAGE_TARGET_BASES",
+      "text": "No variant can be called at those bases; per-interval depth is in the mosdepth regions and thresholds outputs",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "emittedBy": "main.sh run_coverage_qc()",
+      "status": "current"
+    },
+    {
+      "code": "DBSNP_MISSING",
+      "text": "Variant records will carry no rsID; the calls themselves are unaffected",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "emittedBy": "main.sh run_variant_calling()",
+      "status": "current"
+    },
+    {
+      "code": "DBSNP_NOT_CONFIGURED",
+      "text": "Variant records will carry no rsID; the calls themselves are unaffected",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "emittedBy": "main.sh run_variant_calling()",
+      "status": "current"
+    },
+    {
+      "code": "BCFTOOLS_STATS_FAILED",
+      "text": "Summary counts are unavailable; the raw VCF itself is unaffected",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "emittedBy": "main.sh run_variant_calling()",
+      "status": "current"
+    },
+    {
+      "code": "NO_VARIANTS_PASSED",
+      "text": "This is a filtering outcome, not an error; the unfiltered raw VCF is unchanged",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "emittedBy": "main.sh run_filtering()",
+      "status": "current"
+    },
+    {
+      "code": "CLINVAR_NOT_CONFIGURED",
+      "text": "ClinVar annotation is skipped; normalisation output is still produced",
+      "kind": "conditionalResult",
+      "runClaim": "conditional",
+      "appliesWhen": {
+        "stepExecution": {
+          "step": "$occurrence",
+          "in": [
+            "ranCompleted",
+            "ranWarning"
+          ]
+        }
+      },
+      "emittedBy": "main.sh run_annotation()",
+      "status": "current",
+      "note": "정규화 산출물이 '만들어진다'는 결과 문장. 그 단계가 끝나야 참이다."
+    },
+    {
+      "code": "CLINVAR_MISSING",
+      "text": "ClinVar annotation is skipped",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "emittedBy": "main.sh run_annotation()",
+      "status": "current"
+    },
+    {
+      "code": "CLINVAR_INCOMPATIBLE",
+      "text": "ClinVar annotation is skipped to avoid producing silently wrong matches; the normalised VCF and the core raw VCF are unaffected",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "emittedBy": "main.sh run_annotation()",
+      "status": "current"
+    },
+    {
+      "code": "CLINVAR_ANNOTATE_FAILED",
+      "text": "The normalised VCF is still available",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "emittedBy": "main.sh run_annotation()",
+      "status": "current"
+    },
+    {
+      "code": "VEP_NOT_WIRED",
+      "text": "Only ClinVar annotation is applied. Implementing offline VEP requires deciding the cache version, species and transcript set.",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "emittedBy": "main.sh run_annotation()",
+      "status": "current"
+    },
+    {
+      "code": "VEP_MISSING",
+      "text": "Offline VEP annotation is skipped",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "emittedBy": "main.sh run_annotation()",
+      "status": "current"
+    },
+    {
+      "code": "TSV_FAILED",
+      "text": "The annotated VCF is still available",
+      "kind": "pipelineBehavior",
+      "runClaim": "impliedByOccurrence",
+      "emittedBy": "main.sh run_annotation()",
+      "status": "current"
+    },
+    {
+      "code": "AUTOMATED_EVIDENCE_ONLY",
+      "text": "Results must be reviewed manually; research and education use only",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "emittedBy": "main.sh run_intervar()",
+      "status": "current"
+    },
+    {
+      "code": "OPTIONAL_STEPS_FAILED",
+      "text": "Only the optional steps' outputs are missing; the core result checks are recorded separately in this validation",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "emittedBy": "main.sh run_final_validation()",
+      "status": "current"
+    },
+    {
+      "code": "METHODS_DOCUMENT_INCOMPLETE",
+      "text": "Analysis results and core artifacts are unaffected. The human-readable reproducibility record is incomplete, so record the run configuration from provenance.json instead",
+      "kind": "pipelineBehavior",
+      "runClaim": "none",
+      "emittedBy": "main.sh run_finalization()",
+      "status": "current"
+    },
+    {
+      "code": "MULTIQC_MISSING",
+      "text": "Per-lane FastQC still runs; only the aggregated report is unavailable",
+      "kind": "conditionalResult",
+      "runClaim": "conditional",
+      "appliesWhen": {
+        "any": [
+          {
+            "occurredAt": [
+              "01_raw_qc"
+            ]
+          },
+          {
+            "stepExecution": {
+              "step": "01_raw_qc",
+              "in": [
+                "ranCompleted",
+                "ranWarning",
+                "ranFailed",
+                "running"
+              ]
+            }
+          }
+        ]
+      },
+      "emittedBy": "main.sh validate_tools() (2026-11-21 이전)",
+      "status": "legacy",
+      "note": "사전 점검(00)에서 01의 FastQC 실행을 전제한 문구. 00에서 멈춘 실제 Run에 기록돼 있다."
+    },
+    {
+      "code": "LOW_MEAN_COVERAGE",
+      "text": "Variant sensitivity may be reduced in low-coverage targets; the run continues and variant calling proceeds",
+      "kind": "conditionalResult",
+      "runClaim": "conditional",
+      "appliesWhen": {
+        "stepExecution": {
+          "step": "06_variant_calling",
+          "in": [
+            "ranCompleted",
+            "ranWarning",
+            "ranFailed",
+            "running"
+          ]
+        }
+      },
+      "emittedBy": "main.sh run_coverage_qc() (2026-11-21 이전)",
+      "status": "legacy",
+      "note": "05에서 06(변이 검출) 실행을 전제한 문구."
+    },
+    {
+      "code": "OPTIONAL_STEPS_FAILED",
+      "text": "Core raw VCF and core artifacts are complete and valid; only the optional outputs are missing",
+      "kind": "conditionalResult",
+      "runClaim": "conditional",
+      "appliesWhen": {
+        "all": [
+          {
+            "stepExecution": {
+              "step": "03_alignment",
+              "in": [
+                "ranCompleted",
+                "ranWarning"
+              ]
+            }
+          },
+          {
+            "stepExecution": {
+              "step": "04_processing",
+              "in": [
+                "ranCompleted",
+                "ranWarning"
+              ]
+            }
+          },
+          {
+            "stepExecution": {
+              "step": "06_variant_calling",
+              "in": [
+                "ranCompleted",
+                "ranWarning"
+              ]
+            }
+          }
+        ]
+      },
+      "emittedBy": "main.sh run_final_validation() (2026-11-21 이전)",
+      "status": "legacy",
+      "note": "핵심 단계 결과를 확인하지 않고 '완전하고 유효'라고 쓰던 문구."
+    },
+    {
+      "code": "UNCOVERED_TARGETS",
+      "text": "Variants cannot be called in uncovered intervals; see 05_coverage_qc/low_coverage_intervals.bed",
+      "kind": "generalKnowledge",
+      "runClaim": "none",
+      "emittedBy": "main.sh (legacy code, 지금은 기록하지 않음)",
+      "status": "legacy"
+    }
+  ]
+}

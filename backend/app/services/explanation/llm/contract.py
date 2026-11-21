@@ -473,6 +473,53 @@ def _public_codes(codes: list[str], scrub: Redactor) -> dict[str, str]:
     return out
 
 
+# Static, so it is the same bytes in every payload. Says which fields are this
+# run's observations and which are general text, since evidence ids alone do
+# not: `dx:` covers both the occurrence and the knowledge about its code.
+PROVENANCE: dict[str, str] = {
+    "messageFromPipeline": "observed: what the pipeline wrote for this occurrence",
+    "stepExecution": "observed: derived from this run's step and status records",
+    "steps.planned.execution": "observed: derived from this run's step and status records",
+    "impactFromPipeline": "pipeline fixed text for the code; sent only when this run's records support it",
+    "meaning": "general knowledge about the code; sent only when this run's records support it",
+    "grounding": "general knowledge; claims this run's records do not support are not sent",
+    "notSentForThisRun": "parts left out for this run, with the reason; do not reconstruct them",
+}
+
+
+_GROUNDING_BUCKETS = ("possibleCauses", "scope", "checks", "actions")
+
+
+def _without_withheld(entry: dict[str, Any], parts: set[str]) -> dict[str, Any]:
+    """`entry` minus the parts applicability withheld for this run.
+
+    Part names are applicability's: "meaning", "grounding.scope.2",
+    "grounding.actions.0.effect". Indexes are the knowledge file's order, which
+    _diagnostic_grounding keeps.
+    """
+    if not parts:
+        return entry
+    out = dict(entry)
+    if "meaning" in parts or "recordedMeaning" in parts:
+        out.pop("meaning", None)
+    for bucket in _GROUNDING_BUCKETS:
+        claims = out.get(bucket)
+        if not claims:
+            continue
+        kept = []
+        for i, claim in enumerate(claims):
+            if f"grounding.{bucket}.{i}" in parts:
+                continue
+            if f"grounding.{bucket}.{i}.effect" in parts and "effect" in claim:
+                claim = {k: v for k, v in claim.items() if k != "effect"}
+            kept.append(claim)
+        if kept:
+            out[bucket] = kept
+        else:
+            out.pop(bucket)
+    return out
+
+
 def build_payload(
     explanation: RunExplanation,
     *,
@@ -507,6 +554,30 @@ def build_payload(
         """One run-written value: strings are released, everything else kept."""
         return scrub.release(value) if isinstance(value, str) else value
 
+    # --- what applies to this run (2026-11-21) ------------------------------
+    #
+    # Knowledge and pipeline fixed text describe a code in general; some of it
+    # presumes a step ran ("개별 FastQC 리포트는 ... 만들어졌습니다"). The
+    # deterministic layer decides, per sentence, whether the run's own ledger
+    # supports it (applicability.decisions_for). A sentence that is not
+    # `applicable` -- notApplicable OR unknown -- is not sent: the model cannot
+    # repeat what it never saw. The run record itself is unchanged.
+    ledger = explanation.executionLedger
+    withheld_parts = {
+        (d.section, d.index, d.part): d
+        for d in explanation.knowledgeDecisions
+        if d.withheld
+    }
+    # Grounding is sent once per code, so a claim withheld for any occurrence
+    # of that code is withheld for the code.
+    withheld_by_code: dict[tuple[str, str], set[str]] = {}
+    for d in withheld_parts.values():
+        withheld_by_code.setdefault((d.section, d.code), set()).add(d.part)
+
+    def execution(step_id: str | None) -> str:
+        found = ledger.execution_of(step_id) if step_id else None
+        return found if found is not None else "unknown"
+
     dx_code = _public_codes([item.code for item in explanation.diagnostics], scrub)
     fail_code = _public_codes([item.code for item in explanation.failures], scrub)
 
@@ -514,25 +585,39 @@ def build_payload(
 
     # --- runtime facts, straight from the deterministic layer ---------------
     diagnostics: list[dict[str, Any]] = []
-    for item in explanation.diagnostics:
+    for index, item in enumerate(explanation.diagnostics):
         ref = f"dx:{dx_code[item.code]}"
         allowed.add(ref)
-        diagnostics.append(
-            {
-                "evidenceId": ref,
-                "code": dx_code[item.code],
-                "occurredAtStep": free(item.actualStepLabel or item.actualStepId),
-                # The pipeline's own words for THIS occurrence. Data, not
-                # instructions -- the system prompt says so explicitly.
-                "messageFromPipeline": free(item.message),
-                "impactFromPipeline": free(item.impact),
-                "severity": item.severity,
-                "resolution": item.resolution,
-                "title": item.title,
-                "meaning": item.meaning,
-                "knowledgeAvailable": item.knowledgeAvailable,
-            }
-        )
+        held = {
+            part: withheld_parts[("diagnostics", index, part)]
+            for part in ("meaning", "recordedMeaning", "impact")
+            if ("diagnostics", index, part) in withheld_parts
+        }
+        row: dict[str, Any] = {
+            "evidenceId": ref,
+            "code": dx_code[item.code],
+            "occurredAtStep": free(item.actualStepLabel or item.actualStepId),
+            # What the ledger says about the step this occurrence was recorded
+            # at -- an observed fact, next to the general text below.
+            "stepExecution": execution(item.actualStepId),
+            # The pipeline's own words for THIS occurrence. Data, not
+            # instructions -- the system prompt says so explicitly.
+            "messageFromPipeline": free(item.message),
+            # Fixed text the pipeline attaches to the code; sent only when the
+            # ledger supports it (see PROVENANCE).
+            "impactFromPipeline": None if "impact" in held else free(item.impact),
+            "severity": item.severity,
+            "resolution": item.resolution,
+            "title": item.title,
+            "meaning": None if ("meaning" in held or "recordedMeaning" in held) else item.meaning,
+            "knowledgeAvailable": item.knowledgeAvailable,
+        }
+        if held:
+            row["notSentForThisRun"] = [
+                {"part": "impactFromPipeline" if part == "impact" else "meaning", "reason": d.reason}
+                for part, d in held.items()
+            ]
+        diagnostics.append(row)
 
     failures: list[dict[str, Any]] = []
     for item in explanation.failures:
@@ -543,6 +628,7 @@ def build_payload(
                 "evidenceId": ref,
                 "code": fail_code[item.code],
                 "occurredAtStep": free(item.actualStepLabel or item.actualStepId),
+                "stepExecution": execution(item.actualStepId),
                 "messageFromPipeline": free(item.message),
             }
         )
@@ -574,6 +660,7 @@ def build_payload(
         entry = _diagnostic_grounding(code)
         if entry is None:
             continue
+        entry = _without_withheld(entry, withheld_by_code.get(("diagnostics", code), set()))
         # Looked up by the raw code, cited by the public one.
         grounding[f"dx:{dx_code[code]}"] = {"evidenceId": f"dx:{dx_code[code]}", **entry}
         for bucket in ("possibleCauses", "scope", "checks", "actions"):
@@ -584,6 +671,7 @@ def build_payload(
         entry = _failure_grounding(code)
         if entry is None:
             continue
+        entry = _without_withheld(entry, withheld_by_code.get(("failures", code), set()))
         grounding[f"fail:{fail_code[code]}"] = {
             "evidenceId": f"fail:{fail_code[code]}",
             **entry,
@@ -630,6 +718,9 @@ def build_payload(
             "stepId": state.stepId,
             "status": state.status,
             "elapsedSeconds": state.elapsedSeconds,
+            # The ledger's state: tells "never started" from "still ahead",
+            # which `status: pending` alone does not.
+            "execution": execution(state.stepId),
         }
         for state in explanation.steps
     ]
@@ -657,6 +748,7 @@ def build_payload(
         "limitations": limitations,
         "grounding": grounding,
         "sources": sources,
+        "provenance": PROVENANCE,
     }
 
     # Conditional, like coverage below: an explanation with no recorded steps

@@ -559,6 +559,18 @@ def _read_precheck(run_dir: Path, run_status: dict) -> dict[str, Any]:
     metrics = metrics_doc.get("metrics") if isinstance(metrics_doc, dict) else None
     elapsed = step.get("elapsed_seconds")
 
+    # Every warning and failure here was read from 00_input_validation's own
+    # document, so that is where it occurred. main.sh leaves step_id null in
+    # the document; recording the file the fact came from is what
+    # run_context._step_documents_facts already does for a failed run. Without
+    # it the execution ledger cannot place the occurrence and every condition
+    # on "$occurrence" is unknown (2026-11-21).
+    warnings = warnings_of(step.get("warnings"))
+    failures = failures_of(step.get("failures"))
+    for item in (*warnings, *failures):
+        if not item.get("stepId"):
+            item["stepId"] = PRECHECK_STEP_ID
+
     return {
         "resultType": "precheck",
         # --check-only executes no analysis tool at all; main.sh says so in its
@@ -569,8 +581,8 @@ def _read_precheck(run_dir: Path, run_status: dict) -> dict[str, Any]:
         "sample": _as_str((metrics or {}).get("sample")),
         "elapsedSeconds": elapsed if isinstance(elapsed, int) else None,
         "checks": checks_of(step),
-        "warnings": warnings_of(step.get("warnings")),
-        "failures": failures_of(step.get("failures")),
+        "warnings": warnings,
+        "failures": failures,
         "inputSummary": _input_summary(metrics),
         "coverage": None,
         "variantCalling": None,

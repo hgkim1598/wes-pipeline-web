@@ -62,6 +62,14 @@ def test_response_carries_the_expected_sections(client, make_job, run):
         "limitations",
         "intendedUse",
         "sources",
+        # 2026-11-21: per-step execution facts and the per-sentence
+        # applicability decisions derived from them (run_ledger,
+        # applicability). The two raw values they are built from travel with
+        # them, so the derivation can be checked from this response alone.
+        "pipelineStatus",
+        "recordedCurrentStep",
+        "executionLedger",
+        "knowledgeDecisions",
     }
 
 

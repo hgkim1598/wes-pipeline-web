@@ -114,12 +114,16 @@ def test_the_payload_lists_the_planned_steps(explanation):
     assert "run:steps" in allowed
 
 
-def test_the_step_summary_carries_three_fields_and_no_detail(explanation):
-    """A menu, not a report: detail is what the tool is for."""
+def test_the_step_summary_carries_four_fields_and_no_detail(explanation):
+    """A menu, not a report: detail is what the tool is for.
+
+    The fourth field (2026-11-21) is the ledger's execution state -- whether
+    the step ran, not anything about what it produced.
+    """
     payload, _allowed = contract.build_payload(explanation)
 
     for row in payload["steps"]["planned"]:
-        assert set(row) == {"stepId", "status", "elapsedSeconds"}
+        assert set(row) == {"stepId", "status", "elapsedSeconds", "execution"}
 
 
 def test_step_metrics_are_not_in_the_initial_payload(explanation):

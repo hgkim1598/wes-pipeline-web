@@ -265,6 +265,12 @@ def read(run_dir: Path, planned: list[str], run_mode: str) -> dict[str, Any] | N
                 else "pipeline reported failure"
             )
 
+    # What run_status.json last named as the step in flight, before it is
+    # cleared below. A cancelled run keeps it, and the step it names started but
+    # has no document -- run_ledger reports that step as unknown rather than
+    # "not run" (2026-11-21). Not used for any status here.
+    recorded_current_step = run_status.get("current_step") or None
+
     if status != "running":
         current_step = None
 
@@ -278,5 +284,6 @@ def read(run_dir: Path, planned: list[str], run_mode: str) -> dict[str, Any] | N
         "error": error,
         "pipelineStatus": pipeline_status,
         "currentStep": current_step,
+        "recordedCurrentStep": recorded_current_step,
         "runMode": run_mode,
     }

@@ -2366,8 +2366,11 @@ validate_tools() {
     if have_command multiqc; then
         step_check_pass "multiqc_present" "MultiQC available"
     else
+        # Preflight runs before 01_raw_qc, so this line must not say FastQC ran or
+        # will run: the run can still stop here (2026-11-21). It states only what
+        # MultiQC is needed for.
         step_warning "MULTIQC_MISSING" "MultiQC is not installed" \
-            "Per-lane FastQC still runs; only the aggregated report is unavailable" "true"
+            "MultiQC is optional: per-lane FastQC in 01_raw_qc does not need it; only the aggregated report depends on it" "true"
     fi
 
     {
@@ -3724,7 +3727,7 @@ PYEMIT
         if awk -v a="$mean_depth" -v b="$COVERAGE_MIN_MEAN_DEPTH" 'BEGIN {exit !(a < b)}'; then
             step_warning "LOW_MEAN_COVERAGE" \
                 "mean target depth ${mean_depth}x is below the configured reference value ${COVERAGE_MIN_MEAN_DEPTH}x" \
-                "Variant sensitivity may be reduced in low-coverage targets; the run continues and variant calling proceeds" \
+                "Variant sensitivity may be reduced in low-coverage targets; this warning alone does not stop the run" \
                 "true"
         else
             step_check_pass "mean_coverage" "mean target depth ${mean_depth}x (configured reference ${COVERAGE_MIN_MEAN_DEPTH}x)"
@@ -4507,7 +4510,7 @@ run_final_validation() {
         step_metric optional_failed_steps "${OPTIONAL_FAILED_STEPS[*]}" str
         step_warning "OPTIONAL_STEPS_FAILED" \
             "Optional step(s) failed: ${OPTIONAL_FAILED_STEPS[*]}" \
-            "Core raw VCF and core artifacts are complete and valid; only the optional outputs are missing" \
+            "Only the optional steps' outputs are missing; the core result checks are recorded separately in this validation" \
             "true"
     fi
 

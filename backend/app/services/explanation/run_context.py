@@ -104,6 +104,9 @@ class RunOutcome(BaseModel):
     # Share of planned steps that reached a terminal state. NOT elapsed time.
     progress: int = 0
     currentStep: str | None = None
+    # run_status.json's current_step as written, kept even when the run has
+    # ended (currentStep is cleared then). See run_ledger.
+    recordedCurrentStep: str | None = None
     startedAt: str | None = None
     finishedAt: str | None = None
     error: str | None = None
@@ -314,6 +317,7 @@ def _outcome_without_results(
             pipelineStatus=adapted["pipelineStatus"],
             progress=adapted["progress"],
             currentStep=adapted["currentStep"],
+            recordedCurrentStep=adapted.get("recordedCurrentStep"),
             startedAt=row["started_at"],
             finishedAt=row["finished_at"],
             error=adapted["error"] or row["error"],
