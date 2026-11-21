@@ -16,7 +16,7 @@
     - 이미 본 기록만 있는 갱신: 이동하지 않는다. 사용자가 고른 과거 기록이 유지된다.
 
   Agent 검색은 POST /synthesis만 만들고, 이 목록은 그 요청이 끝났을 때만 다시 읽힌다
-  (RunSynthesisPanel onSettled, staleTime Infinity). 그래서 "새 연결 Agent 검색"은
+  (useRunSynthesis onSettled — 이전에는 RunSynthesisPanel 안에 있었다, staleTime Infinity). 그래서 "새 연결 Agent 검색"은
   곧 "방금 끝난 AI 설명 요청의 기록"이다.
 
   React·import 없이 순수 함수로 둔다: 저장소에 컴포넌트 테스트 도구가 없어서

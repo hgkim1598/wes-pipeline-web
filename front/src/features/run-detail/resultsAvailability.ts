@@ -28,13 +28,28 @@
 import type { NotReady, Results } from '@/features/run-detail/api'
 import { isNotReady } from '@/features/run-detail/api'
 
+/*
+  탭 (2026-11-20 사용자 결정, 개발판단기록 41장).
+
+    개요 · 파이프라인 · 공식 문서 · AI 설명 · 파일
+
+  "개요"(overview)는 실패 카드 · 실행 요약 · 결과 해석 제한 · 결과를 담는다.
+  이전의 "결과" 탭 내용이 그대로 개요 안에 있으므로 `/runs/:id/results`는
+  개요의 다른 이름(alias)으로 계속 열린다. 개요는 실패 카드를 담으므로 결과가
+  없는 실행에서도 항상 보인다.
+*/
 export const RUN_TABS = [
-  { id: 'results', label: '결과' },
+  { id: 'overview', label: '개요' },
   { id: 'pipeline', label: '파이프라인' },
+  { id: 'docs', label: '공식 문서' },
+  { id: 'ai', label: 'AI 설명' },
   { id: 'files', label: '파일' },
 ] as const
 
 export type TabId = (typeof RUN_TABS)[number]['id']
+
+/** 이전 주소의 탭 이름 → 지금 탭. */
+const TAB_ALIASES: Record<string, TabId> = { results: 'overview' }
 
 /**
  * 결과 탭에 보여줄 것이 있는가.
@@ -74,7 +89,8 @@ export function defaultTab(
   if (!terminal) return 'pipeline'
   if (data === undefined || isNotReady(data)) return 'pipeline'
   // 부분 결과가 있어도 산출물이 없으면 실패한 실행이다. 과정부터 보여준다.
-  return data.analysisOutputProduced ? 'results' : 'pipeline'
+  // 산출물이 있으면 결과가 있는 개요에서 시작한다(이전의 "결과" 탭 자리).
+  return data.analysisOutputProduced ? 'overview' : 'pipeline'
 }
 
 /**
@@ -90,19 +106,16 @@ export function resolveTab(
   data: Results | NotReady | undefined,
   terminal: boolean,
 ): TabId {
-  const requested = RUN_TABS.find((tab) => tab.id === raw)?.id
+  const requested =
+    RUN_TABS.find((tab) => tab.id === raw)?.id ?? (raw ? TAB_ALIASES[raw] : undefined)
   if (!requested) return defaultTab(data, terminal)
-  if (requested === 'results' && !hasResultsContent(data, terminal)) {
-    return 'pipeline'
-  }
   return requested
 }
 
-/** 실제로 그릴 탭 목록. 결과가 없는 실행에서는 결과 탭이 빠진다. */
-export function visibleTabs(
-  data: Results | NotReady | undefined,
-  terminal: boolean,
-): readonly { id: TabId; label: string }[] {
-  if (hasResultsContent(data, terminal)) return RUN_TABS
-  return RUN_TABS.filter((tab) => tab.id !== 'results')
+/**
+ * 실제로 그릴 탭 목록. 개요는 실패 카드를 담으므로 언제나 있다 — 결과가 없는
+ * 실행에서는 개요 안의 결과 구획이 "결과 문서가 없다"고 말한다(ResultsView).
+ */
+export function visibleTabs(): readonly { id: TabId; label: string }[] {
+  return RUN_TABS
 }

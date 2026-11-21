@@ -1,6 +1,8 @@
+import type { ReactNode } from 'react'
 import { ArrowRight, CircleCheck, OctagonX, TriangleAlert } from 'lucide-react'
 import { Link } from 'react-router'
 
+import { WithheldLine } from '@/components/ui/DiagnosticNote'
 import { HelpTerm } from '@/components/ui/HelpTerm'
 import type { ExplanationFailure } from '@/features/run-detail/api'
 import type { RunDiagnostic } from '@/features/run-detail/diagnostics'
@@ -52,6 +54,14 @@ export interface AttentionSectionProps {
    * 주지 않으면 이동 링크를 그리지 않는다 — 갈 곳이 없는 버튼을 만들지 않는다.
    */
   onGoToStep?: (stepId: string) => void
+  /**
+   * 항목 옆에 둘 AI 해설. code를 받아 그 항목의 해설을 돌려준다(없으면 null).
+   *
+   * 주지 않으면 지금과 똑같이 그린다. 어느 code에 무엇이 붙는지는
+   * synthesisPlacement.ts가 근거 id로만 정한다 — 이 component는 받은 것을
+   * 그 자리에 둘 뿐이다.
+   */
+  renderAiNote?: (kind: 'failure' | 'diagnostic', code: string) => ReactNode
 }
 
 export function AttentionSection({
@@ -60,6 +70,7 @@ export function AttentionSection({
   diagnostics,
   isPrecheck,
   onGoToStep,
+  renderAiNote,
 }: AttentionSectionProps) {
   /*
     실패는 이 목록에서 제외한다 `[코드근거]`
@@ -186,6 +197,7 @@ export function AttentionSection({
                     {view.meaning}
                   </p>
                 ) : null}
+                {renderAiNote ? renderAiNote('failure', failure.code) : null}
               </li>
             )
           })}
@@ -216,7 +228,12 @@ export function AttentionSection({
           }`}
         >
           {needsAttention.map((item) => (
-            <DiagnosticItem key={item.key} item={item} onGoToStep={onGoToStep} />
+            <DiagnosticItem
+              key={item.key}
+              item={item}
+              onGoToStep={onGoToStep}
+              renderAiNote={renderAiNote}
+            />
           ))}
         </ul>
       ) : null}
@@ -244,6 +261,7 @@ export function AttentionSection({
                 key={item.key}
                 item={item}
                 onGoToStep={onGoToStep}
+                renderAiNote={renderAiNote}
                 muted
               />
             ))}
@@ -298,10 +316,12 @@ export function AttentionSection({
 function DiagnosticItem({
   item,
   onGoToStep,
+  renderAiNote,
   muted = false,
 }: {
   item: RunDiagnostic
   onGoToStep?: (stepId: string) => void
+  renderAiNote?: AttentionSectionProps['renderAiNote']
   /**
    * 자동 해결 그룹에서 쓴다.
    *
@@ -335,9 +355,19 @@ function DiagnosticItem({
         */}
         <span className="text-caption text-text-muted">{view.label}</span>
       </div>
-      {view.meaning ? (
+      {/*
+        이 실행의 기록이 뒷받침하지 않는 일반 설명은 보이지 않고 이유만 남긴다
+        (2026-11-21, factApplicability.ts). 영향 문구도 아래 기술 정보에서 같다.
+      */}
+      {view.meaning && !item.withheld?.meaning ? (
         <p className="max-w-prose text-small text-text">{view.meaning}</p>
       ) : null}
+      {item.withheld?.meaning ? (
+        <WithheldLine what="일반 설명을" reason={item.withheld.meaning} />
+      ) : null}
+
+      {/* 결정론 설명 바로 아래. 주지 않으면 아무것도 그리지 않는다. */}
+      {renderAiNote ? renderAiNote('diagnostic', item.code) : null}
 
       {/*
         Attention("무엇이 있었나") -> Pipeline("어디서 일어났나") 이동.
@@ -384,7 +414,14 @@ function DiagnosticItem({
                 {item.message}
               </dd>
             </div>
-            {item.impact ? (
+            {item.impact && item.withheld?.impact ? (
+              <div className="flex flex-col">
+                <dt className="font-mono text-caption text-text-muted">impact</dt>
+                <dd>
+                  <WithheldLine what="파이프라인 영향 문구를" reason={item.withheld.impact} />
+                </dd>
+              </div>
+            ) : item.impact ? (
               <div className="flex flex-col">
                 <dt className="font-mono text-caption text-text-muted">impact</dt>
                 <dd className="text-caption break-words text-text">

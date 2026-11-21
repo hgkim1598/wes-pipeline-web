@@ -1,23 +1,43 @@
-import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { useEffect } from 'react'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
+import {
+  BookOpen,
+  ChevronRight,
+  FolderOpen,
+  LayoutDashboard,
+  ListChecks,
+  Sparkles,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 import { ApiError } from '@/api/client'
 import { isNotReady } from '@/features/run-detail/api'
 import { Button } from '@/components/ui/Button'
 import { MessageBlock } from '@/components/ui/MessageBlock'
-import { SectionHeader } from '@/components/ui/SectionHeader'
 import { TabsList, TabsPanel, TabsRoot, TabsTab } from '@/components/ui/Tabs'
+import { AiNote } from '@/features/run-detail/components/AiNote'
+import { AiStatusBar } from '@/features/run-detail/components/AiStatusBar'
 import { ArtifactsView } from '@/features/run-detail/components/ArtifactsView'
 import { DeveloperDetails } from '@/features/run-detail/components/DeveloperDetails'
 import { DocEvidenceSection } from '@/features/run-detail/components/DocEvidenceSection'
 import { LogPanel } from '@/features/run-detail/components/LogPanel'
 import { ResultsView } from '@/features/run-detail/components/ResultsView'
 import { AttentionSection } from '@/features/run-detail/components/AttentionSection'
-import { RunHeader } from '@/features/run-detail/components/RunHeader'
+import { RunFacts, RunHeader } from '@/features/run-detail/components/RunHeader'
+import { PipelineStepper } from '@/features/run-detail/components/PipelineStepper'
 import { ResourceCauseSection } from '@/features/run-detail/components/ResourceCauseSection'
 import { RunLimitations } from '@/features/run-detail/components/RunLimitations'
 import { RunSynthesisPanel } from '@/features/run-detail/components/RunSynthesisPanel'
 import { artifactLabelMap } from '@/features/run-detail/locators'
+import {
+  OPEN_DOC_EVIDENCE_EVENT,
+  OPEN_STATEMENT_EVENT,
+  revealElement,
+  statementAnchorId,
+} from '@/features/run-detail/aiStatement'
+import { useDocSearchHistory } from '@/features/run-detail/docSearchQuery'
+import { hitsForStep } from '@/features/run-detail/docWorkspace'
+import { resolveStepId } from '@/features/run-detail/stepView'
 import { StepDetailRail } from '@/features/run-detail/components/StepDetailRail'
 import {
   STEP_DETAIL_PANEL_ID,
@@ -28,6 +48,12 @@ import {
   collectFromExplanation,
 } from '@/features/run-detail/diagnostics'
 import {
+  applyWithheld,
+  executionByStep,
+  withLedger,
+  withheldByOccurrence,
+} from '@/features/run-detail/factApplicability'
+import {
   findStepStatus,
   useArtifactsQuery,
   useExplanationQuery,
@@ -36,20 +62,32 @@ import {
   useStepDetailQuery,
 } from '@/features/run-detail/queries'
 import { useCancelJobMutation } from '@/features/run-detail/useCancelJobMutation'
+import { useRunSynthesis } from '@/features/run-detail/useRunSynthesis'
+import {
+  numberStatements,
+  pick,
+  placeStatements,
+} from '@/features/run-detail/synthesisPlacement'
+import type { StatementPlacement } from '@/features/run-detail/synthesisPlacement'
 import {
   resolveTab,
   visibleTabs,
 } from '@/features/run-detail/resultsAvailability'
 import { useRunListQuery } from '@/features/runs/useRunListQuery'
 import { isTerminalStatus } from '@/features/runs/status'
+import { describeDiagnostic } from '@/registries/diagnostics'
+import { describeFailureCode } from '@/registries/failures'
 import { describeStep } from '@/registries/steps'
 
 /*
   실행 상세 — Analysis Workspace.
 
-  시안 근거 (docs/design/pipeline-tab.html)
-    Run 헤더 · 탭바 · 좌 본문 + 우 400px sticky 레일 · 로그 · 하단 RUO 문구.
-    계층을 shadow가 아니라 1px 선과 surface/paper 배경으로 만든다.
+  2026-11-20 승인 시안(개발판단기록 41장)
+    전역 사이드바(AppShell) · 짧은 Run 헤더 · 바로 아래 Run 탭
+    (개요 / 파이프라인 / 공식 문서 / AI 설명 / 파일) · 하단 RUO 문구.
+    카드는 1px 선 + 옅은 --shadow-card + --radius-lg다(CLAUDE.md 23장).
+    이전 탭 밖에 있던 실패 카드·제한·AI 상태·AI 패널은 각각 개요 탭과 AI 설명
+    탭으로 들어갔다. 헤더의 한 줄이 어느 탭에서든 멈춘 위치와 실패 건수를 말한다.
 
   이 파일의 책임은 조립뿐이다. 쿼리 정책은 queries.ts, 표시는 components/,
   어휘는 registries/steps.ts와 stepStatus.ts에 있다. 탭이 늘어도 이 파일은
@@ -75,18 +113,100 @@ import { describeStep } from '@/registries/steps'
   사전 점검에서 멈춘 실행은 보여줄 것이 다르다.
 */
 
+/** Run 탭 아이콘. 표식일 뿐이고 이름은 글자가 말한다. AI 탭만 AI 색(보라)이다. */
+const TAB_ICON: Record<string, LucideIcon> = {
+  overview: LayoutDashboard,
+  pipeline: ListChecks,
+  docs: BookOpen,
+  ai: Sparkles,
+  files: FolderOpen,
+}
+
 /** 리소스 검사(resource_bundle)를 담당하는 단계. P0-1 원인은 이 단계 상세에만 있다. */
 const VALIDATION_STEP_ID = '00_input_validation'
 
 export function RunDetailPage() {
   const { jobId = '', tab } = useParams<{ jobId: string; tab?: string }>()
   const navigate = useNavigate()
-
-  const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
+  const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const detail = useJobDetailQuery(jobId)
   const job = detail.data
   const terminal = job ? isTerminalStatus(job.status) : false
+
+  /*
+    파이프라인 워크스페이스의 선택 단계는 URL(?step=)이다(개발판단기록 40장).
+    상세 패널은 늘 한 단계를 보여 주므로, 값이 없거나 계획에 없는 단계면
+    실패 → 실행 중 → 경고 → 첫 단계 순으로 고른다(stepView.ts). 링크를
+    공유하거나 새로고침해도 같은 단계가 열린다.
+  */
+  const selectedStepId = resolveStepId(
+    searchParams.get('step'),
+    job?.steps ?? [],
+    job?.currentStep ?? null,
+  )
+  const selectStep = (stepId: string) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('step', stepId)
+        return next
+      },
+      { replace: true },
+    )
+
+  /*
+    공식 문서 검색 기록(GET). 공식 문서 탭과 상세 패널의 "관련 공식 문서 n건"이
+    같은 query를 읽는다.
+  */
+  const docHistory = useDocSearchHistory(jobId)
+
+  /*
+    AI 설명의 근거(doc:·manual:)에서 "공식 문서 탭에서 보기"를 누르면 이
+    탭으로 옮겨 그 문서를 연다. 거르기·검색 기록 선택은 탭이 정한다
+    (DocEvidenceSection). revealDoc 상태는 "상세 패널로 스크롤하라"는 뜻이다.
+  */
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const evidenceId = (event as CustomEvent<string>).detail
+      navigate(
+        `/runs/${encodeURIComponent(jobId)}/docs?doc=${encodeURIComponent(evidenceId)}`,
+        { state: { revealDoc: true } },
+      )
+    }
+    window.addEventListener(OPEN_DOC_EVIDENCE_EVENT, onOpen)
+    return () => window.removeEventListener(OPEN_DOC_EVIDENCE_EVENT, onOpen)
+  }, [jobId, navigate])
+
+  /*
+    AI 해설의 "전체 설명에서 근거 보기"(AiNote)·공식 문서 상세의 AI 문장 버튼은
+    AI 설명 탭의 그 문장으로 간다. AI 설명은 탭이라 지금 화면에 없을 수 있어서
+    요청만 알리고(aiStatement.ts) 여기서 탭을 옮긴다.
+  */
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const number = (event as CustomEvent<number>).detail
+      navigate(`/runs/${encodeURIComponent(jobId)}/ai`, {
+        state: { reveal: statementAnchorId(number) },
+      })
+    }
+    window.addEventListener(OPEN_STATEMENT_EVENT, onOpen)
+    return () => window.removeEventListener(OPEN_STATEMENT_EVENT, onOpen)
+  }, [jobId, navigate])
+
+  /*
+    탭 이동과 함께 온 "이 요소를 보여 달라"(state.reveal). 새 탭의 내용이 그려진
+    뒤 다음 프레임에 찾는다. 접힌 묶음 안이면 연다(revealElement).
+  */
+  const revealId = (location.state as { reveal?: string } | null)?.reveal
+  useEffect(() => {
+    if (!revealId) return
+    const frame = requestAnimationFrame(() =>
+      revealElement(document.getElementById(revealId), 'center'),
+    )
+    return () => cancelAnimationFrame(frame)
+  }, [location.key, revealId])
 
   // 목록에서 이 job의 행을 찾는다. 상세 응답에 없는 필드의 출처다.
   const list = useRunListQuery()
@@ -98,6 +218,11 @@ export function RunDetailPage() {
   const artifacts = useArtifactsQuery(jobId, job?.status)
   const explanation = useExplanationQuery(jobId, job?.status)
   const cancel = useCancelJobMutation(jobId)
+  /*
+    AI 종합 설명 요청은 페이지가 하나 가진다. 패널·상태 줄·각 항목의 AI 해설이
+    같은 응답을 읽는다(useRunSynthesis). 호출은 여전히 패널의 버튼으로만 한다.
+  */
+  const synthesis = useRunSynthesis(jobId)
 
   /*
     리소스 검사 실패 원인(P0-1)은 입력 검증 단계의 상세에만 실려 온다. 그
@@ -116,7 +241,7 @@ export function RunDetailPage() {
     직접 열었는데 그 실행에 결과가 없으면 파이프라인으로 접는다 — 숨긴 탭의
     주소가 빈 화면이 되지 않게 한다.
   */
-  const tabs = visibleTabs(results.data, terminal)
+  const tabs = visibleTabs()
   const activeTab = resolveTab(tab, results.data, terminal)
 
   if (detail.isPending) {
@@ -156,10 +281,24 @@ export function RunDetailPage() {
     출처다. 그때만 대체한다 — /results가 있으면 그쪽이 core_summary의 step
     귀속까지 갖고 있어 더 정확하다.
   */
-  const diagnostics =
+  /*
+    이 실행의 기록이 뒷받침하지 않는 설명 문장(backend applicability)을 표시
+    전에 표시한다. 어느 경로로 모았든 같은 (단계, code)에 붙는다.
+  */
+  const withheld = withheldByOccurrence(explanation.data)
+  const diagnostics = applyWithheld(
     fromResults.all.length > 0 || !explanation.data
       ? fromResults
-      : collectFromExplanation(explanation.data.diagnostics)
+      : collectFromExplanation(explanation.data.diagnostics),
+    withheld,
+  )
+
+  /*
+    단계별 실행 사실(backend 장부). 있으면 목록·진행 표시·상세 패널이 pending
+    해석 대신 이것을 쓴다(stepView.isNotRun). 이전 응답이면 빈 Map이다.
+  */
+  const ledger = executionByStep(explanation.data)
+  const steps = withLedger(job.steps, ledger)
 
   /*
     요약 띠의 건수. AttentionSection과 같은 입력에서 센다 — 실패는 구조화된
@@ -174,6 +313,81 @@ export function RunDetailPage() {
     attention: diagnostics.counts.attention,
     notes: diagnostics.counts.repaired + diagnostics.counts.note,
   }
+
+  /*
+    AI 문장 → 화면 항목 배분(synthesisPlacement.ts). 근거 id가 이 Run의 항목
+    하나를 확인 가능하게 가리킬 때만 붙인다. 실행 설명이 없으면 항목을 확인할
+    수 없으므로 배분하지 않는다 — 문장은 전부 패널에 그대로 있다.
+
+    화면 목록(shownDiagnosticCodes)은 실패 카드가 실제로 그리는 진단이다.
+    /results에서 왔을 수 있으므로 설명 응답과 따로 넘겨 두 곳 모두에서 하나일
+    때만 붙인다.
+  */
+  const synthesisBody = synthesis.result?.available ? synthesis.result.synthesis : null
+  const placement: StatementPlacement | null =
+    synthesisBody && explanation.data
+      ? placeStatements({
+          synthesis: synthesisBody,
+          failures: explanation.data.failures.map((f) => ({
+            code: f.code,
+            stepId: f.actualStepId,
+          })),
+          diagnostics: explanation.data.diagnostics.map((d) => ({
+            code: d.code,
+            stepId: d.actualStepId,
+          })),
+          shownDiagnosticCodes: diagnostics.all
+            .filter((d) => d.view.kind !== 'failure')
+            .map((d) => d.code),
+          limitationCodes: explanation.data.limitations.map((l) => l.code),
+          stepIds: job.steps.map((s) => s.stepId),
+          isRegisteredDiagnostic: (code) => describeDiagnostic(code).title !== '',
+          isRegisteredFailure: (code) => describeFailureCode(code).known,
+        })
+      : null
+
+  const locators = {
+    artifactLabels: artifactLabelMap(
+      artifacts.data && !isNotReady(artifacts.data) ? artifacts.data : undefined,
+    ),
+  }
+
+  /** 번호 목록 → AI 해설 줄. 없으면 null(아무것도 그리지 않음). */
+  const aiNote = (numbers: readonly number[] | undefined) => {
+    if (!placement) return null
+    const statements = pick(placement, numbers)
+    return statements.length > 0 ? (
+      <AiNote statements={statements} locators={locators} />
+    ) : null
+  }
+  const aiNoteCountByStep = placement
+    ? new Map([...placement.byStep].map(([stepId, numbers]) => [stepId, numbers.length]))
+    : undefined
+
+  /** 다른 화면(실패 카드·공식 문서 탭)에서 파이프라인의 한 단계로 이동. */
+  const goToStep = (stepId: string) =>
+    navigate(
+      `/runs/${encodeURIComponent(jobId)}/pipeline?step=${encodeURIComponent(stepId)}`,
+    )
+
+  const resourceDiagnosis = validationDetail.data?.resourceBundleDiagnosis
+  const hasResourceCauses =
+    job.status !== 'cancelled' &&
+    resourceDiagnosis?.state === 'parsed' &&
+    resourceDiagnosis.causes.length > 0
+  const selectedStepState = job.steps.find((s) => s.stepId === selectedStepId)
+
+  const selectedIndex = job.steps.findIndex((s) => s.stepId === selectedStepId)
+  const neighbor = (index: number) => {
+    const item = job.steps[index]
+    return item ? { stepId: item.stepId, label: describeStep(item.stepId).label } : null
+  }
+  const finishedSteps = job.steps.filter(
+    (s) => s.status !== 'pending' && s.status !== 'running',
+  ).length
+  const runPath = `/runs/${encodeURIComponent(jobId)}`
+  const openOverview = (revealId?: string) =>
+    navigate(`${runPath}/overview`, revealId ? { state: { reveal: revealId } } : undefined)
 
   return (
     <Shell wide>
@@ -192,216 +406,270 @@ export function RunDetailPage() {
       />
 
       {/*
-        실행 전체의 실패는 탭과 무관하게 항상 보여야 한다. 어느 탭에 있든
-        "무엇이 잘못됐는지"가 화면에서 사라지면 안 된다.
-
-        취소는 실패가 아니므로 계속 MessageBlock이다 — 준비할 항목도,
-        해결 방법도 없다.
+        Run 탭은 헤더 바로 아래다(2026-11-20 승인 시안, 사용자 결정). 왼쪽
+        사이드바는 서비스 전체 이동이고 이 탭은 한 Run 안의 화면 전환이다.
+        탭은 URL 경로 세그먼트이며 한 Route(/runs/:jobId/:tab?)라 탭을 옮겨도
+        페이지가 다시 마운트되지 않는다 — AI 요청 상태(useRunSynthesis)가 유지된다.
       */}
-      {job.status === 'cancelled' && job.error ? (
-        <MessageBlock tone="info" title="이 실행은 취소되었습니다">
-          <p className="whitespace-pre-wrap">{job.error}</p>
-        </MessageBlock>
-      ) : null}
-
-      {/*
-        이 실행에서 일어난 일의 유일한 본문이다. 실패·확인 필요·자동 해결을
-        한 표면에서 구분한다.
-
-        이전에는 같은 warning이 결과 탭 "확인할 사항"과 파이프라인 탭에 각각
-        나타나서, 사용자가 그것이 몇 개의 문제인지 스스로 세야 했다. 이제
-        본문은 여기 하나이고 StepTable은 위치만 표시한다.
-
-        구조화된 failures가 있으면 그것이 본문이고, backend가 이어 붙인
-        error 문자열은 카드 안 "기술 정보"로 내려간다.
-
-        explanation 응답에 의존하지 않는다. 그 요청이 실패해도 job.error는
-        이미 있고, 실패 설명이 통째로 사라지는 것이 최악이다. 그때는 원문만
-        남은 카드가 되며 이전 화면보다 나빠지지 않는다.
-
-        보여줄 것이 없으면(성공한 실행) 카드가 스스로 null을 반환한다.
-      */}
-      {job.status !== 'cancelled' ? (
-        <AttentionSection
-          failures={explanation.data?.failures ?? []}
-          rawError={job.error}
-          diagnostics={diagnostics.all}
-          isPrecheck={explanation.data?.contextKind === 'precheck'}
-          /*
-            "어디서 일어났나"로 이동. 단계를 선택하고 파이프라인 탭으로 옮긴다.
-            탭은 이미 URL 세그먼트이므로 뒤로가기가 그대로 동작하고, 선택
-            상태만 local state로 남는다.
-          */
-          onGoToStep={(stepId) => {
-            setSelectedStepId(stepId)
-            navigate(`/runs/${encodeURIComponent(jobId)}/pipeline`)
-          }}
-        />
-      ) : null}
-
-      {/*
-        실패 카드 바로 아래 — "무엇이 실패했나" 다음에 "왜, 그리고 무엇을 볼까".
-        리소스 검사 원인이 분류되지 않았거나 읽지 못하면 스스로 null이다.
-        읽기 실패는 화면을 깨지 않는다: 위 실패 카드가 이미 사실을 말한다.
-      */}
-      {job.status !== 'cancelled' ? (
-        <ResourceCauseSection
-          diagnosis={validationDetail.data?.resourceBundleDiagnosis}
-        />
-      ) : null}
-
-      {job.unsupportedOptions.length > 0 ? (
-        <MessageBlock
-          tone="warning"
-          title="이 서버가 적용하지 않은 요청 옵션이 있습니다"
-        >
-          <code>{job.unsupportedOptions.join(', ')}</code>
-        </MessageBlock>
-      ) : null}
-
-      {/*
-        결과 해석의 범위 제한. 위의 job.error·unsupportedOptions와 같은 자리에
-        둔다 — 셋 다 어느 탭에 있든 유효한 실행 단위 사실이고, 탭 안에 넣으면
-        결과 탭을 열지 않은 사용자는 "필터가 적용되지 않았다"를 보지 못한다.
-
-        backend deterministic explanation이 만든 문장이며 AI 생성물이 아니다.
-      */}
-      {explanation.data ? (
-        <RunLimitations limitations={explanation.data.limitations} />
-      ) : null}
-
-      {/*
-        실패와 관련된 공식 문서 검색(개발판단기록 26장). 모델을 부르지 않는다.
-        이 Run의 관측 사실(위) 다음, AI 설명(아래) 앞에 둔다 — 검색 결과가 AI
-        설명의 일부로 읽히지 않게 별도 구획으로 분리한다.
-      */}
-      <DocEvidenceSection jobId={jobId} />
-
-      {/*
-        AI 종합 설명. 탭 바깥, 결정론적 설명 바로 아래에 둔다 — 위의 사실들을
-        묶은 것이므로 그 사실들 다음에 읽히는 것이 맞다.
-
-        ⚠️ 이 컴포넌트만 사용자의 Claude 사용량을 소모한다. 버튼을 눌러야만
-        호출되며, 3초 polling과 무관하다(mutation이지 query가 아니다).
-      */}
-      <RunSynthesisPanel
-        jobId={jobId}
-        terminal={terminal}
-        /*
-          AI 문장 안의 `artifact:...`를 이 실행의 실제 산출물 이름으로 바꾸는
-          데만 쓴다. artifacts가 아직 없으면 빈 표이고, 그때는 원문이 그대로
-          남는다.
-        */
-        locators={{
-          artifactLabels: artifactLabelMap(
-            artifacts.data && !isNotReady(artifacts.data)
-              ? artifacts.data
-              : undefined,
-          ),
-        }}
-      />
-
       <TabsRoot
         value={activeTab}
         onValueChange={(next) => {
-          navigate(`/runs/${encodeURIComponent(jobId)}/${next}`)
+          navigate(`${runPath}/${next}`)
         }}
       >
         <TabsList>
-          {tabs.map((item) => (
-            <TabsTab key={item.id} value={item.id}>
-              {item.label}
-            </TabsTab>
-          ))}
+          {tabs.map((item) => {
+            const Icon = TAB_ICON[item.id]
+            return (
+              <TabsTab key={item.id} value={item.id}>
+                <span className="inline-flex items-center gap-1.5">
+                  {Icon ? (
+                    <Icon
+                      size={15}
+                      strokeWidth={1.5}
+                      aria-hidden="true"
+                      className={item.id === 'ai' ? 'text-ai-fg' : undefined}
+                    />
+                  ) : null}
+                  {item.label}
+                </span>
+              </TabsTab>
+            )
+          })}
         </TabsList>
 
-        <TabsPanel value="pipeline">
-          <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-6">
-            <div className="flex min-w-0 flex-1 flex-col gap-10">
-              {/*
-                시안에는 여기에 라벨이 붙은 lg RunTape가 하나 더 있었지만
-                뺐다. 바로 아래 표가 같은 8단계를 이름·상태·소요시간까지
-                포함해 보여주고, 헤더에도 라벨 붙은 lg 띠가 있다(2026-11-17에
-                md에서 올림). 한 화면에 같은 정보를 세 번 그리는 것은 UI
-                chrome이지 정보가 아니다.
-              */}
-              <section className="flex flex-col gap-4">
-                <SectionHeader
-                  eyebrow="PIPELINE"
-                  title="단계별 진행"
-                  meta={`${job.steps.length}단계 계획`}
-                />
-                <StepTable
-                  steps={job.steps}
-                  currentStepId={job.currentStep}
-                  selectedStepId={selectedStepId}
-                  diagnosticsByStep={diagnostics.byStep}
-                  onSelect={(stepId) =>
-                    setSelectedStepId((prev) =>
-                      prev === stepId ? null : stepId,
-                    )
-                  }
-                />
-              </section>
+        <TabsPanel value="overview">
+          <div className="flex flex-col gap-6">
+            {/*
+              취소는 실패가 아니므로 MessageBlock이다 — 준비할 항목도, 해결
+              방법도 없다.
+            */}
+            {job.status === 'cancelled' && job.error ? (
+              <MessageBlock tone="info" title="이 실행은 취소되었습니다">
+                <p className="whitespace-pre-wrap">{job.error}</p>
+              </MessageBlock>
+            ) : null}
 
-              {/*
-                단계에 귀속되지 않은 진단을 여기서 따로 그리지 않는다.
-                AttentionSection이 귀속 여부와 무관하게 전부 보여주므로,
-                여기 두면 같은 항목이 화면에 두 번 나온다.
-              */}
+            {job.unsupportedOptions.length > 0 ? (
+              <MessageBlock
+                tone="warning"
+                title="이 서버가 적용하지 않은 요청 옵션이 있습니다"
+              >
+                <code>{job.unsupportedOptions.join(', ')}</code>
+              </MessageBlock>
+            ) : null}
 
-              <LogPanel lines={job.logTail} />
-
-              {/*
-                "실행 조건과 식별자" 12행 표가 여기 있었다.
-
-                job/run ID·샘플·profile·capture kit·실행 모드·상태·pipeline
-                상태·진행률을 담고 있었는데, 상태 계열은 헤더가 사람이 읽는
-                말로 이미 말하고 식별 계열은 결과 탭 "입력 요약"에 있다.
-                같은 값을 한 번은 사람 말로, 한 번은 backend 내부 어휘로
-                보여주면 사용자가 데이터 모델을 배워야 하는 화면이 된다.
-
-                전문가용 원본은 페이지 맨 아래 DeveloperDetails가
-                `GET /api/jobs/{id}` 응답 그대로 유지한다 — 접근성을 잃지
-                않으면서 본문에서는 뺀다.
-              */}
-            </div>
+            {/* 헤더에 있던 네 칸 요약. 값은 모두 응답에서 온다. */}
+            <RunFacts job={job} listItem={listItem} issues={issues} />
 
             {/*
-              우측 레일 — 단계를 선택했을 때만 존재한다.
-
-              이전에는 선택이 없어도 같은 폭의 빈 aside가 남아 안내문만 담고
-              있었다. 내용이 없는 패널이 화면의 30%를 차지하면 그것은 정보가
-              아니라 dashboard 모양이다. 무엇을 누르면 무엇이 열리는지는 표의
-              각 행에 있는 "상세"가 말한다.
-
-              시안의 400px sticky 레일이며, lg 미만에서는 본문 아래로 내려간다.
+              이 실행에서 일어난 일의 유일한 본문(실패·확인 필요·자동 해결).
+              구조화된 failures가 있으면 그것이 본문이고 backend error 문자열은
+              카드 안 "기술 정보"로 내려간다. explanation 응답에 의존하지 않는다
+              — 그 요청이 실패해도 원문만 남은 카드가 된다. 성공한 실행이면
+              카드가 스스로 null을 반환한다.
             */}
-            {selectedStepId ? (
-              <aside
-                id={STEP_DETAIL_PANEL_ID}
-                className="w-full flex-none border-t border-border pt-6 lg:sticky lg:top-6 lg:w-rail lg:border-t-0 lg:border-l lg:pl-6"
-              >
-                <StepDetailRail
-                  stepId={selectedStepId}
-                  detail={step.data}
-                  isPending={step.isPending}
-                  error={step.error}
-                />
-              </aside>
+            {job.status !== 'cancelled' ? (
+              <AttentionSection
+                failures={explanation.data?.failures ?? []}
+                rawError={job.error}
+                diagnostics={diagnostics.all}
+                isPrecheck={explanation.data?.contextKind === 'precheck'}
+                onGoToStep={(stepId) => goToStep(stepId)}
+                renderAiNote={
+                  placement
+                    ? (kind, code) =>
+                        aiNote(
+                          (kind === 'failure' ? placement.byFailure : placement.byDiagnostic).get(code),
+                        )
+                    : undefined
+                }
+              />
             ) : null}
+
+            {/*
+              결과 해석의 범위 제한. backend deterministic explanation이 만든
+              문장이며 AI 생성물이 아니다.
+            */}
+            {explanation.data ? (
+              <RunLimitations
+                limitations={explanation.data.limitations}
+                renderAiNote={
+                  placement ? (code) => aiNote(placement.byLimitation.get(code)) : undefined
+                }
+              />
+            ) : null}
+
+            {/*
+              분석 결과(이전 "결과" 탭, /results 주소는 이 탭으로 온다). 결과가
+              없거나 아직 끝나지 않은 실행의 안내는 ResultsView가 그대로 말한다.
+            */}
+            <ResultsView
+              data={results.data}
+              isPending={results.isPending && terminal}
+              waitingForRun={!terminal}
+              terminal={terminal}
+              error={results.error}
+              currentStepLabel={currentStepLabel}
+            />
           </div>
         </TabsPanel>
 
-        <TabsPanel value="results">
-          <ResultsView
-            data={results.data}
-            isPending={results.isPending && terminal}
-            waitingForRun={!terminal}
-            terminal={terminal}
-            error={results.error}
-            currentStepLabel={currentStepLabel}
+        <TabsPanel value="pipeline">
+          <div className="flex flex-col gap-6">
+            {/* 가로 진행 표시(이전 헤더의 단계 띠). 점을 누르면 그 단계를 선택한다. */}
+            <section
+              aria-labelledby="pipeline-progress-heading"
+              className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5 shadow-card"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h2 id="pipeline-progress-heading" className="text-h3 font-semibold text-text-strong">
+                  파이프라인 진행
+                </h2>
+                <span className="text-small text-text-muted">
+                  {job.steps.length}단계 중{' '}
+                  <span className="font-mono text-data text-text">{finishedSteps}</span>단계 끝남
+                </span>
+              </div>
+              <PipelineStepper
+                steps={steps}
+                selectedStepId={selectedStepId}
+                terminal={terminal}
+                onSelect={selectStep}
+              />
+            </section>
+
+            {/*
+              파이프라인 워크스페이스 — 왼쪽 단계 목록(약 60%), 오른쪽 선택 단계의
+              상세 패널(약 40%, sticky). 패널은 늘 있다(기본 선택: stepView.ts).
+              lg 미만에서는 목록 아래로 내려간다.
+
+              단계에 귀속되지 않은 진단은 여기 따로 그리지 않는다 — 개요 탭의
+              AttentionSection이 전부 보여준다.
+            */}
+            <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+              <section
+                aria-labelledby="pipeline-steps-heading"
+                className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-card md:p-5"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <h2 id="pipeline-steps-heading" className="text-h3 font-semibold text-text-strong">
+                    분석 단계
+                  </h2>
+                  <span className="text-small text-text-muted">{job.steps.length}단계 계획</span>
+                </div>
+                <StepTable
+                  steps={steps}
+                  currentStepId={job.currentStep}
+                  selectedStepId={selectedStepId}
+                  terminal={terminal}
+                  diagnosticsByStep={diagnostics.byStep}
+                  aiNoteCountByStep={aiNoteCountByStep}
+                  onSelect={(stepId) => {
+                    selectStep(stepId)
+                    // 좁은 화면에서는 패널이 목록 아래에 있다. 누른 결과가 보이게 내려 준다.
+                    if (window.matchMedia('(max-width: 69.99rem)').matches) {
+                      requestAnimationFrame(() =>
+                        document
+                          .getElementById(STEP_DETAIL_PANEL_ID)
+                          ?.scrollIntoView({ block: 'start' }),
+                      )
+                    }
+                  }}
+                />
+              </section>
+
+              {selectedStepId ? (
+                <aside
+                  id={STEP_DETAIL_PANEL_ID}
+                  aria-label="선택한 단계의 상세"
+                  className="scroll-mt-6 rounded-lg border border-border bg-surface p-5 shadow-card lg:sticky lg:top-6"
+                >
+                  <StepDetailRail
+                    key={selectedStepId}
+                    stepId={selectedStepId}
+                    detail={step.data}
+                    isPending={step.isPending}
+                    error={step.error}
+                    aiNote={placement ? aiNote(placement.byStep.get(selectedStepId)) : undefined}
+                    stepStatus={selectedStepState?.status}
+                    terminal={terminal}
+                    execution={ledger.get(selectedStepId)}
+                    withheld={withheld}
+                    failures={
+                      explanation.data?.failures.filter(
+                        (f) => f.actualStepId === selectedStepId,
+                      ) ?? []
+                    }
+                    hasResourceCauses={
+                      hasResourceCauses && selectedStepId === VALIDATION_STEP_ID
+                    }
+                    docHitCount={hitsForStep(docHistory.data?.[0], selectedStepId)}
+                    causes={
+                      hasResourceCauses && selectedStepId === VALIDATION_STEP_ID ? (
+                        <ResourceCauseSection diagnosis={resourceDiagnosis} />
+                      ) : undefined
+                    }
+                    onOpenDocs={() => navigate(`${runPath}/docs`)}
+                    onOpenAi={() => navigate(`${runPath}/ai`)}
+                    onOpenOverview={openOverview}
+                    prev={neighbor(selectedIndex - 1)}
+                    next={neighbor(selectedIndex + 1)}
+                    onSelectStep={selectStep}
+                  />
+                </aside>
+              ) : null}
+            </div>
+
+            {/* 실행 로그. 접어 두되 지우지 않는다. */}
+            <details className="group rounded-lg border border-border bg-surface shadow-card">
+              <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-5 py-3 text-body font-semibold text-text-strong [&::-webkit-details-marker]:hidden">
+                <ChevronRight
+                  size={16}
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                  className="text-text-muted transition-transform group-open:rotate-90"
+                />
+                실행 로그
+                <span className="text-small font-normal text-text-muted">
+                  최근 {job.logTail.length}줄
+                </span>
+              </summary>
+              <div className="border-t border-border-subtle p-5">
+                <LogPanel lines={job.logTail} />
+              </div>
+            </details>
+          </div>
+        </TabsPanel>
+
+        <TabsPanel value="docs">
+          <DocEvidenceSection
+            jobId={jobId}
+            history={docHistory}
+            statements={synthesisBody ? numberStatements(synthesisBody) : []}
+            onGoToStep={goToStep}
           />
+        </TabsPanel>
+
+        <TabsPanel value="ai">
+          <div className="flex flex-col gap-6">
+            {/*
+              AI 해설의 상태 한 줄. 각 항목 옆 해설은 있을 때만 그려지므로, 없음·
+              요청 전·폐기·생성 중의 차이는 여기서 읽힌다.
+            */}
+            <AiStatusBar
+              synthesis={synthesis}
+              terminal={terminal}
+              placement={placement}
+              explanationAvailable={Boolean(explanation.data)}
+            />
+            {/*
+              AI 종합 설명. ⚠️ 이 컴포넌트만 사용자의 Claude 사용량을 소모한다.
+              버튼을 눌러야만 호출되며 3초 polling과 무관하다(mutation). 요청
+              상태는 페이지가 가지므로 탭을 옮겨도 사라지지 않는다.
+            */}
+            <RunSynthesisPanel synthesis={synthesis} terminal={terminal} locators={locators} />
+          </div>
         </TabsPanel>
 
         <TabsPanel value="files">

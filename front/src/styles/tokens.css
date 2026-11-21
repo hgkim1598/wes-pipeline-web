@@ -84,6 +84,22 @@
   --color-brand-faint: var(--color-brand-050); /* 옅은 강조 */
 
   /*
+    AI 영역 — 보라 (2026-11-20 사용자 결정). AI가 만든 문장과 AI 응답 단계에만
+    쓴다. 등록된 지식·파이프라인 기록에는 쓰지 않는다.
+  */
+  --color-ai-fg: #5b3fb0;
+  --color-ai-bg: #f5f2fd;
+  --color-ai-bd: #ddd3f5;
+
+  /* 앱 사이드바 — 어두운 그래파이트 위 밝은 글자 */
+  --color-sidebar: #141c26;
+  --color-sidebar-hover: #1f2a37;
+  --color-sidebar-active: #22314a;
+  --color-sidebar-text: #c9d3dd;
+  --color-sidebar-strong: #ffffff;
+  --color-sidebar-line: #26313e;
+
+  /*
     상태
     fg는 각 bg 위에서 WCAG 2.2 SC 1.4.3 AA(4.5:1)를 통과한다.
     색은 상태 전달의 유일한 수단이 아니다 — component 단계에서
@@ -248,6 +264,11 @@
   --radius-sm: 0.25rem; /* 버튼 · 입력 · 칩 */
   --radius-md: 0.5rem; /* 패널 · 카드 · 다이얼로그 · 드로어 */
   /*
+    워크스페이스 카드(2026-11-20 사용자 승인 밝은 시안). 큰 구획 카드에만 쓴다.
+    CLAUDE.md 23장: 절제된 라운드 허용.
+  */
+  --radius-lg: 0.75rem;
+  /*
     알약. StatusBadge와 RunTape 현재 단계 마커가 쓴다.
     badge-shapes-2가 "신설 토큰: --radius-pill: 999px — StatusBadge 전용"으로
     도입했고, prototype·pipeline-tab·results-* 등 제품 화면이 모두 배지에
@@ -267,6 +288,14 @@
   */
   --shadow-el-1: 0 1px 2px rgb(11 17 22 / 0.06), 0 4px 12px rgb(11 17 22 / 0.08); /* 드롭다운 · 툴팁 · 팝오버 */
   --shadow-el-2: 0 8px 32px rgb(11 17 22 / 0.16); /* 다이얼로그 · 드로어 */
+  /*
+    워크스페이스 카드의 옅은 그림자(2026-11-20 사용자 승인 밝은 시안).
+    paper 배경 위 흰 카드의 경계를 1px 선과 함께 만든다. glow가 아니다.
+  */
+  --shadow-card: 0 1px 2px rgb(11 17 22 / 0.04), 0 2px 8px rgb(11 17 22 / 0.04);
+
+  /* 앱 사이드바 폭 */
+  --container-sidebar: 14rem;
 
   /* 레이아웃 폭 */
   --container-app: 85rem; /* 1360 · 중앙 컨테이너 */

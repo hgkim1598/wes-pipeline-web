@@ -1,20 +1,28 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Sparkles } from 'lucide-react'
+import { BookOpen, ChevronRight, ExternalLink, ShieldCheck, Sparkles } from 'lucide-react'
 
 import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/Button'
 import { DiagnosticKindMark } from '@/components/ui/DiagnosticNote'
 import { MessageBlock } from '@/components/ui/MessageBlock'
 import { SectionHeader } from '@/components/ui/SectionHeader'
+import { SourceMark } from '@/components/ui/SourceMark'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import { createSynthesis } from '@/features/run-detail/api'
 import type {
   SynthesisProvenance,
   SynthesisResult,
   SynthesisStatement,
 } from '@/features/run-detail/api'
+import {
+  GATE_REJECTIONS,
+  SYNTHESIS_PANEL_ID,
+  revealDocEvidence,
+  revealElement,
+  statementAnchorId,
+} from '@/features/run-detail/aiStatement'
+import { countEvidenceSources, isDocEvidence } from '@/features/run-detail/evidenceSource'
+import type { EvidenceSource } from '@/features/run-detail/evidenceSource'
 import { humanizeLocators } from '@/features/run-detail/locators'
 import type { LocatorResolver } from '@/features/run-detail/locators'
 import {
@@ -22,11 +30,18 @@ import {
   partitionByRefs,
 } from '@/features/run-detail/synthesisGroups'
 import type { DiagnosticRef } from '@/features/run-detail/synthesisGroups'
+import {
+  numberStatements,
+  statementNumber,
+} from '@/features/run-detail/synthesisPlacement'
+import type { StatementGroup } from '@/features/run-detail/synthesisPlacement'
+import type { RunSynthesisState } from '@/features/run-detail/useRunSynthesis'
 import { describeJobStatus } from '@/features/runs/status'
 import { formatDuration, formatTimestamp } from '@/features/runs/time'
 import { describeDiagnostic, describeFailure } from '@/registries/diagnostics'
 import type { DiagnosticKind, DiagnosticView } from '@/registries/diagnostics'
 import { describeEvidenceRef } from '@/registries/evidence'
+import { cx } from '@/lib/cx'
 
 /*
   AI 종합 설명.
@@ -95,7 +110,12 @@ import { describeEvidenceRef } from '@/registries/evidence'
 */
 
 export interface RunSynthesisPanelProps {
-  jobId: string
+  /**
+   * 페이지가 가진 요청 상태(useRunSynthesis). 이전에는 이 패널이 mutation을
+   * 직접 가졌다. 지금은 같은 응답을 상태 줄·각 항목의 AI 해설이 함께 읽는다.
+   * 호출 정책(누를 때만, 재시도 없음)은 hook으로 그대로 옮겼다.
+   */
+  synthesis: RunSynthesisState
   /**
    * 이 실행의 artifact kind -> 표시 이름.
    *
@@ -113,70 +133,72 @@ export interface RunSynthesisPanelProps {
 }
 
 export function RunSynthesisPanel({
-  jobId,
+  synthesis,
   locators,
   terminal,
 }: RunSynthesisPanelProps) {
   /*
-    시작 시각은 **요청을 시작한 이벤트**가 기록한다. effect 안에서 setState로
-    초기화하면 렌더가 한 번 더 돌고(oxlint set-state-in-effect), 이전 실행의
-    경과 시간이 잠깐 남는 문제도 생긴다.
+    mutation과 요청 시작 시각은 useRunSynthesis로 옮겼다. 끝난 뒤 문서 검색
+    목록을 다시 읽는 것(WES_AGENT_DOC_EVIDENCE, 개발판단기록 27장)도 거기서
+    한다. GET 한 번이며 모델 호출이 아니다.
   */
-  const [startedAt, setStartedAt] = useState<number | null>(null)
-  const queryClient = useQueryClient()
-  const synthesis = useMutation({
-    mutationFn: () => createSynthesis(jobId),
-    onMutate: () => setStartedAt(Date.now()),
-    // 재시도 없음. 위 주석 참고.
-    retry: false,
-    /*
-      서버 설정(WES_AGENT_DOC_EVIDENCE)이 켜져 있으면 이 요청이 문서 검색을
-      하나 저장한다(개발판단기록 27장). 문서 구획이 그 기록을 다시 읽게 한다.
-      GET 한 번이며 모델 호출이 아니다.
-    */
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['runs', jobId, 'doc-search'] })
-    },
-  })
+  const result = synthesis.result
+  const elapsed = useElapsedSeconds(synthesis.isPending, synthesis.startedAt)
 
-  const result = synthesis.data
-  const elapsed = useElapsedSeconds(synthesis.isPending, startedAt)
+  /*
+    요청 버튼은 머리글 오른쪽에 둔다(공식 문서 구획의 "다시 검색"과 같은
+    자리). 결과가 생긴 뒤에는 본문이 주인공이고, 버튼은 다시 만드는 조작이다.
+    누르면 사용량을 쓴다는 사실은 그대로이며 호출 정책도 같다.
+  */
+  const hasAnswer = result?.available === true && result.synthesis !== null
+  const buttonLabel = synthesis.isPending
+    ? '생성 중…'
+    : hasAnswer
+      ? '다시 생성'
+      : 'AI로 종합 설명 보기'
 
   return (
-    <section className="flex flex-col gap-4">
+    <section
+      id={SYNTHESIS_PANEL_ID}
+      aria-labelledby="synthesis-heading"
+      className="flex scroll-mt-6 flex-col gap-4"
+    >
       <SectionHeader
         eyebrow="AI SUMMARY"
-        title="AI 종합 설명"
-        meta="Claude가 생성 · 요청할 때만 실행"
+        title={<span id="synthesis-heading">AI 종합 설명</span>}
+        meta={
+          <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+            <SourceMark kind="ai">{' · Claude'}</SourceMark>
+            <span>요청할 때만 실행</span>
+          </span>
+        }
+        action={
+          <Button
+            type="button"
+            onClick={() => synthesis.request()}
+            /*
+              중복 클릭 방지 + 미완료 실행 차단. 두 이유가 같은 속성에
+              모이므로 아래 안내문으로 어느 쪽인지 구분한다.
+            */
+            disabled={synthesis.isPending || !terminal}
+          >
+            <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" />
+            {buttonLabel}
+          </Button>
+        }
       />
 
-      <div className="flex flex-col gap-4 rounded-md border border-border bg-surface p-4">
-        <p className="max-w-prose text-small text-text-muted">
+      <div className="flex flex-col gap-4 rounded-md border border-border bg-surface p-4 sm:p-5">
+        <p className="max-w-content text-small text-text-muted">
           위의 진단·검증 결과를 하나의 설명으로 묶어 줍니다. 파이프라인이 기록한
           사실과 등록된 근거만 사용하며, 품질 판정이나 임상 해석은 하지 않습니다.
         </p>
 
-        <div className="flex flex-col gap-2">
-          <div>
-            <Button
-              type="button"
-              onClick={() => synthesis.mutate()}
-              /*
-                중복 클릭 방지 + 미완료 실행 차단. 두 이유가 같은 속성에
-                모이므로 아래 안내문으로 어느 쪽인지 구분한다.
-              */
-              disabled={synthesis.isPending || !terminal}
-            >
-              <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" />
-              {synthesis.isPending ? '생성 중…' : 'AI로 종합 설명 보기'}
-            </Button>
-          </div>
-          {!terminal ? (
-            <p className="text-small text-text-muted">
-              실행이 끝난 뒤 AI 종합 설명을 사용할 수 있습니다.
-            </p>
-          ) : null}
-        </div>
+        {!terminal ? (
+          <p className="text-small text-text-muted">
+            실행이 끝난 뒤 AI 종합 설명을 사용할 수 있습니다.
+          </p>
+        ) : null}
 
         {/*
           기다리는 동안 `[설계판단]`
@@ -243,24 +265,9 @@ export function RunSynthesisPanel({
 }
 
 /*
-  backend가 모델의 응답을 받은 뒤 검사에서 거부한 category.
-
-  backend/app/services/explanation/llm/synthesis.py의 검사 단계 이름이며,
-  backend 테스트(test_every_error_category_has_a_curated_message)의 domain
-  집합과 같다. 사용자 문구는 여기서 만들지 않는다 — 제목만 "모델을 쓸 수
-  없었다"와 "모델이 쓴 설명을 버렸다"로 구분한다. 모르는 category는 일반
-  제목으로 간다.
+  검사에서 거부한 category 목록(GATE_REJECTIONS)과 패널·문장 id는
+  aiStatement.ts로 옮겼다. 상태 줄과 각 항목의 AI 해설이 같은 값을 쓴다.
 */
-const GATE_REJECTIONS: ReadonlySet<string> = new Set([
-  'invalidSynthesis',
-  'unknownEvidenceRef',
-  'unsupportedNumber',
-  'internalFieldName',
-  'runFactMismatch',
-  'evidenceMismatch',
-  'sensitiveOutput',
-  'docEvidenceMisuse',
-])
 
 /**
  * 요청이 실패했을 때의 안내.
@@ -344,133 +351,242 @@ export function SynthesisResultView({
     STATUS_REFS,
   )
   const status = provenance ? describeJobStatus(provenance.runStatus) : null
+  /*
+    번호는 응답 순서다(synthesisPlacement.ts). 각 항목 옆의 AI 해설이 같은
+    번호를 보이므로, 같은 문장이 두 곳에 보여도 하나라는 것을 알 수 있다.
+  */
+  const numbered = numberStatements(synthesis)
+  const numberOf = (group: StatementGroup, index: number) =>
+    statementNumber(numbered, group, index)
   const hasStatusColumn = status !== null || statusEntries.length > 0
+  const diagnosticCount = groups.reduce((sum, group) => sum + group.entries.length, 0)
+  const otherTitle = groups.length > 0 ? '측정값과 그 밖의 내용' : '주요 내용'
+
+  /*
+    목차 `[설계판단]`. 요약 바로 아래에서 상세 해설의 구획과 문장 수를 한 줄로
+    보인다. 누르면 그 구획으로 이동하고, 접힌 구획이면 연다. 구획이 무엇인지와
+    몇 문장인지는 응답에서 센 값뿐이다.
+  */
+  const toc = [
+    { id: 'synthesis-status', label: '실행 상태', count: statusEntries.length },
+    { id: 'synthesis-diagnostics', label: '진단별 해설', count: diagnosticCount },
+    { id: 'synthesis-other', label: otherTitle, count: otherEntries.length },
+    { id: 'synthesis-limitations', label: '이 결과가 말하지 않는 것', count: synthesis.limitations.length },
+    { id: 'synthesis-next-checks', label: '다음으로 확인할 수 있는 것', count: synthesis.nextChecks.length },
+    { id: 'synthesis-uncertainties', label: '알 수 없는 것', count: synthesis.uncertainties.length },
+  ].filter((entry) => entry.count > 0)
 
   return (
-    <div className="flex flex-col gap-6 border-t border-border pt-4">
-      {/* --- 1. 요약 | 실행 상태 ----------------------------------------- */}
-      <div
-        className={
-          hasStatusColumn
-            ? 'grid grid-cols-1 gap-x-8 gap-y-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]'
-            : 'grid grid-cols-1'
-        }
-      >
-        <section aria-labelledby="synthesis-summary" className="flex flex-col gap-1.5">
-          <Eyebrow id="synthesis-summary">요약</Eyebrow>
-          <p className="max-w-content text-body font-medium whitespace-pre-wrap text-text-strong">
-            {synthesis.summary}
-          </p>
-        </section>
+    <div className="flex flex-col gap-8 border-t border-border pt-5">
+      {/* --- 1. 핵심 요약 ------------------------------------------------ */}
+      {/*
+        요약은 상세 해설과 다른 층이다. 글자를 한 단계 키우고, 출처 표시와
+        생성 사실을 같은 줄에 둔다. 요약에는 근거 id가 없으므로(응답 계약)
+        근거는 아래 각 문장에서 확인한다고 적는다.
+      */}
+      <section aria-labelledby="synthesis-summary" className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Eyebrow id="synthesis-summary">핵심 요약</Eyebrow>
+          <SourceMark kind="ai" />
+          {provenance ? (
+            <span className="inline-flex items-center gap-1 text-caption text-text-muted">
+              <ShieldCheck size={12} strokeWidth={1.5} aria-hidden="true" />
+              근거 검사를 모두 통과한 응답
+            </span>
+          ) : null}
+        </div>
+        <p className="max-w-content text-h3 font-medium whitespace-pre-wrap text-text-strong">
+          {synthesis.summary}
+        </p>
+        <p className="text-caption text-text-muted">
+          요약에는 근거가 따로 붙지 않습니다. 근거는 아래 상세 해설의 각 문장에서
+          확인할 수 있습니다.
+        </p>
+        {toc.length > 0 ? (
+          <nav aria-label="상세 해설 목차">
+            <ul className="flex flex-wrap gap-2">
+              {toc.map((entry) => (
+                <li key={entry.id}>
+                  <button
+                    type="button"
+                    onClick={() => revealElement(document.getElementById(entry.id), 'start')}
+                    className="inline-flex min-h-7 items-center gap-1.5 rounded-sm border border-border bg-surface px-2.5 text-caption text-text hover:border-border-strong hover:bg-sunken"
+                  >
+                    {entry.label}
+                    <span className="font-mono text-text-muted">{entry.count}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ) : null}
+      </section>
 
+      {/* --- 2. 상세 해설 ------------------------------------------------ */}
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border-subtle pb-2">
+          <h3 className="text-body font-medium text-text-strong">
+            상세 해설{' '}
+            <span className="font-normal text-text-muted">{numbered.length}개 문장</span>
+          </h3>
+          <p className="text-caption text-text-muted">
+            문장 앞 번호는 응답 순서이며, 각 항목 옆 AI 해설과 같은 번호입니다.
+          </p>
+        </div>
+
+        {/* 2-1. 실행 상태: 왼쪽은 backend 기록, 오른쪽은 그 상태를 말한 AI 문장 */}
         {hasStatusColumn ? (
           <section
-            aria-labelledby="synthesis-status"
-            className="flex flex-col gap-2 border-t border-border-subtle pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-6"
+            id="synthesis-status"
+            aria-labelledby="synthesis-status-heading"
+            className="grid scroll-mt-6 grid-cols-1 gap-x-8 gap-y-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]"
           >
-            <Eyebrow id="synthesis-status">실행 상태</Eyebrow>
-            {status ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge tone={status.tone} size="sm">
-                  {status.label}
-                </StatusBadge>
-                <span className="text-caption text-text-muted">
-                  설명을 만들 때의 상태
-                </span>
-              </div>
-            ) : null}
+            <div className="flex flex-col gap-2">
+              <Eyebrow id="synthesis-status-heading">실행 상태</Eyebrow>
+              {status ? (
+                <div className="flex flex-col gap-1.5 rounded-sm bg-sunken px-3 py-2.5">
+                  <SourceMark kind="record" className="self-start bg-surface" />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge tone={status.tone} size="sm">
+                      {status.label}
+                    </StatusBadge>
+                    <span className="text-caption text-text-muted">
+                      설명을 만들 때의 상태
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+            </div>
             {statusEntries.length > 0 ? (
-              <ul className="flex flex-col gap-3">
+              <AiStatements>
                 {statusEntries.map(({ index, item }) => (
-                  <StatementItem key={index} item={item} />
+                  <StatementItem
+                    key={index}
+                    item={item}
+                    number={numberOf('importantFindings', index)}
+                  />
                 ))}
-              </ul>
+              </AiStatements>
             ) : null}
           </section>
         ) : null}
-      </div>
 
-      {/* --- 2. 진단 기록 ------------------------------------------------ */}
-      {groups.length > 0 ? (
-        <section aria-labelledby="synthesis-diagnostics" className="flex flex-col gap-3">
-          <div className="flex flex-col gap-0.5">
-            <SubHeading id="synthesis-diagnostics" count={groups.length} unit="건">
-              진단 기록
+        {/* 2-2. 진단별 해설 */}
+        {groups.length > 0 ? (
+          <section
+            id="synthesis-diagnostics"
+            aria-labelledby="synthesis-diagnostics-heading"
+            className="flex scroll-mt-6 flex-col gap-3"
+          >
+            <div className="flex flex-col gap-0.5">
+              <SubHeading id="synthesis-diagnostics-heading" count={groups.length} unit="건">
+                진단별 해설
+              </SubHeading>
+              <p className="text-caption text-text-muted">
+                파이프라인이 남긴 진단별로 AI 설명을 묶었습니다. 진단의 종류는
+                실행 상태와 별개입니다.
+              </p>
+            </div>
+            {/*
+              auto-fit: 칸 수는 폭이 정한다. 1360px 화면에서 3칸, 태블릿 2칸,
+              모바일 1칸. 진단이 한 건이면 한 칸이 줄 전체를 쓰고, 그때 문장
+              길이는 StatementItem의 max-w-content가 막는다.
+
+              칸 안에서 위(회색 바탕)는 이 Run의 기록, 아래(점선 아래)는 AI
+              문장이다.
+            */}
+            <ul className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-3">
+              {groups.map(({ diagnostic, entries }) => {
+                const view = viewOf(diagnostic)
+                return (
+                  <li
+                    key={diagnostic.ref}
+                    className="flex flex-col overflow-hidden rounded-md border border-border"
+                  >
+                    <div className="flex flex-col gap-1 bg-sunken px-4 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <DiagnosticKindMark kind={view.kind} label={view.label} />
+                        <SourceMark kind="record" className="bg-surface" />
+                      </div>
+                      <h4 className="text-body font-medium text-text-strong">
+                        {titleOf(diagnostic)}
+                      </h4>
+                      <code className="text-caption break-all text-text-muted">
+                        {diagnostic.code}
+                      </code>
+                    </div>
+                    <AiStatements className="px-4 py-3">
+                      {entries.map(({ index, item, related }) => (
+                        <StatementItem
+                          key={index}
+                          item={item}
+                          number={numberOf('importantFindings', index)}
+                          note={
+                            related.length > 0
+                              ? `함께 관련된 진단: ${related.map(titleOf).join(', ')}`
+                              : undefined
+                          }
+                        />
+                      ))}
+                    </AiStatements>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        ) : null}
+
+        {/* 2-3. 측정값과 그 밖의 내용 */}
+        {otherEntries.length > 0 ? (
+          <section
+            id="synthesis-other"
+            aria-labelledby="synthesis-other-heading"
+            className="flex scroll-mt-6 flex-col gap-3"
+          >
+            <SubHeading id="synthesis-other-heading" count={otherEntries.length} unit="개">
+              {otherTitle}
             </SubHeading>
-            <p className="text-caption text-text-muted">
-              파이프라인이 남긴 진단별로 AI 설명을 묶었습니다. 진단의 종류는
-              실행 상태와 별개입니다.
-            </p>
-          </div>
-          {/*
-            auto-fit: 칸 수는 폭이 정한다. 1360px 화면에서 3칸, 태블릿 2칸,
-            모바일 1칸. 진단이 한 건이면 한 칸이 줄 전체를 쓰고, 그때 문장
-            길이는 StatementItem의 max-w-content가 막는다.
-          */}
-          <ul className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-3">
-            {groups.map(({ diagnostic, entries }) => {
-              const view = viewOf(diagnostic)
-              return (
-                <li
-                  key={diagnostic.ref}
-                  className="flex flex-col gap-3 rounded-md border border-border p-4"
-                >
-                  <div className="flex flex-col gap-1">
-                    <DiagnosticKindMark kind={view.kind} label={view.label} />
-                    <h4 className="text-body font-medium text-text-strong">
-                      {titleOf(diagnostic)}
-                    </h4>
-                    <code className="text-caption break-all text-text-muted">
-                      {diagnostic.code}
-                    </code>
-                  </div>
-                  <ul className="flex flex-col gap-3 border-t border-border-subtle pt-3">
-                    {entries.map(({ index, item, related }) => (
-                      <StatementItem
-                        key={index}
-                        item={item}
-                        note={
-                          related.length > 0
-                            ? `함께 관련된 진단: ${related.map(titleOf).join(', ')}`
-                            : undefined
-                        }
-                      />
-                    ))}
-                  </ul>
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-      ) : null}
+            <ul className="grid grid-cols-1 gap-x-8 gap-y-4 border-t border-dashed border-border pt-3 md:grid-cols-2">
+              {otherEntries.map(({ index, item }) => (
+                <StatementItem
+                  key={index}
+                  item={item}
+                  number={numberOf('importantFindings', index)}
+                />
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
-      {/* --- 3. 측정값과 그 밖의 내용 ------------------------------------ */}
-      {otherEntries.length > 0 ? (
-        <section aria-labelledby="synthesis-other" className="flex flex-col gap-3">
-          <SubHeading id="synthesis-other" count={otherEntries.length} unit="개">
-            {groups.length > 0 ? '측정값과 그 밖의 내용' : '주요 내용'}
-          </SubHeading>
-          <ul className="grid grid-cols-1 gap-x-8 gap-y-3 border-t border-border-subtle pt-3 md:grid-cols-2">
-            {otherEntries.map(({ index, item }) => (
-              <StatementItem key={index} item={item} />
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {/* --- 4. 접힘 영역 ------------------------------------------------ */}
-      {/*
-        넓은 화면에서는 세 영역을 나란히 둔다. 접혀 있을 때 한 줄이고,
-        펼치면 각자 아래로 늘어난다(items-start). 좁은 화면에서는 세로.
-      */}
-      <div className="grid grid-cols-1 items-start gap-x-8 gap-y-3 border-t border-border-subtle pt-3 lg:grid-cols-3">
-        <FoldSection title="이 결과가 말하지 않는 것" items={synthesis.limitations} />
-        <FoldSection
-          title="다음으로 확인할 수 있는 것"
-          items={synthesis.nextChecks}
-          locators={locators}
-        />
-        <FoldSection title="알 수 없는 것" items={synthesis.uncertainties} />
+        {/* 2-4. 접힘 영역 */}
+        {/*
+          넓은 화면에서는 세 영역을 나란히 둔다. 접혀 있을 때 한 줄이고,
+          펼치면 각자 아래로 늘어난다(items-start). 좁은 화면에서는 세로.
+          "다음으로 확인할 수 있는 것"만 처음부터 연다 — 사용자가 이어서 할
+          일이고 보통 몇 문장뿐이다. 나머지는 건수와 함께 접어 둔다.
+        */}
+        <div className="grid grid-cols-1 items-start gap-x-8 gap-y-3 border-t border-border-subtle pt-4 lg:grid-cols-3">
+          <FoldSection
+            id="synthesis-limitations"
+            title="이 결과가 말하지 않는 것"
+            items={synthesis.limitations}
+            numberOf={(index) => numberOf('limitations', index)}
+          />
+          <FoldSection
+            id="synthesis-next-checks"
+            title="다음으로 확인할 수 있는 것"
+            items={synthesis.nextChecks}
+            locators={locators}
+            numberOf={(index) => numberOf('nextChecks', index)}
+            defaultOpen
+          />
+          <FoldSection
+            id="synthesis-uncertainties"
+            title="알 수 없는 것"
+            items={synthesis.uncertainties}
+            numberOf={(index) => numberOf('uncertainties', index)}
+          />
+        </div>
       </div>
 
       {/*
@@ -480,6 +596,20 @@ export function SynthesisResultView({
       */}
       {provenance ? <ProvenanceLine provenance={provenance} /> : null}
     </div>
+  )
+}
+
+/** AI 문장 목록. 점선 위쪽(기록)과 구분하는 공통 틀. */
+function AiStatements({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <ul
+      className={cx(
+        'flex flex-col gap-4 border-t border-dashed border-border-strong pt-3',
+        className,
+      )}
+    >
+      {children}
+    </ul>
   )
 }
 
@@ -547,24 +677,41 @@ function SubHeading({
 }
 
 function FoldSection({
+  id,
   title,
   items,
   locators,
+  numberOf,
+  defaultOpen = false,
 }: {
+  id: string
   title: string
   items: SynthesisStatement[]
   locators?: LocatorResolver
+  numberOf: (index: number) => number | null
+  defaultOpen?: boolean
 }) {
   if (items.length === 0) return null
   return (
-    <details className="min-w-0">
-      <summary className="inline-flex min-h-6 cursor-pointer items-center gap-1 text-small font-medium text-text-strong">
+    <details id={id} open={defaultOpen} className="group min-w-0 scroll-mt-6">
+      <summary className="inline-flex min-h-7 cursor-pointer items-center gap-1 text-small font-medium text-text-strong">
+        <ChevronRight
+          size={14}
+          strokeWidth={1.5}
+          aria-hidden="true"
+          className="flex-none text-text-muted group-open:rotate-90"
+        />
         {title}
         <span className="font-normal text-text-muted">{items.length}개</span>
       </summary>
-      <ul className="mt-3 flex flex-col gap-3">
+      <ul className="mt-2 flex flex-col gap-4 border-t border-dashed border-border-strong pt-3">
         {items.map((item, index) => (
-          <StatementItem key={index} item={item} locators={locators} />
+          <StatementItem
+            key={index}
+            item={item}
+            locators={locators}
+            number={numberOf(index)}
+          />
         ))}
       </ul>
     </details>
@@ -575,18 +722,33 @@ function StatementItem({
   item,
   locators,
   note,
+  number,
 }: {
   item: SynthesisStatement
   locators?: LocatorResolver
   /** 문장 아래 보조 설명. 문장 자체를 바꾸지 않고 덧붙이기만 한다. */
   note?: string
+  /** 응답 순서 번호. 각 항목 옆 AI 해설과 같은 번호다. */
+  number: number | null
 }) {
   const shown = locators
     ? humanizeLocators(item.statement, locators)
     : item.statement
   return (
-    <li className="flex max-w-content min-w-0 flex-col gap-1">
-      <span className="text-small text-text">{shown}</span>
+    <li
+      id={number === null ? undefined : statementAnchorId(number)}
+      // 각 항목의 "전체 설명에서 보기"가 여기로 초점을 옮긴다(aiStatement.ts).
+      tabIndex={number === null ? undefined : -1}
+      className="flex max-w-content min-w-0 scroll-mt-6 flex-col gap-1"
+    >
+      <span className="text-small leading-body text-text">
+        {number === null ? null : (
+          <span className="mr-1.5 font-mono text-caption text-text-muted">
+            #{number}
+          </span>
+        )}
+        {shown}
+      </span>
       {note ? (
         <span className="text-caption text-text-muted">{note}</span>
       ) : null}
@@ -672,14 +834,34 @@ function EvidenceRefs({
 }) {
   if (refs.length === 0) return null
   const views = refs.map(describeEvidenceRef)
+  /*
+    접힌 상태에서도 출처의 종류는 보이게 한다: "이 Run의 기록 2 · 공식 문서 1".
+    이 문장이 실행의 관측에 기대는지, 일반 문서 지식에 기대는지가 펼치지
+    않아도 읽힌다. 건수는 인용된 id를 prefix로 나눈 값뿐이다(evidenceSource.ts).
+  */
+  const sources = countEvidenceSources(refs)
   return (
-    <details>
-      <summary className="inline-flex min-h-6 cursor-pointer items-center text-caption text-text-muted">
-        근거 {refs.length}개 보기
+    <details className="group/evidence">
+      <summary className="inline-flex min-h-6 cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 text-caption text-text-muted hover:text-text">
+        <span className="inline-flex items-center gap-0.5">
+          <ChevronRight
+            size={12}
+            strokeWidth={1.5}
+            aria-hidden="true"
+            className="flex-none group-open/evidence:rotate-90"
+          />
+          근거 {refs.length}개 보기
+        </span>
+        {sources.map(({ source, count }) => (
+          <span key={source} className="inline-flex items-center gap-1">
+            <span aria-hidden="true">·</span>
+            {EVIDENCE_SOURCE_LABEL[source]} {count}
+          </span>
+        ))}
       </summary>
-      <ul className="mt-1.5 flex flex-col gap-1 border-l border-border pl-3">
+      <ul className="mt-1.5 flex flex-col gap-2 border-l border-border pl-3">
         {views.map((view) => (
-          <li key={view.id} className="flex flex-col">
+          <li key={view.id} className="flex flex-col gap-0.5">
             <span className="text-caption text-text">
               {view.label}
               {view.known ? (
@@ -689,18 +871,36 @@ function EvidenceRefs({
             {view.quote ? (
               <span className="text-caption text-text-muted">“{view.quote}”</span>
             ) : null}
-            {view.href ? (
-              <a
-                href={view.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-caption text-text-muted underline"
-              >
-                원문 열기
-              </a>
-            ) : null}
+            <span className="flex flex-wrap gap-x-3">
+              {view.href ? (
+                <a
+                  href={view.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-6 items-center gap-1 text-caption text-text-muted underline underline-offset-2 hover:text-brand"
+                >
+                  원문 열기
+                  <ExternalLink size={12} strokeWidth={1.5} aria-hidden="true" />
+                </a>
+              ) : null}
+              {/*
+                공식 문서 근거는 공식 문서 탭에서 검색 기록과 함께 볼 수 있다.
+                그 문서를 가진 검색 기록을 골라 상세 패널에 연다. 어느 기록에도
+                없으면 탭이 그렇다고 말한다(aiStatement.ts revealDocEvidence).
+              */}
+              {isDocEvidence(view.id) ? (
+                <button
+                  type="button"
+                  onClick={() => revealDocEvidence(view.id)}
+                  className="inline-flex min-h-6 items-center gap-1 text-caption text-text-muted underline underline-offset-2 hover:text-brand"
+                >
+                  <BookOpen size={12} strokeWidth={1.5} aria-hidden="true" />
+                  공식 문서 탭에서 보기
+                </button>
+              ) : null}
+            </span>
             {view.known ? (
-              <code className="font-mono text-caption text-text-muted">
+              <code className="font-mono text-caption break-all text-text-muted">
                 {view.id}
               </code>
             ) : null}
@@ -715,4 +915,12 @@ function EvidenceRefs({
       </ul>
     </details>
   )
+}
+
+const EVIDENCE_SOURCE_LABEL: Record<EvidenceSource, string> = {
+  record: '이 Run의 기록',
+  mixed: '이 Run의 기록·일반 설명',
+  doc: '공식 문서',
+  knowledge: '등록된 지식',
+  other: '기타',
 }

@@ -604,10 +604,12 @@ Mock 결과를 실제 분석 결과처럼 표현하지 않습니다.
 다음 패턴을 사용하지 않습니다.
 
 - 카드 한쪽의 두꺼운 accent border / left rail
-- 의미 없는 card shadow
-- glow
+- 의미 없는 card shadow (예외: 2026-11-20 사용자 승인 밝은 워크스페이스 시안의
+  절제된 카드 그림자 `--shadow-card`와 큰 구획 카드의 `--radius-lg`(12px)는 허용)
+- glow (선택된 메뉴·중요 상호작용의 1px 브랜드 테두리 강조는 glow가 아니다)
 - gradient
-- 과도하게 둥근 SaaS-style card
+- 과도하게 둥근 SaaS-style card (12px를 넘는 카드 라운드)
+- 보라색은 AI가 만든 문장·AI 응답 단계·AI 탭에만 쓴다 (`--color-ai-*`)
 - DNA / 현미경 / 염기서열 등의 장식 이미지
 - 장식용 chart
 - 의미 없는 KPI card

@@ -1,6 +1,7 @@
 import { Inbox } from 'lucide-react'
 import { Route, Routes } from 'react-router'
 
+import { AppShell } from '@/components/layout/AppShell'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { MessageBlock } from '@/components/ui/MessageBlock'
@@ -151,6 +152,8 @@ function Showcase() {
 
 function App() {
   return (
+    // 서비스 공통 사이드바(components/layout/AppShell.tsx). 모든 화면에 같다.
+    <AppShell>
     <Routes>
       {/* 공통 primitive 확인용 개발 화면. 제품 화면이 아니다. */}
       <Route path="/" element={<Showcase />} />
@@ -164,8 +167,13 @@ function App() {
         실행 상세 워크스페이스. 탭은 경로 세그먼트라 뒤로가기·새로고침·링크
         공유가 그대로 동작한다. 세그먼트가 없으면 파이프라인 탭이 기본이다.
       */}
-      <Route path="/runs/:jobId" element={<RunDetailPage />} />
-      <Route path="/runs/:jobId/:tab" element={<RunDetailPage />} />
+      {/*
+        한 Route(선택 세그먼트)로 둔다. 둘로 나뉘어 있으면 `/runs/:id`에서
+        `/runs/:id/docs`로 갈 때 페이지가 새로 만들어져, 진행 중이던 AI 설명
+        요청 상태(useRunSynthesis, component 안 mutation)가 사라진다.
+        주소 모양은 이전과 같다.
+      */}
+      <Route path="/runs/:jobId/:tab?" element={<RunDetailPage />} />
 
       {/*
         앱 안의 준비 안내. 파이프라인 실패 메시지가 저장소 문서 경로를
@@ -174,6 +182,7 @@ function App() {
       */}
       <Route path="/help/setup" element={<SetupGuidePage />} />
     </Routes>
+    </AppShell>
   )
 }
 

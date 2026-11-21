@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Info } from 'lucide-react'
 
 import type { Limitation } from '@/features/run-detail/api'
@@ -31,9 +32,15 @@ import type { Limitation } from '@/features/run-detail/api'
 
 export interface RunLimitationsProps {
   limitations: Limitation[]
+  /**
+   * 제한 사항 옆의 AI 해설(`lim:<code>`를 인용한 문장). 주지 않으면 지금과
+   * 똑같이 그린다. 위 statement는 backend 문장 그대로이고, 해설은 그 아래에
+   * 따로 붙는다.
+   */
+  renderAiNote?: (code: string) => ReactNode
 }
 
-export function RunLimitations({ limitations }: RunLimitationsProps) {
+export function RunLimitations({ limitations, renderAiNote }: RunLimitationsProps) {
   if (limitations.length === 0) return null
 
   return (
@@ -66,9 +73,16 @@ export function RunLimitations({ limitations }: RunLimitationsProps) {
             className="max-w-prose text-body text-text before:mr-2 before:text-text-muted before:content-['·']"
           >
             {limitation.statement}
+            <LimitationAiNote note={renderAiNote?.(limitation.code)} />
           </li>
         ))}
       </ul>
     </section>
   )
+}
+
+/** 해설이 없으면 빈 여백도 남기지 않는다. */
+function LimitationAiNote({ note }: { note: ReactNode }) {
+  if (note === null || note === undefined || note === false) return null
+  return <div className="mt-2">{note}</div>
 }

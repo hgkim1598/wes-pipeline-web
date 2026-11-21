@@ -11,6 +11,8 @@
 import type { RunTapeCell } from '@/components/ui/RunTape'
 import type { JobState } from '@/features/run-detail/api'
 import { describeStepStatus } from '@/features/run-detail/stepStatus'
+import { stepStatusDisplay } from '@/features/run-detail/stepDisplay'
+import { isTerminalStatus } from '@/features/runs/status'
 import { formatDuration } from '@/features/runs/time'
 import { describeStep } from '@/registries/steps'
 
@@ -29,7 +31,8 @@ export function toTapeCells(job: JobState, withLabels = false): RunTapeCell[] {
       current: step.stepId === job.currentStep,
       // 색만으로 상태를 전달하지 않는다. md는 라벨이 없으므로 이 문장이 유일한
       // 대체 텍스트다.
-      ariaLabel: `${definition.label}, ${view.label}${
+      // 끝난 실행의 pending은 "실행 안 됨"(stepDisplay.ts, 개발판단기록 40장).
+      ariaLabel: `${definition.label}, ${stepStatusDisplay(step.status, isTerminalStatus(job.status)).label}${
         step.elapsedSeconds > 0 ? `, ${formatDuration(step.elapsedSeconds)}` : ''
       }`,
     }

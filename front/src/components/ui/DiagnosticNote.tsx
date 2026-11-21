@@ -181,8 +181,15 @@ export function DiagnosticNote({
   compact = false,
   className,
 }: DiagnosticNoteProps) {
-  const { view, code, message, impact } = diagnostic
+  const { view, code, message, impact, withheld } = diagnostic
   const Icon = KIND_ICON[view.kind]
+  /*
+    이 실행의 기록이 뒷받침하지 않는 일반 설명·고정 영향 문구는 보이지 않고
+    이유만 말한다(2026-11-21, factApplicability.ts). 예: 00에서 멈춘 실행의
+    MULTIQC_MISSING "개별 FastQC 리포트는 ... 생성되었습니다".
+  */
+  const meaning = withheld?.meaning ? '' : view.meaning
+  const shownImpact = withheld?.impact ? '' : impact
 
   /*
     registry에 없는 code는 제목을 지어내지 않고 backend 원문을 제목 자리에
@@ -221,16 +228,20 @@ export function DiagnosticNote({
         {heading}
       </p>
 
-      {view.meaning ? (
-        <p className="max-w-prose text-body text-text">{view.meaning}</p>
+      {meaning ? (
+        <p className="max-w-prose text-body text-text">{meaning}</p>
       ) : null}
+      {withheld?.meaning ? <WithheldLine what="일반 설명을" reason={withheld.meaning} /> : null}
 
       {/*
         전문가용 Layer 3. backend가 그 자리에 적어 둔 영문 원문이며,
         위의 한국어 설명과 달리 파이프라인이 직접 쓴 문장이다. 둘을 섞지
         않도록 라벨을 붙여 구분한다.
       */}
-      {!compact && (impact || (known && message)) ? (
+      {!compact && withheld?.impact ? (
+        <WithheldLine what="파이프라인 영향 문구를" reason={withheld.impact} />
+      ) : null}
+      {!compact && (shownImpact || (known && message)) ? (
         <dl className="mt-1 flex flex-col gap-1 border-t border-border-subtle pt-2">
           {known && message ? (
             <div className="flex flex-col gap-0.5">
@@ -240,17 +251,26 @@ export function DiagnosticNote({
               <dd className="text-caption text-text-muted">{message}</dd>
             </div>
           ) : null}
-          {impact ? (
+          {shownImpact ? (
             <div className="flex flex-col gap-0.5">
               <dt className="font-cond text-eyebrow font-semibold tracking-wide text-text-muted uppercase">
                 Impact
               </dt>
-              <dd className="text-caption text-text-muted">{impact}</dd>
+              <dd className="text-caption text-text-muted">{shownImpact}</dd>
             </div>
           ) : null}
         </dl>
       ) : null}
     </div>
+  )
+}
+
+/** 표시하지 않은 문장 자리에 남기는 한 줄. 문장 자체는 다시 보이지 않는다. */
+export function WithheldLine({ what, reason }: { what: string; reason: string }) {
+  return (
+    <p className="max-w-prose text-caption text-text-muted" data-withheld="true">
+      이 실행의 기록으로 뒷받침되지 않아 {what} 표시하지 않습니다. {reason}
+    </p>
   )
 }
 

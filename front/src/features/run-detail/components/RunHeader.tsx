@@ -1,4 +1,4 @@
-import { ChevronLeft, Ban } from 'lucide-react'
+import { Ban, CalendarDays, ChevronLeft, ChevronRight, Clock } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
@@ -6,16 +6,12 @@ import { Link } from 'react-router'
 import { Button } from '@/components/ui/Button'
 import { CopyableId } from '@/components/ui/CopyableId'
 import { MessageBlock } from '@/components/ui/MessageBlock'
-import { RunTape } from '@/components/ui/RunTape'
-import type { RunTapeCell } from '@/components/ui/RunTape'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import type { JobState } from '@/features/run-detail/api'
 import { PollingStatus } from '@/features/run-detail/components/PollingStatus'
-import { describeStepStatus } from '@/features/run-detail/stepStatus'
-import { toTapeCells } from '@/features/run-detail/tape'
 import type { JobListItem } from '@/features/runs/api'
 import { describeJobStatus, isTerminalStatus } from '@/features/runs/status'
-import { durationBetween, formatDuration, formatTimestamp } from '@/features/runs/time'
+import { durationBetween, formatTimestamp } from '@/features/runs/time'
 import { describeStep } from '@/registries/steps'
 
 /*
@@ -26,6 +22,11 @@ import { describeStep } from '@/registries/steps'
     "변이 검출 · 6/8단계 · 1시간 18분 경과" / 메타 한 줄 /
     mono run id + 복사 / 시작 시각 / "3초 전 갱신" / 우측 [분석 취소]
     상태 변형 V1~V4의 요약 문구 형태를 그대로 따랐다.
+
+  2026-11-20 (개발판단기록 41장): 승인된 밝은 시안대로 헤더를 줄였다 — 경로 ·
+  상태 · 제목 · run id · 시작 시각 · 소요 시간 · 멈춘 위치와 문제 건수 한 줄.
+  네 칸 요약(RunFacts)은 개요 탭으로, 단계 띠는 파이프라인 탭의 진행 표시로
+  옮겼다. 시안의 공유·내보내기·다시 실행 버튼은 없는 기능이라 만들지 않았다.
 
   시안과 다른 점 두 가지.
 
@@ -77,47 +78,68 @@ export function RunHeader({
 
   const status = describeJobStatus(job.status)
   const terminal = isTerminalStatus(job.status)
-  const completed = job.steps.filter(
-    (step) => step.status !== 'pending' && step.status !== 'running',
-  ).length
   const position = describePosition(job)
   const elapsed = durationBetween(job.startedAt, job.finishedAt)
   const started = formatTimestamp(job.startedAt)
+  const created = started ? null : formatTimestamp(listItem?.createdAt ?? null)
   const sample = listItem?.sampleId ?? null
+  // 경로 표시의 짧은 이름: run id의 마지막 조각. 전체 id는 아래 복사 칸에 있다.
+  const shortId = job.runId.split('-').at(-1) || job.runId
 
   return (
-    <div className="flex flex-col gap-4 border-b border-border pb-6">
-      <Link
-        to="/runs"
-        className="inline-flex min-h-6 items-center gap-1 self-start text-small text-text-muted no-underline hover:text-text hover:underline"
-      >
-        <ChevronLeft size={12} strokeWidth={1.5} aria-hidden="true" />
-        실행 목록
-      </Link>
+    <header className="flex flex-col gap-3">
+      <nav aria-label="현재 위치" className="flex items-center gap-1.5 text-small text-text-muted">
+        <Link
+          to="/runs"
+          className="inline-flex min-h-6 items-center gap-1 text-text-muted no-underline hover:text-text hover:underline"
+        >
+          <ChevronLeft size={12} strokeWidth={1.5} aria-hidden="true" />
+          실행 목록
+        </Link>
+        <ChevronRight size={12} strokeWidth={1.5} aria-hidden="true" className="text-ink-400" />
+        <span className="font-mono text-text-strong">{shortId}</span>
+      </nav>
 
-      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <h1 className="text-h1 font-semibold tracking-tight text-text-strong">
+            <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+            <h1 className="min-w-0 text-h2 font-semibold tracking-tight break-all text-text-strong">
               {job.profileId}
               {sample ? (
                 <>
                   <span className="px-2 text-ink-400">·</span>
-                  <code className="text-h1">{sample}</code>
+                  <code className="text-h2">{sample}</code>
                 </>
               ) : null}
             </h1>
-            <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          {/* 실제 값만. 없는 값은 칸을 만들지 않는다. */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-small text-text-muted">
             <CopyableId value={job.runId} />
             {started ? (
-              <span className="text-caption text-text-muted">
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarDays size={14} strokeWidth={1.5} aria-hidden="true" />
                 <time dateTime={started.machine} title={started.full}>
                   {started.display}
-                </time>{' '}
+                </time>
                 시작
+              </span>
+            ) : created ? (
+              /* 시작 시각이 기록되지 않은 실행(예: 사전 점검에서 멈춤)은 등록 시각만 있다. 시작으로 쓰지 않는다. */
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarDays size={14} strokeWidth={1.5} aria-hidden="true" />
+                <time dateTime={created.machine} title={created.full}>
+                  {created.display}
+                </time>
+                등록 · 시작 시각 기록 없음
+              </span>
+            ) : null}
+            {elapsed ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Clock size={14} strokeWidth={1.5} aria-hidden="true" />
+                {elapsed} 소요
               </span>
             ) : null}
             <PollingStatus
@@ -127,6 +149,27 @@ export function RunHeader({
               isFetching={polling.isFetching}
             />
           </div>
+
+          {/*
+            어느 탭에 있든 "어디서 멈췄고 문제가 몇 건인가"가 보이게 한 줄로
+            둔다. 실패의 본문(실패 카드)은 개요 탭에 있다.
+          */}
+          <p className="flex flex-wrap items-baseline gap-x-2 text-small">
+            <span className="font-medium text-text-strong">{position.headline}</span>
+            {position.detail ? <span className="text-text-muted">{position.detail}</span> : null}
+            {issues.failures > 0 || issues.attention > 0 ? (
+              <span className="text-text-muted">
+                ·{' '}
+                <span className={issues.failures > 0 ? 'font-medium text-status-failure-fg' : undefined}>
+                  실패 {issues.failures}
+                </span>{' '}
+                ·{' '}
+                <span className={issues.attention > 0 ? 'font-medium text-status-warning-fg' : undefined}>
+                  확인 필요 {issues.attention}
+                </span>
+              </span>
+            ) : null}
+          </p>
         </div>
 
         {/*
@@ -175,98 +218,102 @@ export function RunHeader({
         ) : null}
       </div>
 
-      {/*
-        실행 요약 띠 `[설계판단 2026-11-17]`
-
-        시연에서 "지금 어디까지 왔고 무엇이 문제인가"를 한 줄로 말할 수 있게
-        흩어져 있던 사실을 한 표면에 모은다. KPI 카드 네 장이 아니라 하나의
-        표면 안의 정의 목록(dl)이다 — 값은 모두 backend 응답에서 오고, 없는
-        값은 칸을 비우지 않고 "기록 없음"이라고 말한다.
-
-        분석 모드와 캡처 키트는 **다른 필드**다 `[코드근거]`. runMode는
-        full|check_only, captureKitId는 캡처 키트 registry 식별자라 라벨을 따로
-        붙인다(이전에 `·`로 이어 붙여 모드의 일부처럼 읽혔다).
-      */}
-      <dl className="grid grid-cols-1 rounded-md border border-border bg-surface sm:grid-cols-2 lg:grid-cols-4">
-        <Fact term="지금 위치">
-          <span className="text-body font-medium text-text-strong">
-            {position.headline}
-          </span>
-          {position.detail ? (
-            <span className="text-caption text-text-muted">{position.detail}</span>
-          ) : null}
-        </Fact>
-        <Fact term="진행">
-          <span className="text-body text-text-strong">
-            <span className="font-mono text-data">
-              {completed} / {job.steps.length}
-            </span>{' '}
-            단계 끝남
-          </span>
-          <span className="text-caption text-text-muted">
-            완료 비율이며 남은 시간이 아닙니다
-          </span>
-        </Fact>
-        <Fact term="문제">
-          <span className="text-body text-text-strong">
-            {issues.failures > 0 || issues.attention > 0 ? (
-              <>
-                <span className={issues.failures > 0 ? 'text-status-failure-fg' : undefined}>
-                  실패 {issues.failures}
-                </span>
-                <span className="px-1.5 text-ink-400">·</span>
-                <span className={issues.attention > 0 ? 'text-status-warning-fg' : undefined}>
-                  확인 필요 {issues.attention}
-                </span>
-              </>
-            ) : (
-              '기록된 실패·확인 필요 없음'
-            )}
-          </span>
-          {issues.notes > 0 ? (
-            <span className="text-caption text-text-muted">
-              참고·자동 처리 {issues.notes}건
-            </span>
-          ) : null}
-        </Fact>
-        <Fact term="실행 조건">
-          <span className="text-body text-text-strong">
-            {job.runMode === 'full'
-              ? '전체 분석'
-              : job.runMode === 'check_only'
-                ? '사전 점검'
-                : job.runMode}
-            {elapsed ? (
-              <span className="text-text-muted">
-                <span className="px-1.5 text-ink-400">·</span>
-                {elapsed} 소요
-              </span>
-            ) : null}
-          </span>
-          {listItem?.captureKitId ? (
-            <span className="text-caption text-text-muted">
-              캡처 키트{' '}
-              <span className="font-mono text-text">{listItem.captureKitId}</span>
-            </span>
-          ) : null}
-        </Fact>
-      </dl>
-
-      {/*
-        단계 띠(lg, 라벨 + 상태). 헤더의 띠를 md(라벨 없음)에서 lg로 올렸다.
-        색 띠만으로는 "어느 단계가 빨간가"를 읽을 수 없어 시연에서 매번 표를
-        내려가 봐야 했다. 아래 단계 표는 설명·상세 진입을 맡고, 이 띠는 위치만
-        말한다.
-      */}
-      <RunTape size="lg" cells={tapeCells(job)} />
-
       {cancelError ? (
         <MessageBlock tone="danger" role="alert" title="취소 요청이 실패했습니다">
           서버가 요청을 처리하지 못했습니다. 실행은 계속되고 있을 수 있으니 상태를
           확인해 주세요.
         </MessageBlock>
       ) : null}
-    </div>
+    </header>
+  )
+}
+
+/*
+  실행 요약 (2026-11-17 설계판단, 2026-11-20 개요 탭으로 이동).
+
+  헤더에 있던 네 칸(지금 위치 · 진행 · 문제 · 실행 조건)이다. 값은 모두
+  backend 응답에서 오고, 없는 값은 칸을 비우지 않고 말한다. 분석 모드와 캡처
+  키트는 다른 필드라 라벨을 따로 붙인다.
+*/
+export function RunFacts({
+  job,
+  listItem,
+  issues,
+}: {
+  job: JobState
+  listItem: JobListItem | undefined
+  issues: RunIssueCounts
+}) {
+  const completed = job.steps.filter(
+    (step) => step.status !== 'pending' && step.status !== 'running',
+  ).length
+  const position = describePosition(job)
+  const elapsed = durationBetween(job.startedAt, job.finishedAt)
+  return (
+    <dl className="grid grid-cols-1 rounded-lg border border-border bg-surface shadow-card md:grid-cols-2 lg:grid-cols-4">
+      <Fact term="지금 위치">
+        <span className="text-body font-medium text-text-strong">
+          {position.headline}
+        </span>
+        {position.detail ? (
+          <span className="text-caption text-text-muted">{position.detail}</span>
+        ) : null}
+      </Fact>
+      <Fact term="진행">
+        <span className="text-body text-text-strong">
+          <span className="font-mono text-data">
+            {completed} / {job.steps.length}
+          </span>{' '}
+          단계 끝남
+        </span>
+        <span className="text-caption text-text-muted">
+          완료 비율이며 남은 시간이 아닙니다
+        </span>
+      </Fact>
+      <Fact term="문제">
+        <span className="text-body text-text-strong">
+          {issues.failures > 0 || issues.attention > 0 ? (
+            <>
+              <span className={issues.failures > 0 ? 'text-status-failure-fg' : undefined}>
+                실패 {issues.failures}
+              </span>
+              <span className="px-1.5 text-ink-400">·</span>
+              <span className={issues.attention > 0 ? 'text-status-warning-fg' : undefined}>
+                확인 필요 {issues.attention}
+              </span>
+            </>
+          ) : (
+            '기록된 실패·확인 필요 없음'
+          )}
+        </span>
+        {issues.notes > 0 ? (
+          <span className="text-caption text-text-muted">
+            참고·자동 처리 {issues.notes}건
+          </span>
+        ) : null}
+      </Fact>
+      <Fact term="실행 조건">
+        <span className="text-body text-text-strong">
+          {job.runMode === 'full'
+            ? '전체 분석'
+            : job.runMode === 'check_only'
+              ? '사전 점검'
+              : job.runMode}
+          {elapsed ? (
+            <span className="text-text-muted">
+              <span className="px-1.5 text-ink-400">·</span>
+              {elapsed} 소요
+            </span>
+          ) : null}
+        </span>
+        {listItem?.captureKitId ? (
+          <span className="text-caption text-text-muted">
+            캡처 키트{' '}
+            <span className="font-mono text-text">{listItem.captureKitId}</span>
+          </span>
+        ) : null}
+      </Fact>
+    </dl>
   )
 }
 
@@ -276,7 +323,7 @@ function Fact({ term, children }: { term: string; children: ReactNode }) {
       칸 사이 구분선. 1열은 아래선, 2열(sm)은 왼쪽 칸 오른선 + 윗줄 아래선,
       4열(lg)은 마지막 칸을 뺀 오른선만.
     */
-    <div className="flex min-w-0 flex-col gap-1 border-border-subtle px-4 py-3 not-last:border-b sm:odd:border-r sm:nth-last-[-n+2]:border-b-0 lg:border-b-0 lg:not-last:border-r">
+    <div className="flex min-w-0 flex-col gap-1 border-border-subtle px-4 py-3 not-last:border-b md:odd:border-r md:nth-last-[-n+2]:border-b-0 lg:border-b-0 lg:not-last:border-r">
 
       <dt className="text-caption font-medium tracking-wide-kr text-text-muted">{term}</dt>
       <dd className="flex min-w-0 flex-col gap-0.5">{children}</dd>
@@ -319,19 +366,4 @@ function describePosition(job: JobState): { headline: string; detail: string | n
     return { headline: '모든 단계가 끝났습니다', detail: null }
   }
   return { headline: '기록 없음', detail: null }
-}
-
-/** lg 띠 셀. 라벨 아래에 상태를 글자로 적는다 — 색만으로 상태를 말하지 않는다. */
-function tapeCells(job: JobState): RunTapeCell[] {
-  return toTapeCells(job, true).map((cell, index) => {
-    const step = job.steps[index]
-    const view = describeStepStatus(step.status)
-    return {
-      ...cell,
-      meta:
-        step.elapsedSeconds > 0
-          ? `${view.label} · ${formatDuration(step.elapsedSeconds)}`
-          : view.label,
-    }
-  })
 }

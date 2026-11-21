@@ -489,6 +489,49 @@ export const LimitationSchema = z.object({
 
 export type Limitation = z.infer<typeof LimitationSchema>
 
+/**
+ * 단계 하나의 실행 사실. backend가 단계 문서·실행 상태 기록에서 유도했고,
+ * `basis`가 그 근거 문장이다. `unknown`은 "기록으로 판정할 수 없음"이며
+ * 실행됨·실행 안 됨 어느 쪽으로도 읽지 않는다.
+ */
+export const LedgerStepSchema = z.object({
+  stepId: z.string(),
+  execution: z.string(),
+  source: z.string(),
+  basis: z.string(),
+})
+
+export type LedgerStep = z.infer<typeof LedgerStepSchema>
+
+export const ExecutionLedgerSchema = z.object({
+  stepsKnown: z.boolean(),
+  runStatus: z.string(),
+  pipelineStatus: z.string().nullable(),
+  runEnded: z.boolean().nullable(),
+  steps: z.array(LedgerStepSchema),
+})
+
+/**
+ * 설명 문장 하나가 이 실행에 해당하는가. `withheld`면 화면과 모델 입력에서
+ * 뺀 문장이고 `reason`이 이유다. 실행 기록 자체는 지우지 않는다.
+ */
+export const KnowledgeDecisionSchema = z.object({
+  section: z.string(),
+  index: z.number(),
+  code: z.string(),
+  part: z.string(),
+  origin: z.string(),
+  target: z.string().nullable(),
+  kind: z.string(),
+  runClaim: z.string(),
+  decision: z.string(),
+  withheld: z.boolean(),
+  reason: z.string().nullable(),
+  text: z.string(),
+})
+
+export type KnowledgeDecision = z.infer<typeof KnowledgeDecisionSchema>
+
 export const ExplanationSchema = z.object({
   contextKind: ContextKindSchema,
   status: z.string(),
@@ -520,6 +563,13 @@ export const ExplanationSchema = z.object({
   intendedUse: z.string().nullable(),
   /** section -> 어느 backend reader가 만들었나. 화면에는 노출하지 않는다. */
   sources: z.record(z.string(), z.string()),
+  /*
+    2026-11-21 추가. 단계별 실행 사실(run_ledger.py)과, 그 사실에 비춰 본
+    문장별 적용 판정(applicability.py). 이전 backend 응답에는 없으므로
+    optional이다 — 없으면 화면은 예전 규칙(stepView.isNotRun)을 그대로 쓴다.
+  */
+  executionLedger: ExecutionLedgerSchema.optional(),
+  knowledgeDecisions: z.array(KnowledgeDecisionSchema).optional(),
 })
 
 export type Explanation = z.infer<typeof ExplanationSchema>

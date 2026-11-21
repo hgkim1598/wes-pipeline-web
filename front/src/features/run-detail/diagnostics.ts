@@ -56,6 +56,11 @@ export interface RunDiagnostic {
   /** backend의 impact 원문. 전문가용 Layer 3. warning에만 있다. */
   impact: string
   view: DiagnosticView
+  /**
+   * 이 실행의 기록과 맞지 않거나 맞는지 판정할 수 없어 표시하지 않는 문장과
+   * 그 이유(backend applicability, factApplicability.ts). 없으면 전부 표시한다.
+   */
+  withheld?: { meaning?: string; impact?: string }
 }
 
 export interface DiagnosticCollection {
