@@ -1,0 +1,7356 @@
+{
+  "protocol": "PROTOCOL.md",
+  "records": 29,
+  "withAnswer": 24,
+  "candidatesChecked": 24,
+  "eligible": 23,
+  "originalsPassing": 23,
+  "originalsRejected": [
+    {
+      "file": "baselines/2026-09-10_full_completed_with_warnings_sonnet.json",
+      "fired": [
+        "internalFieldName"
+      ],
+      "detail": [
+        {
+          "check": "internalFieldName",
+          "values": [
+            "basesInFullyUncoveredIntervalsPct",
+            "basesInLowMeanDepthIntervalsPct",
+            "checkSummary",
+            "coreEndpoint",
+            "filteringApplied",
+            "lowMeanDepthIntervals",
+            "lowMeanDepthThresholdX",
+            "meanTargetDepth",
+            "medianTargetDepth",
+            "possibleCauses",
+            "rawVariantRecords",
+            "zeroCoverageBasesPct"
+          ]
+        }
+      ],
+      "hashMatches": null
+    }
+  ],
+  "excluded": {
+    "원본이 현재 검사에서 거부됨": 1,
+    "답변 없음": 5
+  },
+  "byType": {
+    "S1": {
+      "run": 23,
+      "detected": 23,
+      "expectedFired": 23
+    },
+    "S2": {
+      "run": 23,
+      "detected": 23,
+      "expectedFired": 23
+    },
+    "S3": {
+      "run": 23,
+      "detected": 23,
+      "expectedFired": 23
+    },
+    "S4a": {
+      "run": 23,
+      "detected": 23,
+      "expectedFired": 23
+    },
+    "S4b": {
+      "notApplicable": 4,
+      "run": 19,
+      "detected": 19,
+      "expectedFired": 19
+    },
+    "S5": {
+      "notApplicable": 12,
+      "run": 11,
+      "detected": 11,
+      "expectedFired": 11
+    },
+    "S6": {
+      "notApplicable": 4,
+      "run": 19,
+      "detected": 19,
+      "expectedFired": 19
+    },
+    "S7": {
+      "notApplicable": 4,
+      "run": 19,
+      "detected": 19,
+      "expectedFired": 19
+    },
+    "S8": {
+      "notApplicable": 23
+    },
+    "S9": {
+      "run": 23,
+      "detected": 23,
+      "expectedFired": 23
+    },
+    "S5v": {
+      "notApplicable": 12,
+      "run": 55,
+      "detected": 55,
+      "expectedFired": 55
+    },
+    "S6v": {
+      "notApplicable": 4,
+      "run": 57,
+      "detected": 57,
+      "expectedFired": 57
+    },
+    "U1": {
+      "run": 23,
+      "missed": 23
+    },
+    "U2": {
+      "run": 23,
+      "missed": 23
+    },
+    "U3": {
+      "run": 23,
+      "missed": 23
+    },
+    "U4": {
+      "run": 23,
+      "missed": 23
+    },
+    "U5": {
+      "run": 23,
+      "missed": 23
+    },
+    "U6": {
+      "notApplicable": 1,
+      "run": 22,
+      "missed": 22
+    },
+    "U7": {
+      "notApplicable": 12,
+      "run": 11,
+      "missed": 11
+    },
+    "U8": {
+      "notApplicable": 4,
+      "run": 19,
+      "missed": 19
+    }
+  },
+  "realRejectionsNote": "답변이 없는 기록 5건 중 거부 4건은 rejectedOutput이 저장되지 않아 재현 불가",
+  "gateHitsByType": {
+    "S1": {
+      "unknownEvidenceRef": 23
+    },
+    "S2": {
+      "unsupportedNumber": 23,
+      "runFactMismatch": 5
+    },
+    "S3": {
+      "internalFieldName": 23
+    },
+    "S4a": {
+      "sensitiveOutput": 23
+    },
+    "S9": {
+      "invalidSynthesis": 23
+    },
+    "S5": {
+      "runFactMismatch": 11
+    },
+    "S7": {
+      "evidenceMismatch": 19
+    },
+    "S5v": {
+      "runFactMismatch": 55
+    },
+    "S4b": {
+      "sensitiveOutput": 19,
+      "unsupportedNumber": 15
+    },
+    "S6": {
+      "runFactMismatch": 19
+    },
+    "S6v": {
+      "runFactMismatch": 57
+    }
+  },
+  "realRejections": [],
+  "originals": [
+    {
+      "file": "baselines/2026-09-10_execution_failed_sonnet_b72d23897664f9d4.json",
+      "case": "execution_failed",
+      "variant": null,
+      "promptHash": "b72d23897664f9d4",
+      "commit": null,
+      "recordedAt": "2026-09-10T11:38:02+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "fixture",
+      "hashMatches": null,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "4,817.3",
+            "mode": "append"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "notApplicable",
+          "reason": "job 행(식별자) 없음 — fixture case"
+        },
+        {
+          "code": "S5",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6",
+          "status": "notApplicable",
+          "reason": "payload에 단계 목록 없음"
+        },
+        {
+          "code": "S7",
+          "status": "notApplicable",
+          "reason": "이 Run에 진단 전용 용어 없음"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": true,
+            "status": "failed"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "notApplicable",
+          "reason": "사실 집합에 쓸 숫자 없음"
+        },
+        {
+          "code": "U7",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "U8",
+          "status": "notApplicable",
+          "reason": "payload에 단계 목록 없음"
+        },
+        {
+          "code": "S5v",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6v",
+          "status": "notApplicable",
+          "reason": "payload에 단계 목록 없음"
+        }
+      ]
+    },
+    {
+      "file": "baselines/2026-09-10_full_completed_with_warnings_sonnet.json",
+      "case": "full_completed_with_warnings",
+      "variant": null,
+      "promptHash": "2b1c127248959ed7",
+      "commit": null,
+      "recordedAt": "2026-09-10T09:41:28+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "fixture",
+      "hashMatches": null,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": false,
+        "category": "internalFieldName",
+        "fired": [
+          "internalFieldName"
+        ],
+        "detail": [
+          {
+            "check": "internalFieldName",
+            "values": [
+              "basesInFullyUncoveredIntervalsPct",
+              "basesInLowMeanDepthIntervalsPct",
+              "checkSummary",
+              "coreEndpoint",
+              "filteringApplied",
+              "lowMeanDepthIntervals",
+              "lowMeanDepthThresholdX",
+              "meanTargetDepth",
+              "medianTargetDepth",
+              "possibleCauses",
+              "rawVariantRecords",
+              "zeroCoverageBasesPct"
+            ]
+          }
+        ]
+      },
+      "eligible": false,
+      "excludedBecause": "원본이 현재 검사에서 거부됨 (internalFieldName)"
+    },
+    {
+      "file": "baselines/2026-09-10_full_completed_with_warnings_sonnet_b72d23897664f9d4.json",
+      "case": "full_completed_with_warnings",
+      "variant": null,
+      "promptHash": "b72d23897664f9d4",
+      "commit": null,
+      "recordedAt": "2026-09-10T10:03:26+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "fixture",
+      "hashMatches": null,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.2",
+            "from": "10.9967",
+            "to": "10.9968",
+            "mode": "replace"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber",
+            "runFactMismatch"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "meanTargetDepth"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "notApplicable",
+          "reason": "job 행(식별자) 없음 — fixture case"
+        },
+        {
+          "code": "S5",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100",
+            "real": "10.9967"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6",
+          "status": "notApplicable",
+          "reason": "payload에 단계 목록 없음"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.5",
+            "topic": "BAM",
+            "cited": "lim:INTENDED_USE"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": false,
+            "status": "completed_with_warnings"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "54692"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U8",
+          "status": "notApplicable",
+          "reason": "payload에 단계 목록 없음"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "30",
+            "real": "10.9967"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "50",
+            "real": "10.9967"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "52379",
+            "real": "10.9967"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "262597",
+            "real": "10.9967"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "32783981",
+            "real": "10.9967"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "notApplicable",
+          "reason": "payload에 단계 목록 없음"
+        }
+      ]
+    },
+    {
+      "file": "baselines/2026-09-10_in_progress_sonnet_b72d23897664f9d4.json",
+      "case": "in_progress",
+      "variant": null,
+      "promptHash": "b72d23897664f9d4",
+      "commit": null,
+      "recordedAt": "2026-09-10T11:37:01+00:00",
+      "runtimeOutcome": "skipped",
+      "humanReview": [],
+      "eligible": false,
+      "excludedBecause": "답변 없음 (skipped)"
+    },
+    {
+      "file": "baselines/2026-09-10_precheck_failed_sonnet.json",
+      "case": "precheck_failed",
+      "variant": null,
+      "promptHash": "2b1c127248959ed7",
+      "commit": null,
+      "recordedAt": "2026-09-10T09:41:51+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "fixture",
+      "hashMatches": null,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "4,817.3",
+            "mode": "append"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "notApplicable",
+          "reason": "job 행(식별자) 없음 — fixture case"
+        },
+        {
+          "code": "S5",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6",
+          "status": "notApplicable",
+          "reason": "payload에 단계 목록 없음"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.3",
+            "topic": "dbSNP / rsID",
+            "cited": "lim:NO_ANALYSIS_OUTPUT"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": true,
+            "status": "failed"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "29"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "U8",
+          "status": "notApplicable",
+          "reason": "payload에 단계 목록 없음"
+        },
+        {
+          "code": "S5v",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6v",
+          "status": "notApplicable",
+          "reason": "payload에 단계 목록 없음"
+        }
+      ]
+    },
+    {
+      "file": "baselines/2026-09-10_precheck_failed_sonnet_b72d23897664f9d4.json",
+      "case": "precheck_failed",
+      "variant": null,
+      "promptHash": "b72d23897664f9d4",
+      "commit": null,
+      "recordedAt": "2026-09-10T10:03:51+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "fixture",
+      "hashMatches": null,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "4,817.3",
+            "mode": "append"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "notApplicable",
+          "reason": "job 행(식별자) 없음 — fixture case"
+        },
+        {
+          "code": "S5",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6",
+          "status": "notApplicable",
+          "reason": "payload에 단계 목록 없음"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.3",
+            "topic": "dbSNP / rsID",
+            "cited": "lim:NO_ANALYSIS_OUTPUT"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": true,
+            "status": "failed"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "29"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "U8",
+          "status": "notApplicable",
+          "reason": "payload에 단계 목록 없음"
+        },
+        {
+          "code": "S5v",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6v",
+          "status": "notApplicable",
+          "reason": "payload에 단계 목록 없음"
+        }
+      ]
+    },
+    {
+      "file": "baselines/2026-11-01_agent_failed_step_v1_sonnet_49e2a648ec3a1786.json",
+      "case": "agent_failed_step",
+      "variant": "v1",
+      "promptHash": "49e2a648ec3a1786",
+      "commit": null,
+      "recordedAt": "2026-11-01T16:33:55+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "synthetic",
+      "hashMatches": null,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.3",
+            "from": "40",
+            "to": "47",
+            "mode": "replace"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "notApplicable",
+          "reason": "이 Run에 진단 전용 용어 없음"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": true,
+            "status": "failed"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 1,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 3,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "baselines/2026-11-01_agent_failed_step_v3_sonnet_110c63124b4325fc.json",
+      "case": "agent_failed_step",
+      "variant": "v3",
+      "promptHash": "110c63124b4325fc",
+      "commit": null,
+      "recordedAt": "2026-11-01T15:14:28+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "synthetic",
+      "hashMatches": null,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.1",
+            "from": "612",
+            "to": "619",
+            "mode": "replace"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "notApplicable",
+          "reason": "이 Run에 진단 전용 용어 없음"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": true,
+            "status": "failed"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 1,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 3,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "baselines/2026-11-01_agent_no_tool_needed_v3_sonnet_110c63124b4325fc.json",
+      "case": "agent_no_tool_needed",
+      "variant": "v3",
+      "promptHash": "110c63124b4325fc",
+      "commit": null,
+      "recordedAt": "2026-11-01T17:03:39+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "synthetic",
+      "hashMatches": null,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.2",
+            "from": "48210",
+            "to": "48217",
+            "mode": "replace"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber",
+            "runFactMismatch"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "meanTargetDepth"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100",
+            "real": "85.2"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "notApplicable",
+          "reason": "이 Run에 진단 전용 용어 없음"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": false,
+            "status": "completed"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "30",
+            "real": "85.2"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "50",
+            "real": "85.2"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "91",
+            "real": "85.2"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "100",
+            "real": "85.2"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "812",
+            "real": "85.2"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 1,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 3,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "baselines/2026-11-02_real_cba73e_v1_sonnet_49e2a648ec3a1786.json",
+      "case": "real_cba73e",
+      "variant": "v1",
+      "promptHash": "49e2a648ec3a1786",
+      "commit": "5f4b819d7d5d0965818c88748846af452cd3956b",
+      "recordedAt": "2026-11-02T08:23:41+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "capture",
+      "hashMatches": false,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.1",
+            "from": "9.2905",
+            "to": "9.2906",
+            "mode": "replace"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "meanTargetDepth"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput",
+            "unsupportedNumber"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.4",
+            "topic": "BAM",
+            "cited": "lim:INTENDED_USE"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": false,
+            "status": "completed_with_warnings"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "30",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "50",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "99",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "1420",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "54665",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 4,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 6,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "baselines/2026-11-02_real_cba73e_v3_sonnet_08c1f9035445420a.json",
+      "case": "real_cba73e",
+      "variant": "v3",
+      "promptHash": "08c1f9035445420a",
+      "commit": "ed12c187ee22ae94aea7710f899bbc994135782e",
+      "recordedAt": "2026-11-02T12:45:05+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "capture",
+      "hashMatches": false,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.1",
+            "from": "9.2905",
+            "to": "9.2906",
+            "mode": "replace"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "meanTargetDepth"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput",
+            "unsupportedNumber"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.4",
+            "topic": "BAM",
+            "cited": "lim:INTENDED_USE"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": false,
+            "status": "completed_with_warnings"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "30",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "50",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "99",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "1420",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "54665",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 4,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 6,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "baselines/2026-11-02_real_cba73e_v3_sonnet_110c63124b4325fc.json",
+      "case": "real_cba73e",
+      "variant": "v3",
+      "promptHash": "110c63124b4325fc",
+      "commit": "5f4b819d7d5d0965818c88748846af452cd3956b",
+      "recordedAt": "2026-11-02T08:25:03+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "capture",
+      "hashMatches": false,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.1",
+            "from": "36458262",
+            "to": "36458269",
+            "mode": "replace"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "meanTargetDepth"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput",
+            "unsupportedNumber"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.4",
+            "topic": "BAM",
+            "cited": "lim:INTENDED_USE"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": false,
+            "status": "completed_with_warnings"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "30",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "50",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "99",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "1420",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "54665",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 4,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 6,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "baselines/2026-11-02_real_cba73e_v3_sonnet_d505c173885f6c9b.json",
+      "case": "real_cba73e",
+      "variant": "v3",
+      "promptHash": "d505c173885f6c9b",
+      "commit": "20fa4c01da72e410b0620bb647be452825036a0a",
+      "recordedAt": "2026-11-02T11:07:20+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "capture",
+      "hashMatches": false,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.2",
+            "from": "3,387,168",
+            "to": "3387175",
+            "mode": "replace"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber",
+            "runFactMismatch"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "meanTargetDepth"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput",
+            "unsupportedNumber"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.5",
+            "topic": "BAM",
+            "cited": "lim:INTENDED_USE"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": false,
+            "status": "completed_with_warnings"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "30",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "50",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "99",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "1420",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "54665",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 4,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 6,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "baselines/2026-11-02_real_cba73e_v3_sonnet_f1bcc4c772c6559e.json",
+      "case": "real_cba73e",
+      "variant": "v3",
+      "promptHash": "f1bcc4c772c6559e",
+      "commit": "20fa4c01da72e410b0620bb647be452825036a0a",
+      "recordedAt": "2026-11-02T10:37:45+00:00",
+      "runtimeOutcome": "unknownEvidenceRef",
+      "humanReview": [],
+      "eligible": false,
+      "excludedBecause": "답변 없음 (unknownEvidenceRef)"
+    },
+    {
+      "file": "baselines/2026-11-15_agent_resource_heldout_v3_sonnet_4c7087633f10e05c.json",
+      "case": "agent_resource_heldout",
+      "variant": "v3",
+      "promptHash": "4c7087633f10e05c",
+      "commit": null,
+      "recordedAt": "2026-11-15T17:27:55+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "synthetic",
+      "hashMatches": null,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.5",
+            "from": "256",
+            "to": "263",
+            "mode": "replace"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.5",
+            "topic": "dbSNP / rsID",
+            "cited": "run:checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": true,
+            "status": "failed"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 1,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 3,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "baselines/2026-11-15_real_3a22c5_v1_sonnet_30a9df6c0fe04709.json",
+      "case": "real_3a22c5",
+      "variant": "v1",
+      "promptHash": "30a9df6c0fe04709",
+      "commit": "d732bbf8fcee283167cb379c7a0824f189e0e680",
+      "recordedAt": "2026-11-15T16:34:53+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "archive",
+      "hashMatches": false,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "4,817.3",
+            "mode": "append"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput",
+            "unsupportedNumber"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.3",
+            "topic": "dbSNP / rsID",
+            "cited": "run:checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": true,
+            "status": "failed"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 1,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 3,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "baselines/2026-11-15_real_3a22c5_v3_sonnet_3e95d20d110eb4c5.json",
+      "case": "real_3a22c5",
+      "variant": "v3",
+      "promptHash": "3e95d20d110eb4c5",
+      "commit": "d732bbf8fcee283167cb379c7a0824f189e0e680",
+      "recordedAt": "2026-11-15T16:56:20+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "archive",
+      "hashMatches": false,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "4,817.3",
+            "mode": "append"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput",
+            "unsupportedNumber"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.4",
+            "topic": "dbSNP / rsID",
+            "cited": "run:checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": true,
+            "status": "failed"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 1,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 3,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "baselines/2026-11-15_real_3a22c5_v3_sonnet_4a4f2d9ddf604ce8.json",
+      "case": "real_3a22c5",
+      "variant": "v3",
+      "promptHash": "4a4f2d9ddf604ce8",
+      "commit": "d732bbf8fcee283167cb379c7a0824f189e0e680",
+      "recordedAt": "2026-11-15T16:32:26+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "archive",
+      "hashMatches": false,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "4,817.3",
+            "mode": "append"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput",
+            "unsupportedNumber"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.3",
+            "topic": "dbSNP / rsID",
+            "cited": "run:checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": true,
+            "status": "failed"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 1,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 3,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "baselines/2026-11-15_real_3a22c5_v3_sonnet_4c7087633f10e05c.json",
+      "case": "real_3a22c5",
+      "variant": "v3",
+      "promptHash": "4c7087633f10e05c",
+      "commit": "d732bbf8fcee283167cb379c7a0824f189e0e680",
+      "recordedAt": "2026-11-15T17:26:42+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "archive",
+      "hashMatches": false,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "4,817.3",
+            "mode": "append"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput",
+            "unsupportedNumber"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.4",
+            "topic": "dbSNP / rsID",
+            "cited": "run:checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": true,
+            "status": "failed"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 1,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 3,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "baselines/2026-11-15_real_b94559_v1_sonnet_30a9df6c0fe04709.json",
+      "case": "real_b94559",
+      "variant": "v1",
+      "promptHash": "30a9df6c0fe04709",
+      "commit": "d732bbf8fcee283167cb379c7a0824f189e0e680",
+      "recordedAt": "2026-11-15T16:35:08+00:00",
+      "runtimeOutcome": "runFactMismatch",
+      "humanReview": [],
+      "eligible": false,
+      "excludedBecause": "답변 없음 (runFactMismatch)"
+    },
+    {
+      "file": "baselines/2026-11-15_real_b94559_v3_sonnet_3e95d20d110eb4c5.json",
+      "case": "real_b94559",
+      "variant": "v3",
+      "promptHash": "3e95d20d110eb4c5",
+      "commit": "d732bbf8fcee283167cb379c7a0824f189e0e680",
+      "recordedAt": "2026-11-15T16:56:43+00:00",
+      "runtimeOutcome": "runFactMismatch",
+      "humanReview": [],
+      "eligible": false,
+      "excludedBecause": "답변 없음 (runFactMismatch)"
+    },
+    {
+      "file": "baselines/2026-11-15_real_b94559_v3_sonnet_4a4f2d9ddf604ce8.json",
+      "case": "real_b94559",
+      "variant": "v3",
+      "promptHash": "4a4f2d9ddf604ce8",
+      "commit": "d732bbf8fcee283167cb379c7a0824f189e0e680",
+      "recordedAt": "2026-11-15T16:32:49+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "archive",
+      "hashMatches": false,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "4,817.3",
+            "mode": "append"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput",
+            "unsupportedNumber"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.5",
+            "topic": "dbSNP / rsID",
+            "cited": "run:checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": true,
+            "status": "failed"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 1,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 3,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "baselines/2026-11-15_real_b94559_v3_sonnet_4c7087633f10e05c.json",
+      "case": "real_b94559",
+      "variant": "v3",
+      "promptHash": "4c7087633f10e05c",
+      "commit": "d732bbf8fcee283167cb379c7a0824f189e0e680",
+      "recordedAt": "2026-11-15T17:27:05+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "archive",
+      "hashMatches": false,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "4,817.3",
+            "mode": "append"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput",
+            "unsupportedNumber"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.5",
+            "topic": "dbSNP / rsID",
+            "cited": "run:checkSummary"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": true,
+            "status": "failed"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 2,
+            "real": 0
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "notApplicable",
+          "reason": "payload에 평균 깊이 없음"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 1,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 2,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 3,
+            "real": 0
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "experiments/ab_2026-11-04/A_r1_real_cba73e_v3_sonnet_ed12c18_08c1f9035445420a.json",
+      "case": "real_cba73e",
+      "variant": "v3",
+      "promptHash": "08c1f9035445420a",
+      "commit": "ed12c187ee22ae94aea7710f899bbc994135782e",
+      "recordedAt": "2026-11-04T03:00:05+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "capture",
+      "hashMatches": false,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.1",
+            "from": "3,387,168",
+            "to": "3387175",
+            "mode": "replace"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "meanTargetDepth"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput",
+            "unsupportedNumber"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.4",
+            "topic": "BAM",
+            "cited": "lim:INTENDED_USE"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": false,
+            "status": "completed_with_warnings"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "30",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "50",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "99",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "1420",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "54665",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 4,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 6,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "experiments/ab_2026-11-04/A_r2_real_cba73e_v3_sonnet_ed12c18_08c1f9035445420a.json",
+      "case": "real_cba73e",
+      "variant": "v3",
+      "promptHash": "08c1f9035445420a",
+      "commit": "ed12c187ee22ae94aea7710f899bbc994135782e",
+      "recordedAt": "2026-11-04T03:00:47+00:00",
+      "runtimeOutcome": "unknownEvidenceRef",
+      "humanReview": [],
+      "eligible": false,
+      "excludedBecause": "답변 없음 (unknownEvidenceRef)"
+    },
+    {
+      "file": "experiments/ab_2026-11-04/A_r3_real_cba73e_v3_sonnet_ed12c18_08c1f9035445420a.json",
+      "case": "real_cba73e",
+      "variant": "v3",
+      "promptHash": "08c1f9035445420a",
+      "commit": "ed12c187ee22ae94aea7710f899bbc994135782e",
+      "recordedAt": "2026-11-04T03:01:30+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "capture",
+      "hashMatches": false,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.1",
+            "from": "9.2905",
+            "to": "9.2906",
+            "mode": "replace"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "meanTargetDepth"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput",
+            "unsupportedNumber"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.3",
+            "topic": "BAM",
+            "cited": "lim:INTENDED_USE"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": false,
+            "status": "completed_with_warnings"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "30",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "50",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "99",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "1420",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "54665",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 4,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 6,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "experiments/ab_2026-11-04/B_r1_real_cba73e_v3_sonnet_600cca4_4a4f2d9ddf604ce8.json",
+      "case": "real_cba73e",
+      "variant": "v3",
+      "promptHash": "4a4f2d9ddf604ce8",
+      "commit": "600cca43cee0e9196c1246cce09706d00d804574",
+      "recordedAt": "2026-11-04T03:00:26+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "capture",
+      "hashMatches": false,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.2",
+            "from": "9.2905",
+            "to": "9.2906",
+            "mode": "replace"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber",
+            "runFactMismatch"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "meanTargetDepth"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput",
+            "unsupportedNumber"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.3",
+            "topic": "BAM",
+            "cited": "lim:INTENDED_USE"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": false,
+            "status": "completed_with_warnings"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "30",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "50",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "99",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "1420",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "54665",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 4,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 6,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "experiments/ab_2026-11-04/B_r2_real_cba73e_v3_sonnet_600cca4_4a4f2d9ddf604ce8.json",
+      "case": "real_cba73e",
+      "variant": "v3",
+      "promptHash": "4a4f2d9ddf604ce8",
+      "commit": "600cca43cee0e9196c1246cce09706d00d804574",
+      "recordedAt": "2026-11-04T03:01:09+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "capture",
+      "hashMatches": false,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.2",
+            "from": "9.2905",
+            "to": "9.2906",
+            "mode": "replace"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "meanTargetDepth"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput",
+            "unsupportedNumber"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.4",
+            "topic": "BAM",
+            "cited": "lim:INTENDED_USE"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": false,
+            "status": "completed_with_warnings"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "30",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "50",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "99",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "1420",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "54665",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 4,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 6,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    },
+    {
+      "file": "experiments/ab_2026-11-04/B_r3_real_cba73e_v3_sonnet_600cca4_4a4f2d9ddf604ce8.json",
+      "case": "real_cba73e",
+      "variant": "v3",
+      "promptHash": "4a4f2d9ddf604ce8",
+      "commit": "600cca43cee0e9196c1246cce09706d00d804574",
+      "recordedAt": "2026-11-04T03:01:56+00:00",
+      "runtimeOutcome": "served",
+      "humanReview": [],
+      "sourceKind": "capture",
+      "hashMatches": false,
+      "toolIdsMatch": true,
+      "originalCheck": {
+        "served": true,
+        "category": null,
+        "fired": [],
+        "detail": []
+      },
+      "eligible": true,
+      "trials": [
+        {
+          "code": "S1",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0",
+            "added": "dx:INJECTED_NOT_SUPPLIED"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unknownEvidenceRef"
+          ],
+          "category": "unknownEvidenceRef"
+        },
+        {
+          "code": "S2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.2",
+            "from": "9.2905",
+            "to": "9.2906",
+            "mode": "replace"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "unsupportedNumber",
+            "runFactMismatch"
+          ],
+          "category": "unsupportedNumber"
+        },
+        {
+          "code": "S3",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "key": "meanTargetDepth"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "internalFieldName"
+          ],
+          "category": "internalFieldName"
+        },
+        {
+          "code": "S4a",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "/srv/wes/runs/output/variants.vcf"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S4b",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "added": "<run identifier>"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "sensitiveOutput",
+            "unsupportedNumber"
+          ],
+          "category": "sensitiveOutput"
+        },
+        {
+          "code": "S5",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S7",
+          "status": "run",
+          "note": {
+            "where": "nextChecks.4",
+            "topic": "BAM",
+            "cited": "lim:INTENDED_USE"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "evidenceMismatch"
+          ],
+          "category": "evidenceMismatch"
+        },
+        {
+          "code": "S8",
+          "status": "notApplicable",
+          "reason": "허용된 공식 문서 근거 없음"
+        },
+        {
+          "code": "S9",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "invalidSynthesis"
+          ],
+          "category": "invalidSynthesis"
+        },
+        {
+          "code": "U1",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "runFailed": false,
+            "status": "completed_with_warnings"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U2",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U3",
+          "status": "run",
+          "note": {
+            "where": "importantFindings.0"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U4",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U5",
+          "status": "run",
+          "note": {
+            "where": "summary"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U6",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "99"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U7",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": "100"
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "U8",
+          "status": "run",
+          "note": {
+            "where": "summary",
+            "written": 5,
+            "real": 3
+          },
+          "detected": false,
+          "expectedFired": null,
+          "fired": [],
+          "category": null
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "30",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "50",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "99",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "1420",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S5v",
+          "status": "run",
+          "note": {
+            "written": "54665",
+            "real": "11.0116"
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 4,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 5,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        },
+        {
+          "code": "S6v",
+          "status": "run",
+          "note": {
+            "written": 6,
+            "real": 3
+          },
+          "detected": true,
+          "expectedFired": true,
+          "fired": [
+            "runFactMismatch"
+          ],
+          "category": "runFactMismatch"
+        }
+      ]
+    }
+  ]
+}
