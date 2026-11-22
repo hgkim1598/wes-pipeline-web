@@ -12,6 +12,11 @@
   backend가 evals/ab_compare/contract.py로 판정해 보낸다. 이 화면은 다시
   판정하지 않는다.
 
+  답변에서 나온 값(served/gateRejected 구분, 자동 점수, 응답 시간, 모델, Tool
+  사용)은 블라인드 해제 뒤, 식별자 검사를 통과한 호출에만 온다. 그 전에는 null
+  이고, 답변을 받은 호출의 결과는 "answered"다(독립 리뷰 H3·M2, 2026-11-22).
+  사람 채점은 backend가 complete로 완료 여부를 함께 보낸다(H2).
+
   이 화면은 모델을 부르지 않는다. 답변은 승인된 runner CLI(evals/ab_compare)가
   만들어 저장한 것이고, 여기서는 읽기, 사람 채점 추가, 블라인드 해제 기록만 한다.
 */
@@ -89,7 +94,8 @@ const CallScores = z.object({
   rejected: AnswerScores,
 })
 
-export const OUTCOMES = ['served', 'gateRejected', 'providerError', 'unclassified'] as const
+/** answered: 블라인드 해제 전, 답변을 받은 호출(served/gateRejected 구분은 숨김). */
+export const OUTCOMES = ['served', 'gateRejected', 'answered', 'providerError', 'unclassified'] as const
 export type Outcome = (typeof OUTCOMES)[number]
 export const EXCLUSIONS = ['privacy', 'integrity', 'integrityUnchecked', 'providerError', 'unclassified'] as const
 export type Exclusion = (typeof EXCLUSIONS)[number]
@@ -98,10 +104,11 @@ export type Exclusion = (typeof EXCLUSIONS)[number]
 const Evaluation = z.object({
   outcome: z.enum(OUTCOMES),
   category: z.string().nullish(),
-  answerProduced: z.boolean(),
+  answerProduced: z.boolean().nullable(),
   exclusion: z.enum(EXCLUSIONS).nullable(),
   countsForGate: z.boolean(),
-  countsForContent: z.boolean(),
+  /** 해제 전 답변 받은 호출은 null: false면 "답이 파싱되지 않은 Gate 거부"라는 뜻이라 보내지 않는다. */
+  countsForContent: z.boolean().nullable(),
   integrityChecked: z.boolean(),
 })
 export type Evaluation = z.infer<typeof Evaluation>
@@ -123,21 +130,26 @@ const CallSummary = z.object({
   blindCode: z.string().nullable(),
   mock: z.boolean(),
   startedAt: z.string().nullish(),
-  models: z.array(z.string()).nullish(),
   promptHash: z.string().nullish(),
   knowledgeHash: z.string().nullish(),
   payloadDigest: z.string().nullish(),
-  toolUse: z.object({
-    toolUsed: z.boolean().nullish(),
-    openedStepIds: z.array(z.string()),
-    callCount: z.number().nullish(),
-  }),
   privacyOk: z.boolean(),
   evaluation: Evaluation,
   integrity: Integrity.nullish(),
+  /** 답변에서 나온 값을 왜 보내지 않았나: blind(해제 전) · privacy(식별자 검사 걸림) · null(보냄). */
+  answerDerivedWithheld: z.enum(['blind', 'privacy']).nullish(),
+  // --- 답변에서 나온 값: answerDerivedWithheld가 있으면 null ---
+  models: z.array(z.string()).nullish(),
+  toolUse: z
+    .object({
+      toolUsed: z.boolean().nullish(),
+      openedStepIds: z.array(z.string()),
+      callCount: z.number().nullish(),
+    })
+    .nullish(),
   durationMs: z.number().nullish(),
   wallMs: z.number().nullish(),
-  scores: CallScores,
+  scores: CallScores.nullish(),
 })
 export type CallSummary = z.infer<typeof CallSummary>
 
@@ -164,6 +176,10 @@ const Grade = z.object({
   /** 저장할 때 블라인드였는가. 첫 판 기록에는 없다(그때는 해제 기능이 없었다). */
   blind: z.boolean().optional(),
   versions: z.number().optional(),
+  /** backend가 판정한 완료 여부. 없거나 false면 채점 완료로 세지 않는다. */
+  complete: z.boolean().optional(),
+  /** 미완료일 때 빠진 것: claims · requiredCauses · understanding · usefulness · answer. */
+  missing: z.array(z.string()).optional(),
 })
 export type Grade = z.infer<typeof Grade>
 
@@ -217,6 +233,7 @@ export const CALL_STATES = [
   'notInvoked',
   'inFlightOrUncertain',
   'inFlightOrNotInvoked',
+  'unreadableRecord',
 ] as const
 export type CallState = (typeof CALL_STATES)[number]
 
@@ -277,7 +294,11 @@ const ExperimentDetail = z.object({
     unblinded: z.boolean(),
     unblindedAt: z.string().nullish(),
     gradable: z.number(),
+    /** 완료된 채점만. */
     graded: z.number(),
+    gradedIncomplete: z.number().default(0),
+    /** 해제 전: 짝(같은 사례·반복의 A·B)이 다 갖춰지지 않아 블라인드 채점에서 빠진 답변 수. */
+    heldUntilUnblind: z.number().default(0),
     gradedAfterUnblind: z.number(),
   }),
   approvals: z.array(
@@ -351,6 +372,8 @@ const Blind = z.object({
   answers: z.array(
     z.object({ code: z.string(), case: z.string(), caseLabel: z.string(), summary: z.string().nullish(), claims: z.array(BlindClaim) }),
   ),
+  /** 해제 전에는 짝이 다 갖춰진 답변만 온다. 나머지 수(어느 경로인지는 없음). */
+  heldUntilUnblind: z.number().default(0),
   grades: z.record(z.string(), Grade),
 })
 export type Blind = z.infer<typeof Blind>

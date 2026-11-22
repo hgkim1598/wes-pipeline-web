@@ -35,11 +35,18 @@ The runner claims the attempt in a durable file before starting this process
     1. takes the attempt's OS lock for its whole life, so another runner can
        see that it is alive (the OS releases the lock if it dies);
     2. refuses unless the claim exists, and refuses -- before importing
-       anything that could call a model -- if this attempt already has a
-       model-started marker or a result;
-    3. writes and fsyncs the model-started marker immediately before the
+       anything that could call a model -- if this attempt was sealed as not
+       invoked, or already has a model-started marker or a result. The seal is
+       written by a runner under this same lock, so a worker that started
+       late (its runner was killed and a new one sealed the attempt) stops
+       here instead of calling the model (review B1, 2026-11-22);
+    3. restores the run, then compares what the call is about to use with
+       what was approved: the payload digest AND the digest of the restored
+       run the step tool will read (review H4, 2026-11-22). A difference stops
+       it before step 4;
+    4. writes and fsyncs the model-started marker immediately before the
        model call. No marker therefore PROVES no call was made;
-    4. publishes its result atomically (written aside, then hard-linked into
+    5. publishes its result atomically (written aside, then hard-linked into
        place), so a reader sees either no result or a complete one.
 
 It also lists every module it imported from the tree, so the runner can show
@@ -62,6 +69,13 @@ from typing import Any
 
 MOCK_MODEL = "mock-no-model"
 MOCK_MARK = "[모의 응답 — 실제 Claude 답변이 아님]"
+# Must equal evals/ab_compare/contract.ATTEMPT_PROTOCOL (this file is frozen into
+# each experiment and cannot import it).
+ATTEMPT_PROTOCOL = 2
+
+
+class InputsChanged(RuntimeError):
+    """What the call would use differs from what was approved. No model call."""
 
 
 def canonical_sha256(value: Any) -> str:
@@ -199,6 +213,42 @@ def _case(run_eval, request: dict[str, Any]):
     raise SystemExit(f"worker: unknown case kind {request['kind']!r}")
 
 
+def _run_source_digest() -> str:
+    """Everything the step tool can read about the restored run, as one digest.
+
+    Called inside the materialised block, where the isolated DB and runs root
+    hold exactly the restored copy the tool server will open: the job rows it
+    scopes itself with (plan, mode, the identifiers its redactor hides) and
+    every file under each job's run directory, by relative path and content.
+    The payload digest alone covers only what the model is handed up front;
+    the tool reads step documents, metrics and checks the payload never
+    carried (review H4, 2026-11-22).
+    """
+    from app import db
+
+    digest = hashlib.sha256()
+    for row in db.query_all("SELECT * FROM jobs ORDER BY job_id"):
+        fields = dict(row)
+        scope = {k: fields.get(k) for k in ("job_id", "run_id", "sample_id", "run_mode", "planned_steps", "status")}
+        digest.update(json.dumps(scope, sort_keys=True, default=str).encode("utf-8"))
+        run_dir = Path(str(fields.get("run_dir") or ""))
+        if not run_dir.is_dir():
+            digest.update(b"\0no-run-dir\0")
+            continue
+        for path in sorted(p for p in run_dir.rglob("*") if p.is_file()):
+            digest.update(path.relative_to(run_dir).as_posix().encode("utf-8") + b"\0")
+            digest.update(hashlib.sha256(path.read_bytes()).hexdigest().encode("ascii") + b"\n")
+    return digest.hexdigest()
+
+
+def _inputs_now(explanation: Any) -> dict[str, str]:
+    """The two digests the approval locked, computed from the run restored now."""
+    from app.services.explanation.llm import contract
+
+    payload, _allowed = contract.build_payload(explanation)
+    return {"payloadDigest": canonical_sha256(payload), "sourceDigest": _run_source_digest()}
+
+
 def build_payload(request: dict[str, Any]) -> dict[str, Any]:
     from app.services.explanation.llm import contract, prompt
     from evals import run_eval
@@ -208,12 +258,14 @@ def build_payload(request: dict[str, Any]) -> dict[str, Any]:
     with materialised() as explanation:
         payload, allowed = contract.build_payload(explanation)
         fixture = explanation.model_dump()
+        source_digest = _run_source_digest()
     offer = run_eval.VARIANTS[request["conditions"]["variant"]]
     user_prompt = prompt.build_user_prompt(payload, offer_tools=offer)
     check = privacy(fixture, payload)
     return {
         "payload": payload,
         "payloadDigest": canonical_sha256(payload),
+        "sourceDigest": source_digest,
         "userPromptDigest": hashlib.sha256(user_prompt.encode("utf-8")).hexdigest(),
         "constraintsDigest": hashlib.sha256(
             prompt.constraints_for(offer_tools=offer).encode("utf-8")
@@ -231,13 +283,30 @@ def call_model(request: dict[str, Any], started_marker: Path) -> dict[str, Any]:
     from evals import run_eval
 
     variant = request["conditions"]["variant"]
+    locked = request.get("locked") or {}
+    if not (isinstance(locked.get("payloadDigest"), str) and isinstance(locked.get("sourceDigest"), str)):
+        raise SystemExit("worker: a model action needs the approved payload and run-source digests")
     run_eval.apply_variant_settings(variant)
     materialised, privacy, leaks = _case(run_eval, request)
-    # Durable BEFORE the call: its absence proves the model was never reached.
-    _write_durable(started_marker, {"at": time.time(), "pid": os.getpid()})
+
+    @contextmanager
+    def checked_then_marked():
+        # The harness enters this right before it builds the payload and calls
+        # the provider. The run is restored, compared with what was approved,
+        # and only then is the marker written -- so the comparison is of the
+        # very copy the call (and its step tool) will read.
+        with materialised() as explanation:
+            now = _inputs_now(explanation)
+            changed = sorted(k for k in ("payloadDigest", "sourceDigest") if now.get(k) != locked[k])
+            if changed:
+                raise InputsChanged(f"worker: {', '.join(changed)} differ from the approved inputs; no model call")
+            # Durable BEFORE the call: its absence proves the model was never reached.
+            _write_durable(started_marker, {"at": time.time(), "pid": os.getpid()})
+            yield explanation
+
     started = time.perf_counter()
     record, payload = run_eval._evaluate_run(
-        request["case"], materialised(), variant=variant, privacy=privacy
+        request["case"], checked_then_marked(), variant=variant, privacy=privacy
     )
     wall_ms = round((time.perf_counter() - started) * 1000)
     record = dict(record)
@@ -341,11 +410,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     attempt = request.get("attempt") or {}
-    if not all(isinstance(attempt.get(k), str) for k in ("claim", "lock", "started")):
-        raise SystemExit("worker: a model action needs the attempt's claim, lock and marker paths")
+    if not all(isinstance(attempt.get(k), str) for k in ("claim", "lock", "started", "void")):
+        raise SystemExit("worker: a model action needs the attempt's claim, lock, seal and marker paths")
     with _attempt_lock(Path(attempt["lock"])):
         if not Path(attempt["claim"]).is_file():
             raise SystemExit("worker: no durable claim for this attempt; refusing before any model call")
+        if Path(attempt["void"]).exists():
+            raise SystemExit("worker: this attempt was sealed as not invoked; refusing before any model call")
         if Path(attempt["started"]).exists() or args.out.exists():
             raise SystemExit("worker: this attempt already reached the model once; refusing to call again")
         _run(action, request, args, started_marker=Path(attempt["started"]))

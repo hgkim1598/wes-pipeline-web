@@ -190,6 +190,9 @@ def test_list_and_detail(client, store):
 
 
 def test_a_provider_error_is_not_a_gate_rejection(client, store):
+    # served / gateRejected are answer-derived: shown only after unblinding
+    # (before it they read "answered"; test_eval_compare_review.py).
+    _unblind(client)
     detail = client.get(f"/api/eval/compare/{EXP}").json()
     outcomes = {c["callId"]: c["evaluation"]["outcome"] for c in detail["calls"]}
     assert outcomes == {"001-a": "gateRejected", "002-b": "served", "003-a": "served", "004-b": "providerError"}
@@ -256,8 +259,11 @@ def test_a_call_with_a_leak_is_served_without_texts(client, store):
 
 def test_blind_view_has_only_gradable_answers_and_no_arm_gate_time_or_model(client, store):
     blind = client.get(f"/api/eval/compare/{EXP}/blind").json()
-    # the provider timeout has no answer; the retried call shows its answer once
-    assert [a["code"] for a in blind["answers"]] == ["X01", "X02", "X03"]
+    # The provider timeout has no answer. Its partner X03 (the retried call)
+    # waits for unblinding: a pair enters the blind set whole or not at all
+    # (review H3, second round; test_eval_compare_review.py).
+    assert [a["code"] for a in blind["answers"]] == ["X01", "X02"]
+    assert blind["heldUntilUnblind"] == 1
     text = json.dumps(blind["answers"])
     for leaked in ('"arm"', "runFactMismatch", "durationMs", '"models"', "available", "001-a", "timeout"):
         assert leaked not in text, leaked

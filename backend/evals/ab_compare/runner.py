@@ -43,16 +43,25 @@ contract.py and read by this runner and by the API alike. In short:
   CLI calls than that, across any number of interrupted runs.
 * Before each call the runner claims the attempt in a create-only file; the
   worker refuses to reach the model without that claim and writes a
-  model-started marker first. A crash therefore leaves either "not invoked"
-  (provably no call) or "uncertain" (never retried without --retry and
-  remaining approval). A raw result without a record is finished without a
-  new call.
+  model-started marker first. An attempt that ended without a marker is
+  SEALED as not invoked under its own lock before anything else may start
+  (the worker refuses a sealed attempt), so a worker that was still starting
+  when its runner died can never add a call (review B1). Until it is sealed,
+  an attempt counts against the approval. A marker without a result is
+  "uncertain": never retried without --retry and remaining approval. A raw
+  result without a record is finished without a new call.
 * One runner per experiment (an OS lock, released if the runner dies).
 * Before each call: protocol, worker, local config, both snapshots file by
   file, the arm difference and its classification, and a fresh no-model
-  build of this call's payload compared with the locked one. After each
-  call: the payload, prompt and knowledge hashes the call actually used, and
-  that no file classified as outside the call path was imported.
+  build of this call's payload compared with the locked one -- the payload
+  digest and the digest of the restored run the step tool reads (review
+  H4). The worker repeats that comparison on the copy it is about to use,
+  right before its marker. After each call: the payload, prompt and
+  knowledge hashes the call actually used, and that no file classified as
+  outside the call path was imported.
+* Records are published atomically (review M1): a crash while one is written
+  leaves nothing a reader mistakes for a record, and the raw result is still
+  recovered.
 
 Storage
 -------
@@ -88,7 +97,7 @@ from . import contract, scoring
 HERE = Path(__file__).resolve().parent
 WORKER = HERE / "worker.py"
 PROTOCOLS = HERE / "protocols"
-DEFAULT_PROTOCOL = PROTOCOLS / "ledger_applicability_v2.json"
+DEFAULT_PROTOCOL = PROTOCOLS / "ledger_applicability_v3.json"
 EXPERIMENT_ID = re.compile(r"^[a-z0-9][a-z0-9-]{2,63}$")
 ARMS = ("A", "B")
 # Not part of either arm's call path: the store itself, this package (the
@@ -404,6 +413,7 @@ def prepare(experiment: str, protocol_path: Path, *, mock: bool) -> Path:
         "experimentId": experiment,
         "mock": mock,
         "createdAt": now(),
+        "attemptProtocol": contract.ATTEMPT_PROTOCOL,
         "protocolFile": protocol_path.name,
         "protocolSha256": sha256_bytes(protocol_bytes),
         "protocol": protocol,
@@ -518,15 +528,19 @@ def verify_integrity(root: Path, doc: dict[str, Any]) -> dict[str, Any]:
     if problems:
         raise AbError("integrity check failed: " + "; ".join(problems))
     payload_digests = {}
+    source_digests = {}
     for path in sorted((root / "payloads").glob("*.*.json")) if (root / "payloads").is_dir() else []:
         if path.name != "checks.json":
-            payload_digests[path.stem] = read_json(path).get("payloadDigest")
+            built = read_json(path)
+            payload_digests[path.stem] = built.get("payloadDigest")
+            source_digests[path.stem] = built.get("sourceDigest")
     return {
         "protocolSha256": doc["protocolSha256"],
         "workerSha256": doc["workerSha256"],
         "localConfigSha256": doc["localConfigSha256"],
         "manifestSha256": {arm: doc["arms"][arm]["manifestSha256"] for arm in ARMS},
         "payloadDigests": payload_digests,
+        "sourceDigests": source_digests,
         "notInCallPath": sorted(n for n, c in classification["byPath"].items() if c["class"] == "notInCallPath"),
     }
 
@@ -583,7 +597,9 @@ def _payload_request(doc: dict[str, Any], case: dict[str, Any]) -> dict[str, Any
     }
 
 
-_PAYLOAD_KEYS = ("payloadDigest", "userPromptDigest", "constraintsDigest", "promptHash", "knowledgeHash")
+# sourceDigest: the restored run the step tool reads during the call, which the
+# payload digest does not cover (review H4, 2026-11-22).
+_PAYLOAD_KEYS = ("payloadDigest", "sourceDigest", "userPromptDigest", "constraintsDigest", "promptHash", "knowledgeHash")
 
 
 def payloads(experiment: str) -> dict[str, Any]:
@@ -626,6 +642,20 @@ def payload_checks_ok(root: Path) -> bool:
         and not any(c["leaks"].values())
         for c in cases.values()
     )
+
+
+def _require_current_attempt_protocol(root: Path, doc: dict[str, Any]) -> None:
+    """Approve and run only what the current worker contract can protect.
+
+    An experiment frozen with an older worker has no seal and no at-use
+    digest check (reviews B1, H4); its locked payloads carry no run-source
+    digest. It stays readable, but no call is approved or made for it.
+    """
+    if doc.get("attemptProtocol") != contract.ATTEMPT_PROTOCOL:
+        raise AbError("this experiment was prepared with an older worker contract; prepare a new experiment")
+    for path in sorted((root / "payloads").glob("*.*.json")):
+        if path.name != "checks.json" and not isinstance(read_json(path).get("sourceDigest"), str):
+            raise AbError(f"locked payload {path.name} has no run-source digest; prepare a new experiment")
 
 
 def _fresh_payload_matches(root: Path, doc: dict[str, Any], call: dict[str, Any]) -> None:
@@ -671,7 +701,10 @@ def _post_call_integrity(root: Path, call: dict[str, Any], record: dict[str, Any
 
 
 def _approval_fingerprint(fp: dict[str, Any]) -> dict[str, Any]:
-    return {k: fp[k] for k in ("protocolSha256", "workerSha256", "localConfigSha256", "manifestSha256", "payloadDigests")}
+    return {
+        k: fp[k]
+        for k in ("protocolSha256", "workerSha256", "localConfigSha256", "manifestSha256", "payloadDigests", "sourceDigests")
+    }
 
 
 def approve(
@@ -688,6 +721,7 @@ def approve(
         fingerprint = verify_integrity(root, doc)
         if not payload_checks_ok(root):
             raise AbError("run `payloads` first; its checks must pass (same constraints, no leaks)")
+        _require_current_attempt_protocol(root, doc)
         plan = {c["callId"]: c for c in doc["plan"]}
         ids = list(dict.fromkeys(call_ids))
         if not ids or len(ids) != len(call_ids):
@@ -768,7 +802,7 @@ def _finalize(root: Path, doc: dict[str, Any], call: dict[str, Any], n: int, fin
         "scores": scoring.score_record(record, case, doc["protocol"]),
         "record": record,
     }
-    write_new(paths["record"], stored)
+    contract.publish_new(paths["record"], stored)
     return stored
 
 
@@ -831,6 +865,7 @@ def run(
         fingerprint = verify_integrity(root, doc)
         if not payload_checks_ok(root):
             raise AbError("run `payloads` first; its checks must pass (same constraints, no leaks)")
+        _require_current_attempt_protocol(root, doc)
         if approval is None:
             if not mock:
                 raise AbError("real calls need --approval (see `approve`)")
@@ -855,14 +890,27 @@ def run(
         plan = {c["callId"]: c for c in doc["plan"]}
         exit_code = 0
         kind = "모의(mock) — 모델 호출 없음" if mock else "실제 Claude CLI"
-        used = len(contract.approval_usage(root, approval, lock_probe=contract.is_held))
+        # Seal every attempt of these calls that provably never reached the model
+        # (no marker, lock free -- taken by the seal itself). Unsealed ones keep
+        # counting against the approval; a live one stays live.
+        for call_id in ap["calls"]:
+            for n in contract.claimed_attempts(root, call_id):
+                contract.seal_not_invoked(root, call_id, n)
+        used = len(contract.approval_usage(root, approval))
         print(f"{kind} · 승인 {approval}: 호출 {len(ap['calls'])}개, CLI 호출 {used}/{ap['maxCliCalls']}회 사용")
         for call_id in ap["calls"]:
             call = plan[call_id]
             state = contract.call_state(root, call_id, lock_probe=contract.is_held, mock=mock)
             name = state["state"]
+            if name == "inFlightOrNotInvoked":
+                # Not sealed above, so its lock was taken in between: a worker is starting.
+                name = "notInvoked" if contract.seal_not_invoked(root, call_id, state["attempt"]) else "running"
             if name == "running":
                 raise AbError(f"{call_id} is running in another process; stopping")
+            if name == "unreadableRecord":
+                print(f"  {call_id}: 기록 파일을 읽을 수 없습니다. 사람이 확인해야 합니다 — 호출하지 않습니다.")
+                exit_code = 3
+                continue
             if name == "recoverable":
                 n = state["attempt"]
                 claim = read_json(contract.attempt_paths(root, call_id, n)["claim"])
@@ -877,7 +925,7 @@ def run(
                 exit_code = 3
                 continue
             # planned / notInvoked / (uncertain|providerError|unclassified with --retry)
-            used = len(contract.approval_usage(root, approval, lock_probe=contract.is_held))
+            used = len(contract.approval_usage(root, approval))
             if used >= ap["maxCliCalls"]:
                 print(f"  {call_id}: 승인된 CLI 호출 수({ap['maxCliCalls']})를 모두 썼습니다. 멈춥니다.")
                 return 3
@@ -896,6 +944,7 @@ def run(
                 "runnerPid": os.getpid(),
             }
             write_new(paths["claim"], claim)
+            locked = read_json(root / "payloads" / f"{call['case']}.{call['arm']}.json")
             request = {
                 "action": "mock" if mock else "real",
                 "allowRealClaude": not mock,
@@ -904,7 +953,9 @@ def run(
                 "conditions": doc["protocol"]["conditions"],
                 "localConfig": doc["localConfig"],
                 "mockScenario": MOCK_SCENARIOS[(call["seq"] - 1) % len(MOCK_SCENARIOS)] if mock else None,
-                "attempt": {k: str(paths[k]) for k in ("claim", "lock", "started")},
+                "attempt": {k: str(paths[k]) for k in ("claim", "lock", "started", "void")},
+                # The worker compares the run it restores with these before its marker.
+                "locked": {"payloadDigest": locked["payloadDigest"], "sourceDigest": locked["sourceDigest"]},
             }
             timed_out = False
             code: int | None = None
@@ -916,6 +967,9 @@ def run(
                 _report(call_id, _finalize(root, doc, call, n, fingerprint, claim))
                 continue
             write_new(paths["exit"], {"exitCode": code, "timedOut": timed_out, "at": now()})
+            # The worker has exited (or was killed). Seal the attempt if it never
+            # wrote its marker; otherwise it stays uncertain.
+            contract.seal_not_invoked(root, call_id, n)
             after = contract.call_state(root, call_id, lock_probe=contract.is_held, mock=mock)["state"]
             if after == "notInvoked":
                 print(f"  {call_id}: worker가 모델 호출 전에 멈췄습니다 (호출 안 됨). 원인을 확인한 뒤 다시 실행하세요.")
@@ -935,7 +989,7 @@ def status(experiment: str) -> dict[str, Any]:
         calls.append({"callId": c["callId"], "state": state["state"], "outcome": state["outcome"], "attempts": state["attempts"]})
     approvals = []
     for approval_id, ap in contract.approvals(root).items():
-        used = contract.approval_usage(root, approval_id, lock_probe=contract.is_held)
+        used = contract.approval_usage(root, approval_id)
         approvals.append({"approvalId": approval_id, "mode": ap.get("mode"), "calls": ap.get("calls"), "maxCliCalls": ap.get("maxCliCalls"), "used": len(used)})
     try:
         verify_integrity(root, doc)
