@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from .. import config
 from ..services.explanation import applicability
 from ..services.explanation.run_ledger import build_ledger
 
@@ -34,6 +35,11 @@ def test_every_inventory_sentence_is_classified_for_its_current_words():
 def test_no_classification_for_a_sentence_that_no_longer_exists():
     targets = {target for target, _ in applicability.inventory()}
     orphans = [e.target for e in applicability.all_statement_kinds() if e.target not in targets]
+    if config.DOC_PASSAGE_KNOWLEDGE == config.PUBLIC_DOC_PASSAGES:
+        # A clean checkout (CI) has only the empty public corpus; the local
+        # excerpts are gitignored. Their classifications cannot be judged
+        # without them, so only the docPassages/ part is left to the local run.
+        orphans = [t for t in orphans if not t.startswith("docPassages/")]
     assert not orphans
 
 
