@@ -1,0 +1,113 @@
+# Checks every pull request into main, every later push to it, and main itself.
+# What runs, what is left out and why: docs/CI.md.
+#
+# Safety: no secret is referenced anywhere in this file, so none reaches the
+# runner. The backend suite installs backend/conftest.py's guard before any test
+# is imported: starting a program named `claude` or connecting outside the
+# machine fails the test. No step runs script/main.sh, downloads genomic data or
+# reads runs/, uploads/, config/local/ or captures (none of them is in git).
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (pytest)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out (full history)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # evals/test_ab_compare.py reads the A/B protocol's base commit with
+          # `git archive`; a depth-1 checkout does not contain it.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Confirm no model credentials are present
+        run: |
+          for name in ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN ANTHROPIC_AUTH_TOKEN; do
+            if [ -n "${!name:-}" ]; then
+              echo "::error::$name is set; CI must run without model credentials"
+              exit 1
+            fi
+          done
+          if command -v claude >/dev/null 2>&1; then
+            echo "::warning::a claude executable is on PATH; the test guard still refuses to start it"
+          fi
+
+      - name: App tests (app/tests)
+        run: python -m pytest app/tests -ra
+
+      - name: Eval tests (evals, no model calls)
+        run: python -m pytest evals -ra
+
+  frontend:
+    name: Frontend (lint, types, tests, build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: front
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22.16.0"
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+
+      - name: Install dependencies (lockfile)
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint (oxlint)
+        run: npm run lint
+
+      - name: Typecheck (tsc -b --force)
+        run: npm run typecheck
+
+      - name: Script tests
+        run: |
+          npm run test:scripts
+          npm run test:trace
+          npm run test:placement
+          npm run test:docview
+          npm run test:workspace
+          npm run test:facts
+          npm run test:compare
+
+      - name: Build (tsc + vite build + check-dist)
+        run: npm run build
