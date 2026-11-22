@@ -41,37 +41,59 @@ exactly an unavailable result with no such answer and a provider category.
 Life of one planned call (decided from durable files, in this order)
 --------------------------------------------------------------------
 
-    attempts/<callId>/<n>.claim.json     written (create-only) by the runner
-                                          BEFORE the worker process starts
-    attempts/<callId>/<n>.lock            held (OS lock) by the worker for its
-                                          whole life; released by the OS when it dies
-    attempts/<callId>/<n>.model-started   written and fsynced by the worker
-                                          immediately BEFORE the model call
-    attempts/<callId>/<n>.raw.json        the worker's result, published atomically
-    calls/<callId>.a<n>.json              the runner's record of that attempt
-    calls/<callId>.json                   (first version: attempt 1, no claim)
+    attempts/<callId>/<n>.claim.json        written (create-only) by the runner
+                                             BEFORE the worker process starts
+    attempts/<callId>/<n>.lock               held (OS lock) by the worker for its
+                                             whole life; released by the OS when it dies
+    attempts/<callId>/<n>.model-started      written and fsynced by the worker,
+                                             under that lock, immediately BEFORE the
+                                             model call
+    attempts/<callId>/<n>.not-invoked.json   the seal: written by a runner, under the
+                                             same lock, only while no model-started
+                                             exists
+    attempts/<callId>/<n>.raw.json           the worker's result, published atomically
+    calls/<callId>.a<n>.json                 the runner's record, published atomically
+    calls/<callId>.json                      (first version: attempt 1, no claim)
 
-    planned      no claim, no record
-    recorded     a record exists for the latest attempt -> it has an outcome
-    recoverable  a raw result exists but no record: finish it WITHOUT a new call
-    running      the latest attempt's lock is held by a live process
-    uncertain    claimed, model-started written, no result, nobody holds the
-                 lock: the model may or may not have been called. Never
-                 assumed "not called"; never called again automatically.
-    notInvoked   claimed, no model-started, no result, nobody holds the lock:
-                 the worker never reached the model (it writes model-started
-                 first), so no usage was spent and a new attempt may start.
+    planned               no claim, no record
+    recorded              a record exists for the latest attempt -> it has an outcome
+    recoverable           a raw result exists but no record: finish it WITHOUT a new call
+    running               the latest attempt's lock is held by a live process
+    uncertain             model-started written, no result, lock free: the model may
+                          or may not have been called. Never assumed "not called";
+                          never called again automatically.
+    notInvoked            SEALED: no model-started, and a seal written under the
+                          attempt lock. The worker looks for the seal under that
+                          lock before it writes model-started, so a sealed attempt
+                          can never reach the model, and a new attempt may start.
+    inFlightOrNotInvoked  claimed, nothing else, not sealed: the worker may be dead,
+                          or alive and not yet holding its lock. Counted as spent.
+                          A runner turns it into notInvoked by sealing it, or finds
+                          the lock held (running).
+    inFlightOrUncertain   (API only; it does not probe locks) model-started, no result
+    unreadableRecord      a record file of ANY attempt (flat or versioned, claimed or
+                          not) exists but cannot be read: a person looks; nothing is
+                          called or overwritten, and no other record of the call
+                          stands in for it. Checked before every other state.
 
-The API cannot probe locks without racing a starting worker, so it reports
-the last two as `inFlightOrUncertain` / `inFlightOrNotInvoked` instead.
+Why a seal and not "the lock is free" (review B1, 2026-11-22)
+------------------------------------------------------------
+
+A lock probe is a moment, not a fact. A worker takes its lock only after its
+interpreter has started; a runner killed right after spawning it leaves a
+worker that holds no lock and has written no marker yet. The first version
+read exactly that as "not invoked", let a new attempt start, and the old
+worker then called the model too -- two calls under a one-call approval. The
+seal is durable and is written under the lock the worker itself must take, so
+"not invoked" is now a recorded decision that the worker obeys.
 
 Approval
 --------
 
 `approvals/<id>.json` names exact call ids and a maximum number of CLI calls.
-An attempt counts against it unless it is provably notInvoked. The runner
-holds the experiment lock while it counts and claims, so two runners cannot
-both spend the last unit.
+An attempt counts against it unless it is sealed notInvoked. The runner holds
+the experiment lock while it counts and claims, so two runners cannot both
+spend the last unit.
 """
 
 from __future__ import annotations
@@ -79,6 +101,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Iterator
@@ -112,7 +135,11 @@ CALL_STATES = (
     "notInvoked",
     "inFlightOrUncertain",
     "inFlightOrNotInvoked",
+    "unreadableRecord",
 )
+# The attempt contract the frozen worker implements (seal, at-use checks). An
+# experiment prepared with an older worker cannot honour it and is refused.
+ATTEMPT_PROTOCOL = 2
 # Modules the worker itself imports from the tree in the no-model modes (the
 # real-CLI guard). They are not part of the call path under test.
 WORKER_OWN_IMPORTS = frozenset({"backend/app/tests/__init__.py", "backend/app/tests/real_cli_guard.py"})
@@ -120,6 +147,26 @@ WORKER_OWN_IMPORTS = frozenset({"backend/app/tests/__init__.py", "backend/app/te
 
 def read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def publish_new(path: Path, value: Any) -> None:
+    """Make `path` appear complete or not at all; never replace an existing file.
+
+    Written aside, fsynced, then hard-linked into place (the link fails if
+    `path` exists). A crash mid-write leaves only the aside file, which no
+    reader matches, so whatever it was recording can still be recovered
+    (review M1, 2026-11-22: a partial record used to block that).
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.tmp-{secrets.token_hex(4)}")
+    try:
+        with tmp.open("x", encoding="utf-8", newline="\n") as handle:
+            handle.write(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.link(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 # --- outcome -----------------------------------------------------------------
@@ -198,6 +245,7 @@ def attempt_paths(root: Path, call_id: str, n: int) -> dict[str, Path]:
         "claim": folder / f"{n}.claim.json",
         "lock": folder / f"{n}.lock",
         "started": folder / f"{n}.model-started",
+        "void": folder / f"{n}.not-invoked.json",
         "raw": folder / f"{n}.raw.json",
         "exit": folder / f"{n}.worker-exit.json",
         "record": root / "calls" / f"{call_id}.a{n}.json",
@@ -211,25 +259,59 @@ def claimed_attempts(root: Path, call_id: str) -> list[int]:
     return sorted(int(m["n"]) for p in folder.iterdir() if (m := _CLAIM_FILE.match(p.name)))
 
 
-def call_records(root: Path) -> dict[str, dict[int, dict[str, Any]]]:
-    """{callId: {attempt: stored record}}. A first-version flat file is attempt 1."""
+def _scan_records(
+    root: Path, call_id: str | None = None
+) -> tuple[dict[str, dict[int, dict[str, Any]]], dict[str, set[int]]]:
+    """({callId: {attempt: record}}, {callId: attempts with a record file that does not parse}).
+
+    A first-version flat file is attempt 1. Records are published atomically, so
+    a file that does not parse is a damaged disk or a first-version file, never a
+    write in progress.
+    """
     folder = root / "calls"
     out: dict[str, dict[int, dict[str, Any]]] = {}
+    unreadable: dict[str, set[int]] = {}
     if not folder.is_dir():
-        return out
+        return out, unreadable
     for path in sorted(folder.iterdir()):
         match = _RECORD_FILE.match(path.name)
-        if not match or not path.is_file():
+        if not match or not path.is_file() or (call_id is not None and match["call"] != call_id):
             continue
         attempt = int(match["attempt"] or 1)
-        call = read_json(path)
+        try:
+            call = read_json(path)
+            if not isinstance(call, dict):
+                raise ValueError("record is not an object")
+        except (OSError, ValueError):
+            unreadable.setdefault(match["call"], set()).add(attempt)
+            continue
         call.setdefault("attempt", attempt)
         out.setdefault(match["call"], {})[attempt] = call
-    return out
+    return out, unreadable
+
+
+def call_records(root: Path) -> dict[str, dict[int, dict[str, Any]]]:
+    """{callId: {attempt: stored record}} for the record files that parse.
+
+    A file that does not parse is left out here; call_state reports its call as
+    unreadableRecord and latest_records leaves the call out.
+    """
+    return _scan_records(root)[0]
+
+
+def unreadable_records(root: Path) -> dict[str, set[int]]:
+    """{callId: attempts whose record file exists but does not parse}."""
+    return _scan_records(root)[1]
 
 
 def latest_records(root: Path) -> dict[str, dict[str, Any]]:
-    return {call_id: by_attempt[max(by_attempt)] for call_id, by_attempt in call_records(root).items()}
+    """The newest record of each call -- unless any of its record files is damaged.
+
+    A damaged file can be the call's answer, so no readable file stands in for it
+    (PR review, 2026-11-22): the call has no latest record until a person looks.
+    """
+    records, unreadable = _scan_records(root)
+    return {call_id: by_attempt[max(by_attempt)] for call_id, by_attempt in records.items() if call_id not in unreadable}
 
 
 # --- call state ----------------------------------------------------------------
@@ -246,35 +328,75 @@ def call_state(
     mock: bool = False,
 ) -> dict[str, Any]:
     """State of one planned call (see the module docstring)."""
-    if records is None:
-        records = call_records(root).get(call_id, {})
+    # Damaged files are looked up on disk every time, even when the caller
+    # passes records: a flat first-version file has no claim, and a versioned
+    # file can be older than the latest claim, so neither is found by checking
+    # the latest attempt's path alone (PR review, 2026-11-22).
+    # Published records are never replaced, so the fresh scan only adds to a
+    # caller's snapshot: a record published after it is a record, not damage.
+    found, damaged = _scan_records(root, call_id)
+    records = found.get(call_id, {}) | (records or {})
+    unreadable = damaged.get(call_id, set())
     claimed = claimed_attempts(root, call_id)
-    attempts = sorted(set(claimed) | set(records))
+    attempts = sorted(set(claimed) | set(records) | unreadable)
     base = {"callId": call_id, "attempts": len(attempts), "attempt": attempts[-1] if attempts else None}
     if not attempts:
         return base | {"state": "planned", "outcome": None, "evaluation": None}
+    if unreadable:
+        # Any attempt, not only the latest: the damaged one may hold the answer.
+        return base | {"state": "unreadableRecord", "outcome": None, "evaluation": None}
     latest = attempts[-1]
     if latest in records:
         evaluation = evaluation_of(records[latest], mock=mock)
         return base | {"state": "recorded", "outcome": evaluation["outcome"], "evaluation": evaluation}
     paths = attempt_paths(root, call_id, latest)
-    if paths["raw"].is_file():
+    held = lock_probe(paths["lock"]) if lock_probe is not None else None
+    if paths["record"].is_file():
+        state = "unreadableRecord"
+    elif paths["raw"].is_file():
         state = "recoverable"
-    elif lock_probe is None:
-        state = "inFlightOrUncertain" if paths["started"].exists() else "inFlightOrNotInvoked"
-    elif lock_probe(paths["lock"]):
-        state = "running"
+    elif paths["started"].exists():
+        state = "inFlightOrUncertain" if held is None else "running" if held else "uncertain"
+    elif paths["void"].is_file():
+        state = "notInvoked"
     else:
-        state = "uncertain" if paths["started"].exists() else "notInvoked"
+        state = "running" if held else "inFlightOrNotInvoked"
     return base | {"state": state, "outcome": None, "evaluation": None}
 
 
-def attempt_spent(root: Path, call_id: str, n: int, *, lock_probe: LockProbe) -> bool:
-    """Could attempt `n` have used a CLI call? Only a provable no is False."""
+def attempt_spent(root: Path, call_id: str, n: int) -> bool:
+    """Could attempt `n` have used a CLI call? Only a sealed attempt is a no.
+
+    Decided from durable files alone. A seal is written only under the attempt
+    lock while no model-started exists, and the worker refuses a sealed attempt
+    under the same lock, so a sealed attempt cannot have reached the model.
+    """
     paths = attempt_paths(root, call_id, n)
     if paths["record"].is_file() or paths["raw"].is_file() or paths["started"].exists():
         return True
-    return lock_probe(paths["lock"])  # a live worker may be about to call
+    return not paths["void"].is_file()
+
+
+def seal_not_invoked(root: Path, call_id: str, n: int) -> bool:
+    """Record that attempt `n` never reached the model, if that can be proved now.
+
+    True: sealed (now or earlier). False: the attempt is live (its lock is
+    held) or it reached the model (model-started or a result exists). Holding
+    the attempt lock makes the check and the seal one step: a worker that has
+    not taken the lock yet finds the seal when it does, and refuses.
+    """
+    paths = attempt_paths(root, call_id, n)
+    if not paths["claim"].is_file():
+        raise ValueError("no claim for this attempt")
+    try:
+        with os_lock(paths["lock"]):
+            if paths["started"].exists() or paths["raw"].exists() or paths["record"].exists():
+                return False
+            if not paths["void"].is_file():
+                publish_new(paths["void"], {"callId": call_id, "attempt": n, "sealedByPid": os.getpid()})
+            return True
+    except BlockingIOError:
+        return False
 
 
 # --- approvals -------------------------------------------------------------------
@@ -287,7 +409,7 @@ def approvals(root: Path) -> dict[str, dict[str, Any]]:
     return {p.stem: read_json(p) for p in sorted(folder.glob("ap-*.json")) if APPROVAL_ID.match(p.stem)}
 
 
-def approval_usage(root: Path, approval_id: str, *, lock_probe: LockProbe) -> list[dict[str, Any]]:
+def approval_usage(root: Path, approval_id: str) -> list[dict[str, Any]]:
     """Every attempt claimed under this approval that may have spent a call."""
     used = []
     folder = root / "attempts"
@@ -298,7 +420,7 @@ def approval_usage(root: Path, approval_id: str, *, lock_probe: LockProbe) -> li
             continue
         for n in claimed_attempts(root, call_dir.name):
             claim = read_json(attempt_paths(root, call_dir.name, n)["claim"])
-            if claim.get("approvalId") == approval_id and attempt_spent(root, call_dir.name, n, lock_probe=lock_probe):
+            if claim.get("approvalId") == approval_id and attempt_spent(root, call_dir.name, n):
                 used.append({"callId": call_dir.name, "attempt": n})
     return used
 

@@ -16,7 +16,14 @@
   - Gate 지표의 분모는 "답변을 받은 호출"이다. provider 실패는 Gate 판정이
     아니므로 분자에도 분모에도 넣지 않고 따로 센다. 응답 시간도 답변을 받은
     호출만 쓴다(시간 초과 300초가 중앙값에 섞이지 않게).
-  - 블라인드 해제 전에는 사람 채점을 집계하지 않는다(backend가 보내지도 않는다).
+  - 블라인드 해제 전에는 답변에서 나온 값을 아무것도 집계하지 않는다. backend가
+    답변·Gate에서 나온 값(served/gateRejected 구분, 자동 점수, 응답 시간, 모델,
+    Tool 사용)을 보내지 않고, 답변을 받은 호출의 결과는 "answered"로만 온다
+    (독립 리뷰 H3, 2026-11-22: 이 값들로 블라인드 답변과 경로를 이어 볼 수
+    있었다). 해제 전에 보이는 것은 실행 상태(provider 실패 등)뿐이다.
+  - 사람 채점은 backend가 complete: true라고 한 것만 센다. 판정 안 한 문장·
+    선택 안 한 원인·점수 없음이 하나라도 있으면 미완료다(독립 리뷰 H2: 판정한
+    일부만으로 비율을 내서 미완료 채점이 기준을 통과할 수 있었다).
   - 모의 실험은 성공 기준을 판정하지 않는다.
   - 반복 몇 번의 결과다. 통계적 유의성 판정을 만들지 않는다.
 */
@@ -69,12 +76,15 @@ export function median(values: readonly number[]): number | null {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
-/** 모델이 낸 답변의 자동 점수: 제공된 답변, 없으면 Gate가 거부한 답변. */
+/** 모델이 낸 답변의 자동 점수: 제공된 답변, 없으면 Gate가 거부한 답변. 블라인드 중이면 없다. */
 export function answerScoresOf(call: Pick<CallSummary, 'scores'>) {
+  if (!call.scores) return null
   if (call.scores.served.measured) return call.scores.served
   if (call.scores.rejected.measured) return call.scores.rejected
   return null
 }
+
+const BLIND_NOTE = '블라인드 채점 중 — 해제 후 집계'
 
 function value(
   status: MetricStatus,
@@ -133,8 +143,9 @@ export function armMetrics(detail: ExperimentDetail, arm: Arm, caseName: string 
     if (item.state !== 'recorded' || !call) excluded.notRecorded++
     else if (call.evaluation.exclusion) excluded[call.evaluation.exclusion]++
   }
+  const blinded = !detail.blind.unblinded
   const gateCalls = calls.filter((c) => c.evaluation.countsForGate)
-  const content = calls
+  const content = (blinded ? [] : calls)
     .filter((c) => c.evaluation.countsForContent)
     .map((c) => ({ call: c, s: answerScoresOf(c) }))
     .filter((x): x is { call: CallSummary; s: NonNullable<ReturnType<typeof answerScoresOf>> } => x.s !== null)
@@ -143,7 +154,7 @@ export function armMetrics(detail: ExperimentDetail, arm: Arm, caseName: string 
 
   const sum = (pick: (s: (typeof content)[number]['s']) => number) => content.reduce((acc, x) => acc + pick(x.s), 0)
   const autoStatus = statusOf(nContent, planned)
-  const autoNote = autoStatus === 'measured' ? undefined : missing || undefined
+  const autoNote = blinded ? BLIND_NOTE : autoStatus === 'measured' ? undefined : missing || undefined
   const auto = {
     nonRunClaims: value(autoStatus, nContent ? sum((s) => s.nonRunClaims ?? 0) : null, nContent, planned, '건', undefined, null, autoNote),
     execContradictions: value(autoStatus, nContent ? sum((s) => s.execContradictions ?? 0) : null, nContent, planned, '건', undefined, null, autoNote),
@@ -163,10 +174,11 @@ export function armMetrics(detail: ExperimentDetail, arm: Arm, caseName: string 
   }
 
   // --- 사람 채점 (blind code로 묶인다; 해제 전에는 backend가 보내지 않는다) ---
-  const blindNote = detail.blind.unblinded ? undefined : '블라인드 채점 중 — 해제 후 집계'
-  const graded = (detail.blind.unblinded ? content : [])
+  // 완료된 채점만 센다. 미완료 채점은 채점 안 한 답변과 같다.
+  const blindNote = blinded ? BLIND_NOTE : undefined
+  const graded = content
     .map((x) => ({ ...x, g: x.call.blindCode ? (detail.grades[x.call.blindCode] as Grade | undefined) : undefined }))
-    .filter((x): x is typeof x & { g: Grade } => x.g !== undefined)
+    .filter((x): x is typeof x & { g: Grade } => x.g !== undefined && x.g.complete === true)
   const nGraded = graded.length
   const hStatus = statusOf(nGraded, planned)
   const hNote = blindNote ?? (hStatus === 'measured' ? undefined : missing || undefined)
@@ -198,11 +210,12 @@ export function armMetrics(detail: ExperimentDetail, arm: Arm, caseName: string 
   }
 
   // --- 정확히 잰 값 ---
-  const nGate = gateCalls.length
+  // Gate 결과와 응답 시간은 답변에서 나온 값이다. 해제 전에는 세지 않는다.
+  const nGate = blinded ? 0 : gateCalls.length
   const gateStatus = statusOf(nGate, planned)
-  const gateNote = gateStatus === 'measured' ? undefined : missing || undefined
-  const rejected = gateCalls.filter((c) => c.evaluation.outcome === 'gateRejected').length
-  const durations = gateCalls.map((c) => c.durationMs).filter((v): v is number => typeof v === 'number')
+  const gateNote = blinded ? BLIND_NOTE : gateStatus === 'measured' ? undefined : missing || undefined
+  const rejected = blinded ? 0 : gateCalls.filter((c) => c.evaluation.outcome === 'gateRejected').length
+  const durations = (blinded ? [] : gateCalls).map((c) => c.durationMs).filter((v): v is number => typeof v === 'number')
   const providerErrors = calls.filter((c) => c.evaluation.outcome === 'providerError').length
   const recorded = calls.length
   const exact = {
@@ -217,7 +230,7 @@ export function armMetrics(detail: ExperimentDetail, arm: Arm, caseName: string 
 
   return {
     planned,
-    answered: nGate,
+    answered: gateCalls.length,
     contentAnswers: nContent,
     excluded,
     auto,
@@ -261,7 +274,8 @@ function metricFor(m: ArmMetrics, c: Criterion): MetricValue | null {
  *
  * 판정 전제(프로토콜 evaluationRule): 계획한 모든 호출이 답변을 받았고 제외
  * 사유가 없어야 한다. provider 실패·불확실·제외 호출이 하나라도 있으면 어떤
- * 기준도 판정하지 않는다.
+ * 기준도 판정하지 않는다. 블라인드 해제 전에는 자동 기준도 판정하지 않는다
+ * (자동 값도 답변에서 나온 값이다, H3).
  */
 export function evaluateCriteria(detail: ExperimentDetail): CriterionResult[] {
   if (detail.mock) {
@@ -281,14 +295,14 @@ export function evaluateCriteria(detail: ExperimentDetail): CriterionResult[] {
       : null
   return detail.protocol.successCriteria.map((criterion) => {
     if (incomplete) return { criterion, status: 'unmeasured', reason: incomplete }
-    if (criterion.source === 'human' && !detail.blind.unblinded) {
+    if (!detail.blind.unblinded) {
       return { criterion, status: 'unmeasured', reason: '블라인드 채점을 마치고 해제한 뒤 판정합니다.' }
     }
     const ma = metricFor(a, criterion)
     const mb = metricFor(b, criterion)
     if (!ma || !mb) return { criterion, status: 'unmeasured', reason: '이 지표를 계산할 수 없습니다.' }
     if (ma.status !== 'measured' || mb.status !== 'measured' || ma.value === null || mb.value === null) {
-      const why = criterion.source === 'human' ? '모든 답변의 사람 채점이 끝나야 판정합니다.' : '모든 답변의 자동 점수가 있어야 판정합니다.'
+      const why = criterion.source === 'human' ? '모든 답변의 사람 채점이 완료돼야 판정합니다(미완료 채점은 세지 않습니다).' : '모든 답변의 자동 점수가 있어야 판정합니다.'
       return { criterion, status: 'unmeasured', reason: why }
     }
     const A = ma.value

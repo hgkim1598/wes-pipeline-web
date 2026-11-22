@@ -1,0 +1,640 @@
+{
+  "protocolVersion": 3,
+  "id": "ledger_applicability_v3",
+  "title": "Run Ledger + Applicability 적용 전후 실제 Claude 답변 비교",
+  "fixedAt": "2026-11-22",
+  "supersedes": {
+    "id": "ledger_applicability_v2",
+    "why": "실제 호출 전 독립 리뷰에서, 초기 모델 입력이 보류한 파이프라인 영향 문장(예: 'Per-lane FastQC still runs')을 get_step_detail Tool이 그대로 돌려주는 결함(H1)이 확인됐다. B 경로의 의도된 변경(적용 판정)을 Tool 채널에도 적용하므로 B 스냅샷의 파일 목록이 바뀐다. v2로 만든 실험은 모의 실험뿐이며 v2 파일은 그 잠금을 위해 바꾸지 않는다.",
+    "changed": [
+      "intendedDifference: Tool 결과(step_evidence.py · run_scope.py)에도 같은 적용 판정을 적용한다는 항목 추가",
+      "diffClassification: backend/app/services/agent/step_evidence.py · run_scope.py를 intended로 추가"
+    ],
+    "unchanged": "conditions · repeats · order · cases · detectors · wrongCauseCandidates · claimUnit · metrics · successCriteria · outcomeContract · evaluationRule · modelIdentity"
+  },
+  "note": [
+    "실제 호출 전에 고정한다. 실험 폴더를 만들 때 이 파일의 sha256을 잠그고, 이후 파일이 바뀌면 호출을 거부한다.",
+    "같은 Run을 두 코드 경로에 넣어 각각 새 Claude 답변을 받는다. 과거 저장 답변은 쓰지 않는다.",
+    "반복 3회는 기술 통계다. 통계적 유의성을 주장하지 않는다.",
+    "v2: 위 supersedes 참조. 판정 문형·사례·조건은 v1과 같다.",
+    "v3: 위 supersedes 참조. 판정 문형·사례·조건·지표·성공 기준은 v2와 같다."
+  ],
+  "arms": {
+    "A": {
+      "label": "Without Run Ledger + Applicability",
+      "source": {
+        "kind": "git",
+        "commit": "158cba7302e0f2096ec1f8790dc1251cb4a34a41"
+      }
+    },
+    "B": {
+      "label": "With Run Ledger + Applicability",
+      "source": {
+        "kind": "workingTree"
+      }
+    }
+  },
+  "snapshotPaths": [
+    "backend/app",
+    "backend/evals",
+    "config",
+    "script"
+  ],
+  "intendedDifference": [
+    "실행 장부(run_ledger.py)와 문장 적용 판정(applicability.py, wes_statement_kinds.json)",
+    "모델 입력(contract.build_payload)의 보류 문장 제외 · notSentForThisRun · 단계 실행 사실 · 출처 메타데이터(PROVENANCE)",
+    "Tool 결과(get_step_detail)의 경고 영향 문장에도 같은 적용 판정을 적용: 초기 입력이 보류한 문장은 Tool로도 보내지 않고 notSentForThisRun으로 이유를 밝힌다 (step_evidence.py · run_scope.py)",
+    "deterministic.py · run_context.py · run_status_reader.py · result_reader.py의 장부 연결",
+    "Knowledge 문구 수정(wes_diagnostics.json)과 main.sh 영향 문구 수정",
+    "호출 경로 밖: 평가 전용 코드(비교 화면 API api/eval_compare.py · config의 WES_EVAL_COMPARE 플래그 · main.py 라우터 등록 · 테스트)도 B 스냅샷 파일 목록에 나타나지만 모델 호출에는 쓰이지 않는다"
+  ],
+  "conditions": {
+    "model": "sonnet",
+    "variant": "v3",
+    "offerTools": true,
+    "docRag": false,
+    "agentDocEvidence": false,
+    "officialDocsInPayload": false,
+    "repair": false,
+    "redactor": "none (평가 경로 기본값 — 운영 경로와 다름)",
+    "gate": "각 코드 경로의 synthesis 검증 Gate (두 경로에서 파일이 같은지 실행 전에 확인)",
+    "timeoutSeconds": 300
+  },
+  "repeats": 3,
+  "order": "interleaved",
+  "cases": [
+    {
+      "case": "real_b94559",
+      "kind": "archive",
+      "label": "b94559",
+      "synthetic": false,
+      "role": "효과 측정 — 00 실패, 일반 지식에 실행되지 않은 01 단계 결과 문장이 섞이던 Run",
+      "facts": {
+        "steps": [
+          {
+            "stepId": "00_input_validation",
+            "state": "ranFailed",
+            "label": "입력 검증 — 실패",
+            "source": "record"
+          },
+          {
+            "stepId": "01_raw_qc",
+            "state": "notRunAfterFailure",
+            "label": "원본 품질 검사(FastQC) — 실행 안 됨",
+            "source": "record"
+          },
+          {
+            "stepId": "02_preprocessing",
+            "state": "notRunAfterFailure",
+            "label": "전처리 — 실행 안 됨",
+            "source": "record"
+          },
+          {
+            "stepId": "03_alignment",
+            "state": "notRunAfterFailure",
+            "label": "정렬 — 실행 안 됨",
+            "source": "record"
+          },
+          {
+            "stepId": "04_processing",
+            "state": "notRunAfterFailure",
+            "label": "BAM 후처리 — 실행 안 됨",
+            "source": "record"
+          },
+          {
+            "stepId": "05_coverage_qc",
+            "state": "notRunAfterFailure",
+            "label": "커버리지 검사 — 실행 안 됨",
+            "source": "record"
+          },
+          {
+            "stepId": "06_variant_calling",
+            "state": "notRunAfterFailure",
+            "label": "변이 검출 — 실행 안 됨",
+            "source": "record"
+          },
+          {
+            "stepId": "99_finalization",
+            "state": "notRunAfterFailure",
+            "label": "마무리 — 실행 안 됨",
+            "source": "record"
+          }
+        ],
+        "requiredCauses": [
+          {
+            "id": "required_tools",
+            "label": "필수 분석 도구를 PATH에서 찾지 못함 (required_tools 실패)",
+            "source": "record",
+            "pattern": "(required_tools|필수 (분석 )?도구|프로그램[^.。]*?(찾지 못|발견되지 않)|PATH[^.。]*?(없|찾지 못|발견되지 않))"
+          },
+          {
+            "id": "target_bed",
+            "label": "target BED 없음 또는 비어 있음",
+            "source": "record",
+            "pattern": "(target BED|타깃 BED|분석 (대상 )?구간[^.。]*?BED)"
+          },
+          {
+            "id": "coverage_bed",
+            "label": "coverage BED 없음 또는 비어 있음",
+            "source": "record",
+            "pattern": "(coverage BED|커버리지 BED)"
+          },
+          {
+            "id": "bcftools",
+            "label": "bcftools 실행 불가 (VCF 확인 실패)",
+            "source": "record",
+            "pattern": "bcftools[^.。]*?(실행[^.。]*?(못|실패|불가)|찾지 못|없)"
+          }
+        ],
+        "notes": [
+          {
+            "text": "MultiQC 없음은 정보 수준 경고이며 실패 원인이 아니다.",
+            "source": "record"
+          },
+          {
+            "text": "BED가 없는 것인지 비어 있는 것인지는 기록으로 구분되지 않는다.",
+            "source": "record"
+          },
+          {
+            "text": "contig 이름·길이·좌표 불일치, known_sites 비어 있음, dbSNP 읽기 실패는 일반적인 가능 원인이며 이 Run에서 확인된 원인이 아니다.",
+            "source": "knowledge"
+          }
+        ]
+      }
+    },
+    {
+      "case": "real_3a22c5",
+      "kind": "archive",
+      "label": "3a22c5",
+      "synthetic": false,
+      "role": "대조 — 00 리소스 검사만 실패한 다른 실제 Run (나빠지지 않는지 확인)",
+      "facts": {
+        "steps": [
+          {
+            "stepId": "00_input_validation",
+            "state": "ranFailed",
+            "label": "입력 검증 — 실패",
+            "source": "record"
+          },
+          {
+            "stepId": "01_raw_qc",
+            "state": "notRunAfterFailure",
+            "label": "원본 품질 검사(FastQC) — 실행 안 됨",
+            "source": "record"
+          },
+          {
+            "stepId": "02_preprocessing",
+            "state": "notRunAfterFailure",
+            "label": "전처리 — 실행 안 됨",
+            "source": "record"
+          },
+          {
+            "stepId": "03_alignment",
+            "state": "notRunAfterFailure",
+            "label": "정렬 — 실행 안 됨",
+            "source": "record"
+          },
+          {
+            "stepId": "04_processing",
+            "state": "notRunAfterFailure",
+            "label": "BAM 후처리 — 실행 안 됨",
+            "source": "record"
+          },
+          {
+            "stepId": "05_coverage_qc",
+            "state": "notRunAfterFailure",
+            "label": "커버리지 검사 — 실행 안 됨",
+            "source": "record"
+          },
+          {
+            "stepId": "06_variant_calling",
+            "state": "notRunAfterFailure",
+            "label": "변이 검출 — 실행 안 됨",
+            "source": "record"
+          },
+          {
+            "stepId": "99_finalization",
+            "state": "notRunAfterFailure",
+            "label": "마무리 — 실행 안 됨",
+            "source": "record"
+          }
+        ],
+        "requiredCauses": [
+          {
+            "id": "target_bed",
+            "label": "target BED 없음 또는 비어 있음",
+            "source": "record",
+            "pattern": "(target BED|타깃 BED|분석 (대상 )?구간[^.。]*?BED)"
+          },
+          {
+            "id": "coverage_bed",
+            "label": "coverage BED 없음 또는 비어 있음",
+            "source": "record",
+            "pattern": "(coverage BED|커버리지 BED)"
+          }
+        ],
+        "notes": [
+          {
+            "text": "기록에 없는 원인(권한, 디스크 용량, 네트워크)은 확인된 원인이 아니다.",
+            "source": "record"
+          },
+          {
+            "text": "contig 이름·길이·좌표 불일치 등은 일반적인 가능 원인이며 이 Run에서 확인된 원인이 아니다.",
+            "source": "knowledge"
+          }
+        ]
+      }
+    },
+    {
+      "case": "agent_failed_step",
+      "kind": "agent",
+      "label": "합성 04 실패",
+      "synthetic": true,
+      "role": "다른 실패 유형 — 중간 단계(04) 실패. 합성 Run이며 실제 기록이 아니다",
+      "facts": {
+        "steps": [
+          {
+            "stepId": "00_input_validation",
+            "state": "ranCompleted",
+            "label": "입력 검증 — 완료",
+            "source": "record"
+          },
+          {
+            "stepId": "01_raw_qc",
+            "state": "ranCompleted",
+            "label": "원본 품질 검사 — 완료",
+            "source": "record"
+          },
+          {
+            "stepId": "02_preprocessing",
+            "state": "ranCompleted",
+            "label": "전처리 — 완료",
+            "source": "record"
+          },
+          {
+            "stepId": "03_alignment",
+            "state": "ranCompleted",
+            "label": "정렬 — 완료",
+            "source": "record"
+          },
+          {
+            "stepId": "04_processing",
+            "state": "ranFailed",
+            "label": "BAM 후처리 — 실패 (markdup_validation)",
+            "source": "record"
+          },
+          {
+            "stepId": "05_coverage_qc",
+            "state": "notRunAfterFailure",
+            "label": "커버리지 검사 — 실행 안 됨",
+            "source": "record"
+          },
+          {
+            "stepId": "06_variant_calling",
+            "state": "notRunAfterFailure",
+            "label": "변이 검출 — 실행 안 됨",
+            "source": "record"
+          },
+          {
+            "stepId": "99_finalization",
+            "state": "notRunAfterFailure",
+            "label": "마무리 — 실행 안 됨",
+            "source": "record"
+          }
+        ],
+        "requiredCauses": [
+          {
+            "id": "markdup_validation",
+            "label": "중복 표시 후 검증(markdup_validation) 실패",
+            "source": "record",
+            "pattern": "(markdup_validation|중복 (표시|제거)[^.。]*?(검증|검사)[^.。]*?(실패|통과하지 못))"
+          }
+        ],
+        "notes": [
+          {
+            "text": "grounding이 없는 code이므로 원인을 단정할 근거가 없다.",
+            "source": "knowledge"
+          }
+        ]
+      }
+    }
+  ],
+  "claimUnit": "summary를 제외한 importantFindings · limitations · nextChecks · uncertainties의 statement 하나",
+  "detectors": [
+    {
+      "id": "NR-FASTQC",
+      "metric": "nonRunClaims",
+      "activeWhenNotRun": [
+        "01_raw_qc"
+      ],
+      "label": "실행 안 된 FastQC의 결과·동작을 말함",
+      "pattern": "FastQC[^.。]*?(생성되|만들어지|만들어졌|그대로 있|계속|still runs|unaffected|remain|영향이 없|영향을 받지|달라지지 않|없다는 뜻은 아닙)"
+    },
+    {
+      "id": "NR-CALLING",
+      "metric": "nonRunClaims",
+      "activeWhenNotRun": [
+        "06_variant_calling"
+      ],
+      "label": "실행 안 된 변이 검출이 진행·정상이라고 말함",
+      "pattern": "(variant calling proceeds|변이 (검출|호출)[^.。]*?(진행되었|진행됐|영향받지 않았|영향이 없었|정상적으로 (진행|완료)))"
+    },
+    {
+      "id": "NR-RESULT-EXISTS",
+      "metric": "nonRunClaims",
+      "activeWhenNotRun": [
+        "03_alignment",
+        "05_coverage_qc",
+        "06_variant_calling"
+      ],
+      "label": "실행 안 된 단계의 결과가 있다고 말함",
+      "pattern": "(변이 결과|커버리지 결과|정렬 결과|BAM 파일)[^.。]*?(있습니다|확인할 수 있습니다|생성되었|만들어졌)"
+    },
+    {
+      "id": "EX-CORE-DONE",
+      "metric": "execContradictions",
+      "activeWhenNotRun": [
+        "03_alignment",
+        "04_processing",
+        "06_variant_calling"
+      ],
+      "label": "핵심 분석이 끝났다고 말함",
+      "pattern": "(core raw VCF and core artifacts are complete|핵심 (분석|산출물)[^.。]*?(끝났|완료되었|완성))"
+    },
+    {
+      "id": "EX-RUN-COMPLETED",
+      "metric": "execContradictions",
+      "activeWhenRunFailed": true,
+      "label": "실패한 실행을 완료·성공이라고 말함",
+      "pattern": "(실행|분석)(은|이)? (정상적으로 |성공적으로 )?(완료되었|끝까지 진행되었|성공했)"
+    }
+  ],
+  "wrongCauseCandidates": [
+    {
+      "id": "WC-GENERIC-RESOURCE",
+      "label": "일반적 리소스 원인을 이 Run의 원인으로 단정",
+      "pattern": "(contig|염색체 이름|길이|좌표|known_sites|dbSNP)[^.。]*?(때문에 실패|원인입니다|원인이었|로 인해 실패)"
+    },
+    {
+      "id": "WC-MULTIQC-CAUSE",
+      "label": "MultiQC 경고를 실패 원인으로 말함",
+      "pattern": "MultiQC[^.。]*?(때문에 (실패|멈)|실패 원인|실패의 원인)"
+    },
+    {
+      "id": "WC-INSTALL-FIXES-ALL",
+      "label": "도구 설치로 모든 문제가 해결된다고 단정",
+      "pattern": "(설치|PATH)[^.。]*?(모두 해결|전부 해결|모든 문제[^.。]*?해결|BED[^.。]*?해결)"
+    }
+  ],
+  "outcomeContract": [
+    "served: provider가 답했고 모든 Gate를 통과",
+    "gateRejected: provider가 답했고 Gate가 폐기 (원문은 평가자 화면에만)",
+    "providerError: 시간 초과·사용량 한도·CLI 없음·실행 실패·응답 읽기 실패 — 답변이 없고 Gate가 실행되지 않았다. Gate 결과로 세지 않는다",
+    "unclassified: 기록이 위 어느 것과도 맞지 않음 — 어디에도 세지 않는다",
+    "uncertain: 호출 시작 표시는 있으나 결과가 없음 — 호출되지 않았다고 추정하지 않고 자동 재호출하지 않는다"
+  ],
+  "evaluationRule": "성공 기준은 계획한 모든 호출이 답변을 받았고(served 또는 gateRejected) 사후 무결성 확인을 통과했을 때만 판정한다. provider 실패·불확실·제외 호출이 하나라도 남아 있으면 미평가로 둔다. 재시도는 사람이 승인한 호출 수 안에서만 한다.",
+  "modelIdentity": "설정값 model은 별칭이다. 실제 모델 ID는 호출마다 trace.models로 기록한다. 두 경로의 주 모델 ID 집합이 다르면 비교 화면이 경고하며, 같은 별칭이라는 이유로 같은 모델이라고 보지 않는다.",
+  "metrics": [
+    {
+      "id": "nonRunClaims",
+      "label": "실행되지 않은 단계의 결과를 주장한 건수",
+      "auto": "detector",
+      "human": "claim flag",
+      "better": "lower"
+    },
+    {
+      "id": "execContradictions",
+      "label": "실행 상태 사실과 모순된 주장 수",
+      "auto": "detector",
+      "human": "claim flag",
+      "better": "lower"
+    },
+    {
+      "id": "supportedClaims",
+      "label": "근거가 주장을 뒷받침한 수 / 평가한 주장 수",
+      "auto": null,
+      "human": "claim verdict",
+      "better": "higher"
+    },
+    {
+      "id": "requiredCauses",
+      "label": "필수 실패 원인을 올바르게 언급한 수 / 필수 원인 수",
+      "auto": "pattern",
+      "human": "cause checklist",
+      "better": "higher"
+    },
+    {
+      "id": "wrongCauses",
+      "label": "근거 없는 원인 단정 수",
+      "auto": "candidate pattern",
+      "human": "claim flag",
+      "better": "lower"
+    },
+    {
+      "id": "gateRejected",
+      "label": "검증 Gate 거부 수 / 답변을 받은 호출 수 (provider 실패·제외 호출은 분모에서 뺌)",
+      "auto": "exact",
+      "human": null,
+      "better": "lower"
+    },
+    {
+      "id": "latency",
+      "label": "응답 시간 (provider durationMs, 답변을 받은 호출만)",
+      "auto": "exact",
+      "human": null,
+      "better": "lower"
+    },
+    {
+      "id": "providerErrors",
+      "label": "provider 실패 수 (Gate 판정 아님 · 평가 제외)",
+      "auto": "exact",
+      "human": null,
+      "better": "lower"
+    },
+    {
+      "id": "understanding",
+      "label": "이해도 (사람, 1–5)",
+      "auto": null,
+      "human": "score",
+      "better": "higher"
+    },
+    {
+      "id": "usefulness",
+      "label": "점검 방법 유용성 (사람, 1–5)",
+      "auto": null,
+      "human": "score",
+      "better": "higher"
+    }
+  ],
+  "successCriteria": [
+    {
+      "id": "S1",
+      "metric": "nonRunClaims",
+      "rule": "B_total == 0",
+      "source": "human",
+      "label": "With 경로의 사람 확인 미실행 단계 결과 주장 0건 (1차 지표)"
+    },
+    {
+      "id": "S2",
+      "metric": "execContradictions",
+      "rule": "B_total == 0",
+      "source": "human",
+      "label": "With 경로의 실행 상태 모순 0건"
+    },
+    {
+      "id": "S3",
+      "metric": "supportedClaims",
+      "rule": "B_rate >= A_rate - 0.05",
+      "source": "human",
+      "label": "근거 일치율이 Without보다 5%p 넘게 낮지 않음"
+    },
+    {
+      "id": "S4",
+      "metric": "wrongCauses",
+      "rule": "B_total <= A_total",
+      "source": "human",
+      "label": "근거 없는 원인 단정이 늘지 않음"
+    },
+    {
+      "id": "S5",
+      "metric": "requiredCauses",
+      "rule": "B_total >= A_total",
+      "source": "human",
+      "label": "필수 원인 언급이 줄지 않음 (보류로 정보가 빠지는지 확인)"
+    },
+    {
+      "id": "S6",
+      "metric": "understanding",
+      "rule": "B_median >= A_median - 0.5",
+      "source": "human",
+      "label": "이해도 중앙값이 0.5점 넘게 낮지 않음"
+    },
+    {
+      "id": "S7",
+      "metric": "usefulness",
+      "rule": "B_median >= A_median - 0.5",
+      "source": "human",
+      "label": "점검 유용성 중앙값이 0.5점 넘게 낮지 않음"
+    },
+    {
+      "id": "S8",
+      "metric": "gateRejected",
+      "rule": "B_rate <= A_rate",
+      "source": "auto",
+      "label": "Gate 거부율이 늘지 않음 (답변을 받은 호출 기준)"
+    },
+    {
+      "id": "S9",
+      "metric": "latency",
+      "rule": "B_median < A_median * 1.2",
+      "source": "auto",
+      "label": "응답 시간 중앙값 증가 20% 미만"
+    }
+  ],
+  "diffClassificationNote": "A·B 스냅샷에서 다른 파일은 모두 아래 셋 중 하나로 분류돼야 한다. 분류되지 않은 파일이 있으면 실험을 만들지도 실행하지도 않는다. intended = 비교하려는 변경, inertInCallPath = 호출 경로에서 import되지만 바뀐 부분은 호출에 쓰이지 않음, notInCallPath = 호출 경로에서 import되지 않아야 함(worker가 호출마다 import 목록으로 확인).",
+  "diffClassification": [
+    {
+      "match": "exact",
+      "path": "backend/app/services/explanation/run_ledger.py",
+      "class": "intended",
+      "reason": "실행 장부"
+    },
+    {
+      "match": "exact",
+      "path": "backend/app/services/explanation/applicability.py",
+      "class": "intended",
+      "reason": "문장 적용 판정"
+    },
+    {
+      "match": "exact",
+      "path": "backend/app/services/explanation/llm/contract.py",
+      "class": "intended",
+      "reason": "모델 입력의 보류 문장 제외·실행 사실·출처 메타데이터"
+    },
+    {
+      "match": "exact",
+      "path": "backend/app/services/explanation/deterministic.py",
+      "class": "intended",
+      "reason": "장부 연결"
+    },
+    {
+      "match": "exact",
+      "path": "backend/app/services/explanation/run_context.py",
+      "class": "intended",
+      "reason": "장부 연결"
+    },
+    {
+      "match": "exact",
+      "path": "backend/app/services/run_status_reader.py",
+      "class": "intended",
+      "reason": "장부 연결"
+    },
+    {
+      "match": "exact",
+      "path": "backend/app/services/result_reader.py",
+      "class": "intended",
+      "reason": "장부 연결"
+    },
+    {
+      "match": "exact",
+      "path": "backend/app/services/agent/step_evidence.py",
+      "class": "intended",
+      "reason": "Tool 결과에 같은 적용 판정 적용 (보류 문장 제외 · notSentForThisRun)"
+    },
+    {
+      "match": "exact",
+      "path": "backend/app/services/agent/run_scope.py",
+      "class": "intended",
+      "reason": "Run 범위에 이 Run의 영향 문장 판정(impact_policy)을 함께 고정"
+    },
+    {
+      "match": "exact",
+      "path": "config/knowledge/wes_diagnostics.json",
+      "class": "intended",
+      "reason": "Knowledge 문구 수정"
+    },
+    {
+      "match": "exact",
+      "path": "config/knowledge/wes_statement_kinds.json",
+      "class": "intended",
+      "reason": "문장 종류 정의"
+    },
+    {
+      "match": "exact",
+      "path": "script/main.sh",
+      "class": "intended",
+      "reason": "파이프라인 영향 문구 수정 — 보존된 Run을 쓰는 이 실험의 호출에서는 실행되지 않음"
+    },
+    {
+      "match": "exact",
+      "path": "backend/app/config.py",
+      "class": "inertInCallPath",
+      "reason": "평가 전용 설정값(WES_EVAL_COMPARE · WES_EVAL_AB_STORE · WES_EVAL_COMPARE_TOKEN)만 추가 — 호출 경로에서 읽지 않음"
+    },
+    {
+      "match": "exact",
+      "path": "backend/app/main.py",
+      "class": "inertInCallPath",
+      "reason": "비교 화면 라우터 등록만 추가. 평가 harness가 agent_cases -> app.tests.conftest(RunBuilder) -> app.main 경로로 import하지만(모의 실행의 import 목록으로 확인) 어떤 route도 호출 중에 실행되지 않음"
+    },
+    {
+      "match": "exact",
+      "path": "backend/app/api/eval_compare.py",
+      "class": "inertInCallPath",
+      "reason": "평가자 전용 비교 화면 API. 위와 같은 경로로 B에서만 import되어 route가 정의되지만 실행되지 않음. contract 모듈은 route 안에서만 지연 import"
+    },
+    {
+      "match": "prefix",
+      "path": "backend/app/tests/",
+      "class": "notInCallPath",
+      "reason": "테스트"
+    },
+    {
+      "match": "prefix",
+      "path": "backend/evals/test_",
+      "class": "notInCallPath",
+      "reason": "테스트"
+    }
+  ]
+}

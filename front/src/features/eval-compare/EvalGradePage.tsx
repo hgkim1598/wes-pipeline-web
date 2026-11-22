@@ -49,6 +49,15 @@ const SOURCE_LABEL: Record<string, 'record' | 'doc' | 'knowledge'> = {
   knowledge: 'knowledge',
 }
 
+/** backend가 보내는 미완료 사유(api/eval_compare.py _completeness). */
+const MISSING_LABEL: Record<string, string> = {
+  claims: '판정 안 한 문장',
+  requiredCauses: '선택 안 한 원인',
+  understanding: '이해도 점수',
+  usefulness: '유용성 점수',
+  answer: '채점할 답변이 더 이상 없음',
+}
+
 export function EvalGradePage() {
   const { experimentId = '' } = useParams()
   const { data, error, isPending } = useBlind(experimentId)
@@ -148,7 +157,9 @@ function FactTable({ blind }: { blind: Blind }) {
 function Grading({ blind }: { blind: Blind }) {
   const [code, setCode] = useState<string | null>(blind.answers[0]?.code ?? null)
   const answer = blind.answers.find((a) => a.code === code) ?? null
-  const graded = blind.answers.filter((a) => blind.grades[a.code]).length
+  // 완료(backend의 complete)만 채점됨으로 센다. 미완료는 따로 보인다(H2).
+  const graded = blind.answers.filter((a) => blind.grades[a.code]?.complete === true).length
+  const incomplete = blind.answers.filter((a) => blind.grades[a.code] && blind.grades[a.code].complete !== true).length
   return (
     <>
       {blind.mock ? <MockBanner /> : null}
@@ -160,8 +171,11 @@ function Grading({ blind }: { blind: Blind }) {
       ) : (
         <MessageBlock tone="info">
           어느 코드 경로의 답인지, 검증 Gate를 통과했는지, 응답 시간은 이 화면에 나오지 않습니다. 비교 화면도
-          블라인드를 해제하기 전에는 답변 원문을 보이지 않습니다. 채점을 모두 마친 뒤에 해제하세요. provider 실패로
-          답변이 없는 호출은 여기 나오지 않습니다.
+          블라인드를 해제하기 전에는 답변 원문을 보이지 않습니다. 채점을 모두 마친 뒤에 해제하세요. 답변은 같은
+          사례·반복의 두 경로가 모두 채점할 답을 받은 뒤에 둘이 함께 나옵니다. 한쪽만 답을 받았거나 아직 실행 중이면
+          그 짝은 해제 뒤에 채점합니다
+          {blind.heldUntilUnblind ? ` (지금 ${blind.heldUntilUnblind}건)` : ''}. 어느 답이 언제 나타나는지로 경로를
+          짐작할 수 없게 하려는 규칙입니다.
         </MessageBlock>
       )}
       <Guide />
@@ -173,7 +187,7 @@ function Grading({ blind }: { blind: Blind }) {
               답변 <MockTag mock={blind.mock} />
             </span>
           }
-          meta={`채점 ${graded}/${blind.answers.length}`}
+          meta={`채점 완료 ${graded}/${blind.answers.length}${incomplete ? ` · 미완료 ${incomplete}` : ''}`}
         />
         <div className="flex flex-wrap gap-2" role="group" aria-label="답변 선택">
           {blind.answers.map((a) => (
@@ -189,7 +203,11 @@ function Grading({ blind }: { blind: Blind }) {
             >
               <span className="font-mono">{a.code}</span>
               <span className="text-caption text-text-muted">{a.caseLabel}</span>
-              {blind.grades[a.code] ? <StatusBadge tone="success" size="sm">채점됨</StatusBadge> : null}
+              {blind.grades[a.code]?.complete === true ? (
+                <StatusBadge tone="success" size="sm">채점 완료</StatusBadge>
+              ) : blind.grades[a.code] ? (
+                <StatusBadge tone="warning" size="sm">미완료</StatusBadge>
+              ) : null}
             </button>
           ))}
         </div>
@@ -279,6 +297,9 @@ function GradeForm({
         <p className="text-caption text-text-muted">
           주장 {answer.claims.length}개 중 {verdictCount}개 판정
           {previous ? ` · 저장된 판 ${previous.versions ?? 1}개 (가장 최근 판을 불러왔습니다)` : ''}
+          {previous && previous.complete !== true
+            ? ` · 저장된 판은 미완료라 채점 완료로 세지 않습니다(빠진 것: ${(previous.missing ?? []).map((m) => MISSING_LABEL[m] ?? m).join(', ') || '확인 필요'})`
+            : ''}
         </p>
       </header>
 

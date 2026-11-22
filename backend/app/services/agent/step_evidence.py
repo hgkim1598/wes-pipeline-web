@@ -38,6 +38,13 @@ Everything that does survive still goes through the redactor, because the
 pipeline composes its own strings: a failure code observed in a real run is
 `sort_order_DEMO_WES.L001`, which is a code with a lane unit -- and therefore a
 sample name -- welded onto it.
+
+One field is also subject to the run's applicability decision: a warning's
+`impact` is the pipeline's fixed sentence for the code, and some of those
+presume a later step ran ("Per-lane FastQC still runs"). The initial payload
+sends it only when the run's ledger supports it; this projection applies the
+same decision, carried by the scope (run_scope.impact_policy_for), and says
+what it withheld in `notSentForThisRun` (review H1, 2026-11-22).
 """
 
 from __future__ import annotations
@@ -101,8 +108,11 @@ class StepWarningEvidence(BaseModel):
 
     code: str = ""
     message: str = ""
-    impact: str = ""
+    # None when this run's records do not support the sentence (see the module
+    # docstring); the reason is then in notSentForThisRun.
+    impact: str | None = None
     canContinue: bool = False
+    notSentForThisRun: list[dict[str, str]] = Field(default_factory=list)
 
 
 class StepFailureEvidence(BaseModel):
@@ -339,21 +349,36 @@ def read_step_evidence(scope: RunScope, step_id: Any) -> StepEvidence:
     diagnosis = resource_bundle_diagnosis.diagnose(
         scope.run_dir, detail["stepId"], detail["validation"]["results"], scope.redactor
     )
-    return _project(detail, scope.redactor, diagnosis)
+    return _project(detail, scope.redactor, diagnosis, scope.impact_decision)
 
 
 def _project(
     detail: dict[str, Any],
     redactor: Redactor,
-    diagnosis: ResourceBundleDiagnosis | None = None,
+    diagnosis: ResourceBundleDiagnosis | None,
+    impact_decision: Any,
 ) -> StepEvidence:
     """Copy the allowed fields across, scrubbing every string on the way.
 
     `release`, not `text`: a string that still looks like part of a path after
     the patterns has that word replaced, or is withheld whole (fail-closed).
+    `impact_decision(step_id, code, text)` is RunScope.impact_decision: None to
+    send the sentence, else why it is withheld. It is required, so no caller
+    can project a warning without the run's decision.
     """
     validation = detail.get("validation") or {}
     metrics, withheld = redactor.metrics(detail.get("metrics") or {})
+
+    def warning(row: dict[str, Any]) -> StepWarningEvidence:
+        text = row.get("impact")
+        reason = impact_decision(detail["stepId"], str(row.get("code") or ""), text) if text else None
+        return StepWarningEvidence(
+            code=redactor.release(row.get("code")),
+            message=redactor.release(row.get("message")),
+            impact=None if reason else redactor.release(text),
+            canContinue=row.get("canContinue") is True,
+            notSentForThisRun=[{"part": "impact", "reason": reason}] if reason else [],
+        )
 
     return StepEvidence(
         evidenceId=evidence_id(detail["stepId"]),
@@ -374,15 +399,7 @@ def _project(
         ],
         metrics=metrics,
         withheldMetricCount=withheld,
-        warnings=[
-            StepWarningEvidence(
-                code=redactor.release(row.get("code")),
-                message=redactor.release(row.get("message")),
-                impact=redactor.release(row.get("impact")),
-                canContinue=row.get("canContinue") is True,
-            )
-            for row in detail.get("warnings") or []
-        ],
+        warnings=[warning(row) for row in detail.get("warnings") or []],
         failures=[
             StepFailureEvidence(
                 code=redactor.release(row.get("code")),

@@ -56,6 +56,8 @@ const ARM_SHORT: Record<Arm, string> = { A: 'Without (A)', B: 'With (B)' }
 const OUTCOME_VIEW: Record<Outcome, { label: string; tone: StatusTone }> = {
   served: { label: 'Gate 통과', tone: 'success' },
   gateRejected: { label: 'Gate 거부', tone: 'failure' },
+  // 블라인드 해제 전: 답변은 받았지만 Gate 통과/거부는 아직 보이지 않는다(H3).
+  answered: { label: '답변 받음 · 블라인드', tone: 'idle' },
   providerError: { label: '호출 실패 · Gate 판정 없음', tone: 'warning' },
   unclassified: { label: '분류 불가', tone: 'idle' },
 }
@@ -68,7 +70,14 @@ const STATE_VIEW: Record<CallState, { label: string; tone: StatusTone }> = {
   uncertain: { label: '불확실 · 호출됐을 수 있음', tone: 'warning' },
   notInvoked: { label: '모델 호출 전 중단', tone: 'idle' },
   inFlightOrUncertain: { label: '실행 중이거나 불확실', tone: 'warning' },
-  inFlightOrNotInvoked: { label: '시작 준비 중이거나 호출 전 중단', tone: 'idle' },
+  inFlightOrNotInvoked: { label: '시작 준비 중이거나 호출 전 중단 · 승인 횟수에 셈', tone: 'warning' },
+  unreadableRecord: { label: '기록 파일을 읽을 수 없음 · 확인 필요', tone: 'failure' },
+}
+
+/** 답변에서 나온 값(모델·Tool 사용·시간·점수)을 보내지 않은 이유. */
+const WITHHELD_LABEL: Record<'blind' | 'privacy', string> = {
+  blind: '블라인드 해제 뒤 표시',
+  privacy: '식별자 검사에 걸려 표시하지 않음',
 }
 
 export function DisabledOrError({ error }: { error: unknown }) {
@@ -326,7 +335,8 @@ function BlindPanel({ detail }: { detail: ExperimentDetail }) {
       <div className="flex flex-wrap items-center gap-3">
         {gradeLink}
         <span className="text-caption text-text-muted">
-          블라인드 해제됨 ({blind.unblindedAt}) · 채점 {blind.graded}/{blind.gradable}
+          블라인드 해제됨 ({blind.unblindedAt}) · 채점 완료 {blind.graded}/{blind.gradable}
+          {blind.gradedIncomplete ? ` · 미완료 ${blind.gradedIncomplete}건(세지 않음)` : ''}
           {blind.gradedAfterUnblind ? ` · 해제 뒤 채점 ${blind.gradedAfterUnblind}건(비블라인드로 표시)` : ''}
         </span>
       </div>
@@ -335,7 +345,7 @@ function BlindPanel({ detail }: { detail: ExperimentDetail }) {
   return (
     <MessageBlock
       tone="info"
-      title={`블라인드 채점 단계 · 채점 ${blind.graded}/${blind.gradable}`}
+      title={`블라인드 채점 단계 · 채점 완료 ${blind.graded}/${blind.gradable}${blind.gradedIncomplete ? ` · 미완료 ${blind.gradedIncomplete}` : ''}${blind.heldUntilUnblind ? ` · 짝이 갖춰지지 않아 해제 뒤 채점 ${blind.heldUntilUnblind}` : ''}`}
       action={
         <div className="flex flex-wrap items-end gap-2">
           {gradeLink}
@@ -927,10 +937,16 @@ function CallBody({ data }: { data: CallDetail }) {
     <>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-caption">
         <dt className="text-text-muted">모델</dt>
-        <dd className="font-mono break-all text-text">{data.models?.join(', ') || '기록 없음'}</dd>
+        <dd className="font-mono break-all text-text">
+          {data.answerDerivedWithheld ? WITHHELD_LABEL[data.answerDerivedWithheld] : data.models?.join(', ') || '기록 없음'}
+        </dd>
         <dt className="text-text-muted">Tool 사용</dt>
         <dd className="text-text">
-          {data.toolUse.toolUsed ? `${data.toolUse.callCount ?? 0}회 · ${data.toolUse.openedStepIds.join(', ')}` : '사용 안 함'}
+          {!data.toolUse
+            ? WITHHELD_LABEL[data.answerDerivedWithheld ?? 'blind']
+            : data.toolUse.toolUsed
+              ? `${data.toolUse.callCount ?? 0}회 · ${data.toolUse.openedStepIds.join(', ')}`
+              : '사용 안 함'}
         </dd>
         <dt className="text-text-muted">payload</dt>
         <dd className="font-mono text-text">{data.payloadDigest?.slice(0, 12) ?? '—'}</dd>

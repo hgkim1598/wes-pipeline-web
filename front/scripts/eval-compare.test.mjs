@@ -79,8 +79,10 @@ const detail = (calls, { grades = {}, unblinded = false, mock = false, plan } = 
   grades,
 })
 
-const grade = (code, { nonRun = 0, verdicts = ['supported'], understanding = 4, blind = true } = {}) => ({
+// 기본은 완료된 채점(backend가 complete: true로 보낸 것). 미완료는 complete: false로 따로 만든다.
+const grade = (code, { nonRun = 0, verdicts = ['supported'], understanding = 4, blind = true, complete = true } = {}) => ({
   code,
+  complete,
   grader: 'u',
   savedAt: 't',
   blind,
@@ -93,7 +95,7 @@ const grade = (code, { nonRun = 0, verdicts = ['supported'], understanding = 4, 
     execContradiction: false,
     unsupportedCause: false,
   })),
-  requiredCauses: { a: true, b: true, c: false, d: null },
+  requiredCauses: { a: true, b: true, c: false, d: true },
   understanding,
   usefulness: 3,
   notes: '',
@@ -118,7 +120,7 @@ test('provider 실패는 Gate 거부의 분자·분모와 응답 시간에 들�
     call('A', 2, 'X02', 'timeout', { duration: 300000 }),
     call('A', 3, 'X05', 'gateRejected', { duration: 2000 }),
   ]
-  const a = armMetrics(detail(calls), 'A', null)
+  const a = armMetrics(detail(calls, { unblinded: true }), 'A', null) // Gate 결과는 해제 뒤에만 온다(H3)
   assert.deepEqual([a.exact.gateRejected.numerator, a.exact.gateRejected.denominator], [1, 2])
   assert.equal(a.exact.gateRejected.value, 0.5)
   assert.equal(a.exact.latency.value, 1500) // 300000 ms 시간 초과가 섞이지 않는다
@@ -131,10 +133,10 @@ test('provider 실패는 Gate 거부의 분자·분모와 응답 시간에 들�
 
 test('자동 값: 거부된 답변도 모델 답변으로 세고, 제외된 호출은 이유별로 센다', () => {
   const calls = [...ALL_ANSWERED, call('B', 3, 'X06', 'integrity')]
-  const b = armMetrics(detail(calls), 'B', null)
+  const b = armMetrics(detail(calls, { unblinded: true }), 'B', null)
   assert.equal(b.contentAnswers, 2)
   assert.equal(b.excluded.integrity, 1)
-  const a = armMetrics(detail(calls), 'A', null)
+  const a = armMetrics(detail(calls, { unblinded: true }), 'A', null)
   assert.equal(a.auto.nonRunClaims.value, 3)
   assert.equal(a.auto.nonRunClaims.status, 'measured')
   assert.deepEqual([a.auto.requiredCauses.numerator, a.auto.requiredCauses.denominator], [8, 8])
@@ -162,14 +164,17 @@ test('블라인드 해제 전에는 사람 지표를 집계하지 않는다', ()
   assert.equal(after.human.nonRunClaims.status, 'measured')
 })
 
-test('일부만 채점되면 partial, 판단 불가는 분모에만 들어간다', () => {
-  const grades = { X03: grade('X03', { verdicts: ['supported', 'undetermined', null] }) }
+test('일부 답변만 채점이 완료되면 partial, 판단 불가는 분모에만 들어간다', () => {
+  const grades = { X03: grade('X03', { verdicts: ['supported', 'undetermined'] }) }
   const b = armMetrics(detail(ALL_ANSWERED, { grades, unblinded: true }), 'B', null)
   assert.equal(b.human.supportedClaims.status, 'partial')
   assert.deepEqual([b.human.supportedClaims.numerator, b.human.supportedClaims.denominator], [1, 2])
   assert.equal(b.undeterminedClaims, 1)
-  // d: null(선택 안 함)은 분모에서 빠진다
-  assert.deepEqual([b.human.requiredCauses.numerator, b.human.requiredCauses.denominator], [2, 3])
+  assert.deepEqual([b.human.requiredCauses.numerator, b.human.requiredCauses.denominator], [3, 4])
+  // 미완료 채점(complete: false)은 채점 안 한 답변과 같다
+  const unfinished = { X03: grade('X03', { verdicts: ['supported', null], complete: false }) }
+  const u = armMetrics(detail(ALL_ANSWERED, { grades: unfinished, unblinded: true }), 'B', null)
+  assert.equal(u.human.supportedClaims.status, 'unmeasured')
 })
 
 test('모의 실험은 어떤 성공 기준도 판정하지 않는다 (M4)', () => {
@@ -184,8 +189,10 @@ test('provider 실패가 하나라도 남아 있으면 자동 기준도 판정�
   assert.match(results.S8.reason, /provider 실패 1/)
 })
 
-test('모든 호출이 답변을 받으면 자동 기준을 판정하고, 사람 기준은 해제 뒤 채점이 끝나야 판정한다', () => {
-  const results = Object.fromEntries(evaluateCriteria(detail(ALL_ANSWERED)).map((r) => [r.criterion.id, r.status]))
+test('모든 호출이 답변을 받으면 해제 뒤 자동 기준을 판정하고, 사람 기준은 채점이 끝나야 판정한다', () => {
+  const blinded = evaluateCriteria(detail(ALL_ANSWERED))
+  assert.ok(blinded.every((r) => r.status === 'unmeasured')) // 해제 전에는 자동 기준도 판정하지 않는다(H3)
+  const results = Object.fromEntries(evaluateCriteria(detail(ALL_ANSWERED, { unblinded: true })).map((r) => [r.criterion.id, r.status]))
   assert.equal(results.S1, 'unmeasured')
   assert.equal(results.S3, 'unmeasured')
   assert.equal(results.S8, 'met') // B 0/2 <= A 1/2
@@ -234,4 +241,52 @@ test('lineDiff · diffChunks', () => {
   const chunks = diffChunks(diff, 0)
   assert.deepEqual(chunks.map((c) => c.kind), ['skip', 'lines', 'skip'])
   assert.deepEqual(diffChunks(lineDiff(a, a)), [{ kind: 'skip', count: a.length }])
+})
+
+// --- 독립 리뷰 지적(2026-11-22) -------------------------------------------------
+
+test('H2: 미완료 채점(판정 안 한 문장·선택 안 한 원인·점수 없음)은 채점 완료로 세지 않는다', () => {
+  const done = (code) => ({ ...grade(code), requiredCauses: { a: true, b: true, c: false, d: true }, complete: true })
+  const unfinished = {
+    ...grade('X04', { verdicts: ['supported', null] }),
+    requiredCauses: { a: true, b: null, c: null, d: null },
+    understanding: null,
+    complete: false,
+  }
+  const grades = { X01: done('X01'), X02: done('X02'), X03: done('X03'), X04: unfinished }
+  const d = detail(ALL_ANSWERED, { grades, unblinded: true })
+  const b = armMetrics(d, 'B', null)
+  assert.notEqual(b.human.supportedClaims.status, 'measured')
+  assert.notEqual(b.human.requiredCauses.status, 'measured')
+  const results = Object.fromEntries(evaluateCriteria(d).map((r) => [r.criterion.id, r]))
+  assert.equal(results.S3.status, 'unmeasured')
+  assert.equal(results.S1.status, 'unmeasured')
+})
+
+test('H3: 해제 전 응답에는 답변·Gate 파생 값이 없고, 지표·기준은 판정하지 않는다', () => {
+  // backend가 해제 전에 보내는 모양: 답변을 받은 호출은 outcome "answered", 파생 값은 null
+  const blinded = (arm, repeat, kind = 'answered') => ({
+    ...call(arm, repeat, null, 'served'),
+    blindCode: null,
+    models: null,
+    toolUse: null,
+    durationMs: null,
+    wallMs: null,
+    scores: null,
+    evaluation:
+      kind === 'answered'
+        ? // countsForContent도 null: false면 "답이 파싱 안 된 Gate 거부"라서 해제 전에는 보내지 않는다(H3 2차)
+          { outcome: 'answered', category: null, answerProduced: null, exclusion: null, countsForGate: true, countsForContent: null, integrityChecked: true }
+        : EVALUATION.timeout,
+  })
+  const calls = [blinded('A', 1), blinded('A', 2), blinded('B', 1), blinded('B', 2, 'timeout')]
+  const d = detail(calls)
+  const a = armMetrics(d, 'A', null)
+  assert.equal(a.exact.gateRejected.status, 'unmeasured')
+  assert.equal(a.exact.latency.status, 'unmeasured')
+  assert.equal(a.auto.nonRunClaims.status, 'unmeasured')
+  const b = armMetrics(d, 'B', null)
+  assert.deepEqual([b.exact.providerErrors.numerator, b.exact.providerErrors.denominator], [1, 2]) // 실행 상태는 보인다
+  const allAnswered = detail(calls.slice(0, 3).concat([blinded('B', 2)]))
+  assert.ok(evaluateCriteria(allAnswered).every((r) => r.status === 'unmeasured'))
 })

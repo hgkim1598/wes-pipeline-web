@@ -10,6 +10,7 @@ in-process, up to the point where it would import a tree. Run from backend/:
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import random
@@ -59,6 +60,18 @@ def test_v2_changes_only_what_it_says_it_changes():
         assert PROTOCOL[key] == v1[key], key
     same = {c["id"]: c for c in v1["successCriteria"] if c["id"] != "S8"}
     assert all(c == same[c["id"]] for c in PROTOCOL["successCriteria"] if c["id"] != "S8")
+
+
+def test_v3_changes_only_the_arm_difference_it_names():
+    """v3 (review H1, 2026-11-22) adds the tool channel to B's intended change; nothing measured changes."""
+    v2 = json.loads((runner.PROTOCOLS / "ledger_applicability_v2.json").read_text(encoding="utf-8"))
+    changed = {"protocolVersion", "id", "fixedAt", "supersedes", "note", "intendedDifference", "diffClassification"}
+    assert set(PROTOCOL) == set(v2)
+    assert all(PROTOCOL[k] == v2[k] for k in set(v2) - changed)
+    added = [r for r in PROTOCOL["diffClassification"] if r not in v2["diffClassification"]]
+    assert {r["path"] for r in added} == {"backend/app/services/agent/step_evidence.py", "backend/app/services/agent/run_scope.py"}
+    assert all(r["class"] == "intended" for r in added)
+    assert all(r in PROTOCOL["diffClassification"] for r in v2["diffClassification"])
 
 
 def test_plan_interleaves_arms_and_gives_unique_blind_codes():
@@ -217,6 +230,7 @@ def test_os_lock_is_exclusive_and_probe_never_creates_files(tmp_path):
 # --- an experiment on disk that passes every integrity check ------------------------
 
 PAYLOAD_FIELDS = {
+    "sourceDigest": "s",
     "userPromptDigest": "u",
     "constraintsDigest": "c",
     "promptHash": "p",
@@ -265,6 +279,7 @@ def make_experiment(store: Path, name: str, *, mock: bool) -> Path:
             "experimentId": name,
             "mock": mock,
             "createdAt": "t",
+            "attemptProtocol": contract.ATTEMPT_PROTOCOL,
             "protocolFile": runner.DEFAULT_PROTOCOL.name,
             "protocolSha256": runner.sha256_file(runner.DEFAULT_PROTOCOL),
             "protocol": PROTOCOL,
@@ -311,6 +326,9 @@ class FakeWorker:
         # what the real worker refuses, the fake asserts the runner never asks for
         assert Path(attempt["claim"]).is_file(), "spawned without a durable claim"
         assert not Path(attempt["started"]).exists() and not out.exists(), "spawned on a used attempt"
+        assert not Path(attempt["void"]).exists(), "spawned on a sealed attempt"
+        locked = runner.read_json(root / "payloads" / f"{request['case']}.{arm}.json")
+        assert request["locked"] == {"payloadDigest": locked["payloadDigest"], "sourceDigest": locked["sourceDigest"]}
         behaviours = self.script.get(call_id, ["served"])
         spawned = self.spawns.get(call_id, 0)
         self.spawns[call_id] = spawned + 1
@@ -576,7 +594,7 @@ def test_a_call_that_may_have_reached_the_model_is_never_repeated_automatically(
     # an explicit retry inside the approval: attempt 2, and the uncertain one stays counted
     assert runner.run("ledger-crash", approval=approval, mock=False, allow_real=True, retry=[PILOT[0]]) == 0
     assert fake.model_calls == [PILOT[0], PILOT[1], PILOT[0]]
-    used = contract.approval_usage(root, approval, lock_probe=contract.is_held)
+    used = contract.approval_usage(root, approval)
     assert len(used) == 3
 
 
@@ -624,9 +642,16 @@ def test_an_orphaned_worker_still_holding_its_attempt_stops_the_run(store, monke
         assert _states(root)[PILOT[0]] == "running"
         with pytest.raises(runner.AbError, match="running in another process"):
             runner.run("ledger-orphan", approval=approval, mock=False, allow_real=True)
-        assert len(contract.approval_usage(root, approval, lock_probe=contract.is_held)) == 1
+        assert len(contract.approval_usage(root, approval)) == 1
+        assert not paths["void"].exists()  # a live attempt is never sealed
     assert fake.model_calls == []
-    assert _states(root)[PILOT[0]] == "notInvoked"  # it died before the model
+    # It died before the model, but until a runner seals it that is not a fact.
+    assert _states(root)[PILOT[0]] == "inFlightOrNotInvoked"
+    assert len(contract.approval_usage(root, approval)) == 1
+    # The next run seals it (lock free, no marker), and it no longer counts.
+    assert runner.run("ledger-orphan", approval=approval, mock=False, allow_real=True) == 0
+    assert paths["void"].is_file()
+    assert fake.model_calls == PILOT
 
 
 def test_an_approval_is_bound_to_the_experiment_it_approved(store, monkeypatch):
@@ -684,7 +709,7 @@ def test_worker_rejects_unknown_actions(tmp_path):
 
 
 def _attempt(tmp_path: Path, *, claim: bool = True, started: bool = False) -> dict:
-    paths = {k: tmp_path / f"1.{k}" for k in ("claim", "lock", "started")}
+    paths = {k: tmp_path / f"1.{k}" for k in ("claim", "lock", "started", "void")}
     if claim:
         paths["claim"].write_text("{}", encoding="utf-8")
     if started:
@@ -720,6 +745,16 @@ def test_worker_refuses_an_attempt_that_already_reached_the_model(tmp_path, no_i
     assert no_import == []
 
 
+def test_worker_refuses_an_attempt_a_runner_sealed_as_not_invoked(tmp_path, no_import):
+    """B1: the seal is written under the attempt lock; the worker checks it under the same lock."""
+    attempt = _attempt(tmp_path)
+    Path(attempt["void"]).write_text("{}", encoding="utf-8")
+    req = _request(tmp_path, "mock", False, attempt=attempt)
+    with pytest.raises(SystemExit, match="sealed as not invoked"):
+        worker.main(_worker_args(tmp_path, req, tmp_path / "o.json"))
+    assert no_import == [] and not Path(attempt["started"]).exists()
+
+
 def test_worker_refuses_an_attempt_held_by_another_process(tmp_path, no_import):
     attempt = _attempt(tmp_path)
     req = _request(tmp_path, "mock", False, attempt=attempt)
@@ -738,16 +773,23 @@ def test_worker_writes_the_marker_before_the_model_call(tmp_path, monkeypatch):
     seen = []
 
     def evaluate(name, materialised, *, variant, privacy):
-        seen.append(marker.exists())
+        with materialised:  # the harness enters it right before the provider call
+            seen.append(marker.exists())
         return {"available": True}, {"p": 1}
 
+    locked = {"payloadDigest": "pd", "sourceDigest": "sd"}
     monkeypatch.setattr(run_eval, "apply_variant_settings", lambda _v: None)
     monkeypatch.setattr(run_eval, "_evaluate_run", evaluate)
-    monkeypatch.setattr(worker, "_case", lambda _re, _req: (lambda: None, None, lambda _v: 0))
-    record = worker.call_model({"case": "c", "conditions": {"variant": "v3"}}, marker)
+    monkeypatch.setattr(worker, "_case", lambda _re, _req: (lambda: contextlib.nullcontext("run"), None, lambda _v: 0))
+    monkeypatch.setattr(worker, "_inputs_now", lambda _explanation: dict(locked))
+    request = {"case": "c", "conditions": {"variant": "v3"}, "locked": locked}
+    record = worker.call_model(request, marker)
     assert seen == [True] and record["payloadDigest"] == worker.canonical_sha256({"p": 1})
     with pytest.raises(FileExistsError):  # a second call through the same marker is impossible
-        worker.call_model({"case": "c", "conditions": {"variant": "v3"}}, marker)
+        worker.call_model(request, marker)
+    with pytest.raises(SystemExit, match="digests"):  # no approved digests, no call
+        worker.call_model({"case": "c", "conditions": {"variant": "v3"}}, tmp_path / "2.started")
+    assert not (tmp_path / "2.started").exists()
 
 
 def test_worker_publishes_atomically_and_never_replaces(tmp_path):

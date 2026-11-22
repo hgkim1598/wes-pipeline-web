@@ -3,8 +3,10 @@
   GET  /api/eval/compare                                experiments in the store
   GET  /api/eval/compare/{exp}                          protocol, arms, call states, auto scores, grades
   GET  /api/eval/compare/{exp}/calls/{call_id}          one call in full, gate-rejected answer included
+                                                        (409 when a record file of the call is damaged)
   GET  /api/eval/compare/{exp}/payloads/{case}          both arms' model input for one case
   GET  /api/eval/compare/{exp}/blind                    answers by blind code, arm/gate/time hidden
+                                                        (before unblinding: whole pairs only)
   POST /api/eval/compare/{exp}/grades/{code}            append one human grade (never replaces)
   POST /api/eval/compare/{exp}/unblind                  end the blind phase (once, recorded)
 
@@ -34,16 +36,59 @@ cannot call something a gate rejection that the runner recorded as a provider
 error. That module is imported lazily, only after the access check: a
 deployment without evals/ never imports it.
 
+What is derived from an answer, and who may see it
+---------------------------------------------------
+
+Every per-call field falls in one of two classes:
+
+  execution   arm, case, repeat, attempt, state, integrity, privacyOk, the
+              provider-error outcome and its category. Facts about running the
+              call; there is no answer to join them with.
+  answer-     anything the answer or the gate decided or measured: served vs
+  derived     gateRejected and the gate's category, detector scores and their
+              excerpts, the first gate rejection, durations (they follow the
+              answer's length and tool use), models, tool use, evaluator
+              checks, the texts themselves.
+
+`_project_call` is the only place that builds a call for the screen, and it
+applies one rule: answer-derived fields are served only when the experiment is
+unblinded AND the call's leak count is zero. Otherwise they are null, and an
+answered call's outcome reads "answered" -- countable for monitoring, but not
+which kind. Review H3/M2 (2026-11-22): the first version hid only blind codes
+and excerpts before unblinding and only the texts for a leaking call, so the
+gate outcome, detector hits, durations and tool use still tied a blind answer
+to its arm, and a leaking call's excerpts and first rejection were still
+served.
+
 Blind phase
 -----------
 
-Until someone records the end of the blind phase (POST /unblind, once),
-nothing ties an answer text to its arm: the detail route omits blind codes,
-grades and detector excerpts, and the call route withholds answer texts,
-gate findings and evaluator details. The grade page reads /blind, which never
-carries an arm. A grade saved after unblinding is stored with blind: false.
+Until someone records the end of the blind phase (POST /unblind, once), the
+rule above keeps every answer-derived field off the detail and call routes, and
+grades are not listed there. The grade page reads /blind, which never carries
+an arm. A grade saved after unblinding is stored with blind: false.
 
-A stored call whose leak count is not zero is served without its texts.
+Which answers are in the blind set, and when, is itself information. The
+detail route must show execution facts per call -- this arm's attempt is
+running, that one failed at the provider, this one is held for privacy -- and
+the person watching it is usually the person grading. So before unblinding
+the blind set is decided per planned pair (same case, same repeat, one call
+per arm), never per call (`_blind_set`): a pair enters only when both arms are
+recorded with an answer that may be graded, and then both enter together. An
+answer whose partner failed, is held, has nothing to grade, or has not run yet
+stays out until unblinding (counted as `heldUntilUnblind`), and grading its
+code before then answers 404 like an unknown code. Review H3, second round
+(2026-11-22): the blind set used to follow each call, so "B timed out in
+repeat 2" on the detail route plus "one new code for that case" on /blind
+named the code's arm, and a code appearing while one call had just finished
+named it too.
+
+This is a rule about which answers the API pairs up, not a proof of
+anonymity: what an answer says can still give its arm away.
+
+A grade is complete only when every claim of the answer has a verdict, every
+required cause of the case is answered, and understanding and usefulness are
+set (`_completeness`). Only complete grades count as graded (review H2).
 """
 
 from __future__ import annotations
@@ -170,24 +215,32 @@ def _latest_grades(root: Path) -> dict[str, dict[str, Any]]:
     return out
 
 
-def _without_excerpts(scores: dict[str, Any]) -> dict[str, Any]:
-    """Detector hits quote the answer; before unblinding that ties text to an arm."""
-    out = dict(scores)
-    for key in ("served", "rejected"):
-        part = dict(out.get(key) or {})
-        for field in ("detectorHits", "wrongCauseCandidates"):
-            if field in part:
-                part[field] = [{k: v for k, v in h.items() if k != "excerpt"} for h in part[field]]
-        out[key] = part
-    return out
+def _blinded_evaluation(evaluation: dict[str, Any]) -> dict[str, Any]:
+    """An answered call's evaluation without which kind of answer it was.
+
+    served / gateRejected collapse to "answered". countsForContent goes too:
+    false on an answered call means a gate rejection whose answer did not
+    parse. Provider errors and unclassified records keep their outcome: there
+    is no answer to join. A privacy exclusion stays: it holds the whole pair
+    out of /blind (`_blind_set`), so it names no blind code.
+    """
+    if evaluation["outcome"] not in _contract().ANSWER_OUTCOMES:
+        return evaluation
+    return evaluation | {
+        "outcome": "answered",
+        "category": None,
+        "answerProduced": None,
+        "reason": None,
+        "countsForContent": None,
+    }
 
 
-def _call_summary(call: dict[str, Any], *, mock: bool, unblinded: bool, attempts: int) -> dict[str, Any]:
+def _project_call(call: dict[str, Any], *, mock: bool, unblinded: bool, attempts: int) -> dict[str, Any]:
+    """One call for the screen. See "What is derived from an answer" above."""
     record = call["record"]
-    tool = record.get("toolUse") or {}
-    trace = record.get("trace") or {}
-    duration = record.get("durationMs") if record.get("durationMs") is not None else trace.get("durationMs")
-    return {
+    derived = unblinded and _safe(record)
+    evaluation = _contract().evaluation_of(call, mock=mock)
+    out: dict[str, Any] = {
         "callId": call["callId"],
         "attempt": call.get("attempt", 1),
         "attempts": attempts,
@@ -198,23 +251,63 @@ def _call_summary(call: dict[str, Any], *, mock: bool, unblinded: bool, attempts
         "blindCode": call["blindCode"] if unblinded else None,
         "mock": call["mock"],
         "startedAt": call["startedAt"],
-        # A rejected answer has no provenance; the trace still names the models.
-        "models": record.get("models") or trace.get("models"),
         "promptHash": record.get("promptHash"),
         "knowledgeHash": record.get("knowledgeHash"),
         "payloadDigest": record.get("payloadDigest"),
-        "toolUse": {
-            "toolUsed": tool.get("toolUsed"),
-            "openedStepIds": tool.get("openedStepIds") or [],
-            "callCount": tool.get("callCount"),
-        },
         "privacyOk": _safe(record),
-        "evaluation": _contract().evaluation_of(call, mock=mock),
+        "evaluation": evaluation if unblinded else _blinded_evaluation(evaluation),
         "integrity": call.get("integrity"),
-        "durationMs": duration,
-        "wallMs": record.get("wallMs"),
-        "scores": call["scores"] if unblinded else _without_excerpts(call["scores"]),
+        "answerDerivedWithheld": None if derived else ("privacy" if unblinded else "blind"),
+        "models": None,
+        "toolUse": None,
+        "durationMs": None,
+        "wallMs": None,
+        "scores": None,
     }
+    if derived:
+        tool = record.get("toolUse") or {}
+        trace = record.get("trace") or {}
+        out |= {
+            # A rejected answer has no provenance; the trace still names the models.
+            "models": record.get("models") or trace.get("models"),
+            "toolUse": {
+                "toolUsed": tool.get("toolUsed"),
+                "openedStepIds": tool.get("openedStepIds") or [],
+                "callCount": tool.get("callCount"),
+            },
+            "durationMs": record.get("durationMs") if record.get("durationMs") is not None else trace.get("durationMs"),
+            "wallMs": record.get("wallMs"),
+            "scores": call["scores"],
+        }
+    return out
+
+
+def _completeness(grade: dict[str, Any], call: dict[str, Any] | None, doc: dict[str, Any]) -> dict[str, Any]:
+    """Is this grade finished? Unjudged parts are listed, never counted as judged.
+
+    Review H2 (2026-11-22): the screen counted any saved grade as graded, and
+    its claim and cause ratios used only the judged part, so a half-finished
+    grade could meet a success criterion.
+    """
+    if call is None:
+        return {"complete": False, "missing": ["answer"]}
+    missing: list[str] = []
+    judged = {(c.get("section"), c.get("index")) for c in grade.get("claims") or [] if c.get("verdict") is not None}
+    if any((c["section"], c["index"]) not in judged for c in _claims(_answer_of(call["record"]))):
+        missing.append("claims")
+    case = next(c for c in doc["protocol"]["cases"] if c["case"] == call["case"])
+    answered = grade.get("requiredCauses") or {}
+    if any(answered.get(cause["id"]) is None for cause in case["facts"]["requiredCauses"]):
+        missing.append("requiredCauses")
+    for field in ("understanding", "usefulness"):
+        if grade.get(field) is None:
+            missing.append(field)
+    return {"complete": not missing, "missing": missing}
+
+
+def _grades_with_completeness(root: Path, doc: dict[str, Any], gradable: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    by_code = {c["blindCode"]: c for c in gradable}
+    return {code: g | _completeness(g, by_code.get(code), doc) for code, g in _latest_grades(root).items()}
 
 
 def _gradable(root: Path, doc: dict[str, Any]) -> list[dict[str, Any]]:
@@ -226,6 +319,35 @@ def _gradable(root: Path, doc: dict[str, Any]) -> list[dict[str, Any]]:
         for call in contract.latest_records(root).values()
         if contract.evaluation_of(call, mock=mock)["countsForContent"]
     ]
+
+
+def _blind_set(root: Path, doc: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
+    """(answers that may be graded now, how many gradable ones wait for unblinding).
+
+    After unblinding: every gradable answer. Before: only planned pairs
+    (case, repeat) whose calls in both arms are recorded -- no newer attempt
+    claimed -- and gradable. See "Which answers are in the blind set" above.
+    """
+    gradable = _gradable(root, doc)
+    if _unblind(root) is not None:
+        return gradable, 0
+    contract = _contract()
+    mock = bool(doc["mock"])
+    records = contract.call_records(root)
+    by_call = {c["callId"]: c for c in gradable}
+    pairs: dict[tuple[str, int], dict[str, str]] = {}
+    for planned in doc["plan"]:
+        pairs.setdefault((planned["case"], planned["repeat"]), {})[planned["arm"]] = planned["callId"]
+    shown: list[dict[str, Any]] = []
+    for arms in pairs.values():
+        ids = list(arms.values())
+        whole = set(arms) == set(_ARMS) and all(
+            i in by_call and contract.call_state(root, i, records=records.get(i, {}), mock=mock)["state"] == "recorded"
+            for i in ids
+        )
+        if whole:
+            shown.extend(by_call[i] for i in ids)
+    return shown, len(gradable) - len(shown)
 
 
 @router.get("")
@@ -263,26 +385,37 @@ def get_experiment(exp: str) -> dict[str, Any]:
     records = contract.call_records(root)
     checks_path = root / "payloads" / "checks.json"
     protocol = doc["protocol"]
+    unblinded = unblind is not None
+
+    def shown(outcome: str | None) -> str | None:
+        # An answered outcome says served or gateRejected: answer-derived.
+        if not unblinded and outcome in contract.ANSWER_OUTCOMES:
+            return "answered"
+        return outcome
+
     plan = []
     for c in doc["plan"]:
         state = contract.call_state(root, c["callId"], records=records.get(c["callId"], {}), mock=mock)
         history = [
-            {"attempt": n, "outcome": contract.classify_outcome(r["record"])["outcome"]}
+            {"attempt": n, "outcome": shown(contract.classify_outcome(r["record"])["outcome"])}
             for n, r in sorted(records.get(c["callId"], {}).items())
         ]
         plan.append(
             {k: c[k] for k in ("callId", "case", "arm", "repeat", "seq")}
-            | {"state": state["state"], "outcome": state["outcome"], "attempts": state["attempts"], "history": history}
+            | {"state": state["state"], "outcome": shown(state["outcome"]), "attempts": state["attempts"], "history": history}
         )
+    # A call with a damaged record file has no summary: an older readable attempt
+    # must not stand in for it in the counts (its plan state is unreadableRecord).
+    damaged = contract.unreadable_records(root)
     calls = [
-        _call_summary(by_attempt[max(by_attempt)], mock=mock, unblinded=unblind is not None, attempts=len(by_attempt))
-        for _call_id, by_attempt in sorted(records.items())
+        _project_call(by_attempt[max(by_attempt)], mock=mock, unblinded=unblinded, attempts=len(by_attempt))
+        for call_id, by_attempt in sorted(records.items())
+        if call_id not in damaged
     ]
     approvals = []
     for approval_id, ap in contract.approvals(root).items():
-        # The API does not probe worker locks (that could race a starting
-        # worker), so an attempt it cannot prove unspent counts: an upper bound.
-        spent = contract.approval_usage(root, approval_id, lock_probe=lambda _p: True)
+        # Durable files only: an attempt not sealed notInvoked counts.
+        spent = contract.approval_usage(root, approval_id)
         approvals.append(
             {
                 "approvalId": approval_id,
@@ -293,9 +426,10 @@ def get_experiment(exp: str) -> dict[str, Any]:
                 "usedAtMost": len(spent),
             }
         )
-    grades = _latest_grades(root)
-    gradable = _gradable(root, doc)
-    graded = [grades[c["blindCode"]] for c in gradable if c["blindCode"] in grades]
+    gradable, held = _blind_set(root, doc)
+    grades = _grades_with_completeness(root, doc, gradable)
+    saved = [grades[c["blindCode"]] for c in gradable if c["blindCode"] in grades]
+    graded = [g for g in saved if g["complete"]]
     return {
         "experimentId": doc["experimentId"],
         "mock": mock,
@@ -324,14 +458,16 @@ def get_experiment(exp: str) -> dict[str, Any]:
         "blind": {
             "unblinded": unblind is not None,
             "unblindedAt": (unblind or {}).get("unblindedAt"),
-            "gradable": len(gradable),
-            "graded": len(graded),
+            "gradable": len(gradable),  # before unblinding: whole pairs only
+            "heldUntilUnblind": held,
+            "graded": len(graded),  # complete grades only
+            "gradedIncomplete": len(saved) - len(graded),
             "gradedAfterUnblind": sum(1 for g in graded if g.get("blind") is False),
         },
         "approvals": approvals,
         "plan": plan,
         "calls": calls,
-        "grades": grades if unblind is not None else {},
+        "grades": grades if unblinded else {},
     }
 
 
@@ -342,22 +478,28 @@ def get_call(exp: str, call_id: str) -> dict[str, Any]:
     if not _ID.match(call_id):
         raise HTTPException(status_code=400, detail="malformed call id")
     by_attempt = contract.call_records(root).get(call_id)
+    if call_id in contract.unreadable_records(root):
+        raise HTTPException(status_code=409, detail="a record file of this call cannot be read; a person must look")
     if not by_attempt:
         raise HTTPException(status_code=404, detail="no such call")
     call = by_attempt[max(by_attempt)]
     record = call["record"]
     unblinded = _unblind(root) is not None
     safe = _safe(record)
-    show = safe and unblinded
+    show = safe and unblinded  # answer-derived fields (module docstring)
     checks = record.get("evaluation") or {}
-    return _call_summary(call, mock=bool(doc["mock"]), unblinded=unblinded, attempts=len(by_attempt)) | {
-        "available": record.get("available"),
-        "errorCategory": record.get("errorCategory"),
-        "trace": record.get("trace"),
+    summary = _project_call(call, mock=bool(doc["mock"]), unblinded=unblinded, attempts=len(by_attempt))
+    # available / errorCategory say served vs rejected and the gate category,
+    # except for a provider error, whose category is an execution fact.
+    execution_only = summary["evaluation"]["outcome"] not in ("answered", *contract.ANSWER_OUTCOMES)
+    return summary | {
+        "available": record.get("available") if show or execution_only else None,
+        "errorCategory": record.get("errorCategory") if show or execution_only else None,
+        "trace": record.get("trace") if show else None,
         "evidenceUse": record.get("evidenceUse") if show else None,
         # The harness's deterministic checks; their details can quote the answer.
         "checks": {
-            "deterministicPassed": checks.get("deterministicPassed"),
+            "deterministicPassed": checks.get("deterministicPassed") if show else None,
             "results": [
                 {k: r.get(k) for k in ("name", "kind", "outcome", "detail")}
                 for r in checks.get("results") or []
@@ -398,11 +540,17 @@ def get_payloads(exp: str, case: str) -> dict[str, Any]:
 
 @router.get("/{exp}/blind")
 def get_blind(exp: str) -> dict[str, Any]:
-    """Answers by blind code only. No arm, no gate result, no time, no model, no call id."""
+    """Answers by blind code only. No arm, no gate result, no time, no model, no call id.
+
+    Before unblinding only whole pairs (`_blind_set`), so which codes are
+    here says nothing about either arm's execution.
+    """
     root, doc = _experiment(exp)
     labels = {c["case"]: c for c in doc["protocol"]["cases"]}
+    shown, held = _blind_set(root, doc)
+    codes = {c["blindCode"] for c in shown}
     answers = []
-    for call in sorted(_gradable(root, doc), key=lambda c: c["blindCode"]):
+    for call in sorted(shown, key=lambda c: c["blindCode"]):
         answer = _answer_of(call["record"])
         answers.append(
             {
@@ -421,7 +569,9 @@ def get_blind(exp: str) -> dict[str, Any]:
             {k: c[k] for k in ("case", "label", "synthetic", "facts")} for c in doc["protocol"]["cases"]
         ],
         "answers": answers,
-        "grades": _latest_grades(root),
+        "heldUntilUnblind": held,
+        # Grades of codes in this set only (a held code cannot have one anyway).
+        "grades": {code: g for code, g in _grades_with_completeness(root, doc, shown).items() if code in codes},
     }
 
 
@@ -455,7 +605,8 @@ def save_grade(exp: str, code: str, grade: GradeIn) -> dict[str, Any]:
     root, doc = _experiment(exp)
     if not _CODE.match(code):
         raise HTTPException(status_code=400, detail="malformed blind code")
-    call = next((c for c in _gradable(root, doc) if c["blindCode"] == code), None)
+    # The /blind set: a held code must not be probeable here (404 like an unknown one).
+    call = next((c for c in _blind_set(root, doc)[0] if c["blindCode"] == code), None)
     if call is None:
         raise HTTPException(status_code=404, detail="no gradable answer with this code")
     claims = {(c["section"], c["index"]) for c in _claims(_answer_of(call["record"]))}
@@ -477,7 +628,7 @@ def save_grade(exp: str, code: str, grade: GradeIn) -> dict[str, Any]:
         "blind": _unblind(root) is None,
     }
     _write_new(folder / f"{stamp}-{secrets.token_hex(3)}.json", saved)
-    return saved | {"versions": len(list(folder.glob("*.json")))}
+    return saved | {"versions": len(list(folder.glob("*.json")))} | _completeness(saved, call, doc)
 
 
 class UnblindIn(BaseModel):

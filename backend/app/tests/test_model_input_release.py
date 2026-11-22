@@ -13,6 +13,7 @@ earlier truncation test).
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import time
 
@@ -319,7 +320,17 @@ def test_read_step_evidence_uses_the_release(nasty_scope):
         "chr1:12345-67890 within target; 5 mg/dL",
     ]
     assert evidence.warnings[0].message == "see <path>"
-    assert evidence.warnings[0].impact == "<path> was skipped"
+    # An unregistered impact sentence is withheld by the run's applicability
+    # decision (review H1) ...
+    assert evidence.warnings[0].impact is None
+    # ... and one the decision allows still goes through the release.
+    allowing = dataclasses.replace(nasty_scope, impact_policy=_AllowEveryImpact())
+    assert read_step_evidence(allowing, "00_input_validation").warnings[0].impact == "<path> was skipped"
+
+
+class _AllowEveryImpact(dict):
+    def get(self, key, default=None):
+        return None
 
 
 # --- long inputs stay fast ------------------------------------------------------
