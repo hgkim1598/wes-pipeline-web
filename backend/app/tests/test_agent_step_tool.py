@@ -294,7 +294,12 @@ def test_recorded_facts_are_preserved(scope):
 
     assert [w.code for w in evidence.warnings] == ["NM_MD_REPAIRED"]
     assert evidence.warnings[0].canContinue is True
-    assert "다운스트림" in evidence.warnings[0].impact
+    # This fixture's impact text is not the registered pipeline sentence for
+    # NM_MD_REPAIRED, so nothing vouches that it fits this run: the tool
+    # withholds it, as the initial payload does, and says why (review H1).
+    assert evidence.warnings[0].impact is None
+    assert [n["part"] for n in evidence.warnings[0].notSentForThisRun] == ["impact"]
+    assert "다운스트림" not in evidence.model_dump_json()
 
     # The pipeline's own metric identifiers, with their numbers intact.
     assert evidence.metrics["percent_duplication"] == 12.7
