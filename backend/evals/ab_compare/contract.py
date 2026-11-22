@@ -71,8 +71,10 @@ Life of one planned call (decided from durable files, in this order)
                           A runner turns it into notInvoked by sealing it, or finds
                           the lock held (running).
     inFlightOrUncertain   (API only; it does not probe locks) model-started, no result
-    unreadableRecord      a record file exists but cannot be read: a person looks;
-                          nothing is called or overwritten
+    unreadableRecord      a record file of ANY attempt (flat or versioned, claimed or
+                          not) exists but cannot be read: a person looks; nothing is
+                          called or overwritten, and no other record of the call
+                          stands in for it. Checked before every other state.
 
 Why a seal and not "the lock is free" (review B1, 2026-11-22)
 ------------------------------------------------------------
@@ -257,30 +259,59 @@ def claimed_attempts(root: Path, call_id: str) -> list[int]:
     return sorted(int(m["n"]) for p in folder.iterdir() if (m := _CLAIM_FILE.match(p.name)))
 
 
-def call_records(root: Path) -> dict[str, dict[int, dict[str, Any]]]:
-    """{callId: {attempt: stored record}}. A first-version flat file is attempt 1."""
+def _scan_records(
+    root: Path, call_id: str | None = None
+) -> tuple[dict[str, dict[int, dict[str, Any]]], dict[str, set[int]]]:
+    """({callId: {attempt: record}}, {callId: attempts with a record file that does not parse}).
+
+    A first-version flat file is attempt 1. Records are published atomically, so
+    a file that does not parse is a damaged disk or a first-version file, never a
+    write in progress.
+    """
     folder = root / "calls"
     out: dict[str, dict[int, dict[str, Any]]] = {}
+    unreadable: dict[str, set[int]] = {}
     if not folder.is_dir():
-        return out
+        return out, unreadable
     for path in sorted(folder.iterdir()):
         match = _RECORD_FILE.match(path.name)
-        if not match or not path.is_file():
+        if not match or not path.is_file() or (call_id is not None and match["call"] != call_id):
             continue
         attempt = int(match["attempt"] or 1)
         try:
             call = read_json(path)
+            if not isinstance(call, dict):
+                raise ValueError("record is not an object")
         except (OSError, ValueError):
-            # Not complete JSON. Records are published atomically, so this is a
-            # damaged disk or a first-version file; call_state reports it.
+            unreadable.setdefault(match["call"], set()).add(attempt)
             continue
         call.setdefault("attempt", attempt)
         out.setdefault(match["call"], {})[attempt] = call
-    return out
+    return out, unreadable
+
+
+def call_records(root: Path) -> dict[str, dict[int, dict[str, Any]]]:
+    """{callId: {attempt: stored record}} for the record files that parse.
+
+    A file that does not parse is left out here; call_state reports its call as
+    unreadableRecord and latest_records leaves the call out.
+    """
+    return _scan_records(root)[0]
+
+
+def unreadable_records(root: Path) -> dict[str, set[int]]:
+    """{callId: attempts whose record file exists but does not parse}."""
+    return _scan_records(root)[1]
 
 
 def latest_records(root: Path) -> dict[str, dict[str, Any]]:
-    return {call_id: by_attempt[max(by_attempt)] for call_id, by_attempt in call_records(root).items()}
+    """The newest record of each call -- unless any of its record files is damaged.
+
+    A damaged file can be the call's answer, so no readable file stands in for it
+    (PR review, 2026-11-22): the call has no latest record until a person looks.
+    """
+    records, unreadable = _scan_records(root)
+    return {call_id: by_attempt[max(by_attempt)] for call_id, by_attempt in records.items() if call_id not in unreadable}
 
 
 # --- call state ----------------------------------------------------------------
@@ -297,13 +328,23 @@ def call_state(
     mock: bool = False,
 ) -> dict[str, Any]:
     """State of one planned call (see the module docstring)."""
-    if records is None:
-        records = call_records(root).get(call_id, {})
+    # Damaged files are looked up on disk every time, even when the caller
+    # passes records: a flat first-version file has no claim, and a versioned
+    # file can be older than the latest claim, so neither is found by checking
+    # the latest attempt's path alone (PR review, 2026-11-22).
+    # Published records are never replaced, so the fresh scan only adds to a
+    # caller's snapshot: a record published after it is a record, not damage.
+    found, damaged = _scan_records(root, call_id)
+    records = found.get(call_id, {}) | (records or {})
+    unreadable = damaged.get(call_id, set())
     claimed = claimed_attempts(root, call_id)
-    attempts = sorted(set(claimed) | set(records))
+    attempts = sorted(set(claimed) | set(records) | unreadable)
     base = {"callId": call_id, "attempts": len(attempts), "attempt": attempts[-1] if attempts else None}
     if not attempts:
         return base | {"state": "planned", "outcome": None, "evaluation": None}
+    if unreadable:
+        # Any attempt, not only the latest: the damaged one may hold the answer.
+        return base | {"state": "unreadableRecord", "outcome": None, "evaluation": None}
     latest = attempts[-1]
     if latest in records:
         evaluation = evaluation_of(records[latest], mock=mock)

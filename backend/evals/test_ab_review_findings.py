@@ -167,3 +167,84 @@ def test_m1_a_crash_while_writing_the_record_does_not_block_recovery(store, monk
     assert fake.model_calls == [PILOT[0]]  # recovered from the raw result, no second call
     stored = contract.latest_records(root)[PILOT[0]]
     assert stored["scores"]["outcome"]["outcome"] == "served"
+
+
+# --- PR review (Copilot): a damaged record file must not read as "planned" ---------
+#
+# call_records skips a record file it cannot parse, and call_state used to find
+# such a file only at the latest CLAIMED attempt's versioned path. A first-version
+# flat calls/<id>.json has no claim, and a versioned file can outlive its claim, so
+# a damaged one vanished: the call read as planned, the runner claimed attempt 1
+# again and called the model for a call that may already have an answer.
+
+
+def _damage(root: Path, name: str) -> None:
+    (root / "calls").mkdir(parents=True, exist_ok=True)
+    (root / "calls" / name).write_text('{"callId": "half', encoding="utf-8")
+
+
+@pytest.mark.parametrize("name", [f"{PILOT[0]}.json", f"{PILOT[0]}.a1.json", f"{PILOT[0]}.a3.json"])
+def test_pr_a_damaged_record_without_a_claim_is_unreadable_not_planned(store, name):
+    root = make_experiment(store, "ledger-pr-flat", mock=False)
+    _damage(root, name)
+    for records in (None, contract.call_records(root).get(PILOT[0], {})):
+        state = contract.call_state(root, PILOT[0], records=records, lock_probe=contract.is_held)
+        assert state["state"] == "unreadableRecord"
+        assert state["attempt"] is not None and state["attempts"] >= 1
+
+
+def test_pr_a_damaged_older_record_holds_the_call_even_when_a_newer_one_reads(store):
+    """The damaged attempt may have been the answer; a person decides, not the newest file."""
+    root = make_experiment(store, "ledger-pr-older", mock=False)
+    _damage(root, f"{PILOT[0]}.json")
+    newer = contract.attempt_paths(root, PILOT[0], 2)
+    runner.write_new(newer["claim"], {"callId": PILOT[0], "attempt": 2, "approvalId": "ap-x"})
+    runner.write_new(newer["record"], {"callId": PILOT[0], "record": {"available": False, "errorCategory": "timeout", "leakCount": 0}})
+    assert contract.call_state(root, PILOT[0], lock_probe=contract.is_held)["state"] == "unreadableRecord"
+    assert PILOT[0] not in contract.latest_records(root)
+
+
+@pytest.mark.parametrize("name", [f"{PILOT[0]}.json", f"{PILOT[0]}.a1.json"])
+def test_pr_the_runner_never_calls_a_call_whose_record_is_damaged(store, monkeypatch, name):
+    root = make_experiment(store, "ledger-pr-run", mock=False)
+    approval = _approve("ledger-pr-run", PILOT[:1], 1)
+    _damage(root, name)
+    fake = FakeWorker()
+    monkeypatch.setattr(runner, "_spawn_worker", fake)
+    assert runner.run("ledger-pr-run", approval=approval, mock=False, allow_real=True) == 3
+    assert fake.model_calls == []
+    assert contract.claimed_attempts(root, PILOT[0]) == []
+    assert (root / "calls" / name).read_text(encoding="utf-8") == '{"callId": "half'  # never overwritten
+    assert runner.status("ledger-pr-run")["calls"][0]["state"] == "unreadableRecord"
+
+
+def test_pr_a_claimed_damaged_attempt_is_never_retried(store, monkeypatch):
+    """Attempt 1 timed out, attempt 2 was claimed and its record is damaged; --retry does not reach the model."""
+    root = make_experiment(store, "ledger-pr-retry", mock=False)
+    approval = _approve("ledger-pr-retry", PILOT[:1], 3)
+    first = contract.attempt_paths(root, PILOT[0], 1)
+    runner.write_new(first["claim"], {"callId": PILOT[0], "attempt": 1, "approvalId": approval})
+    runner.write_new(first["record"], {"callId": PILOT[0], "record": {"available": False, "errorCategory": "timeout", "leakCount": 0}})
+    second = contract.attempt_paths(root, PILOT[0], 2)
+    runner.write_new(second["claim"], {"callId": PILOT[0], "attempt": 2, "approvalId": approval})
+    _damage(root, second["record"].name)
+    fake = FakeWorker()
+    monkeypatch.setattr(runner, "_spawn_worker", fake)
+    assert runner.run("ledger-pr-retry", approval=approval, mock=False, allow_real=True, retry=[PILOT[0]]) == 3
+    assert fake.model_calls == [] and contract.claimed_attempts(root, PILOT[0]) == [1, 2]
+
+
+@pytest.mark.parametrize("claimed", [True, False])
+def test_pr_a_record_published_after_the_callers_snapshot_is_not_called_damaged(store, claimed):
+    """A caller's records snapshot can be older than the disk; a readable new file is a record."""
+    root = make_experiment(store, "ledger-pr-snapshot", mock=True)
+    snapshot = contract.call_records(root).get(PILOT[0], {})
+    paths = contract.attempt_paths(root, PILOT[0], 1)
+    if claimed:
+        runner.write_new(paths["claim"], {"callId": PILOT[0], "attempt": 1, "approvalId": "ap-x"})
+        target = paths["record"]
+    else:
+        target = root / "calls" / f"{PILOT[0]}.json"
+    runner.write_new(target, {"callId": PILOT[0], "record": {"available": False, "errorCategory": "timeout", "leakCount": 0}})
+    state = contract.call_state(root, PILOT[0], records=snapshot, mock=True)
+    assert (state["state"], state["outcome"]) == ("recorded", "providerError")

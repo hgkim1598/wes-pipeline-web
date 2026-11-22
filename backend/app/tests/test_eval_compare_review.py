@@ -285,3 +285,40 @@ def test_h3r2_counts_reconcile_after_a_held_answer_is_graded(client, store):
     assert (detail["blind"]["gradable"], detail["blind"]["graded"], detail["blind"]["heldUntilUnblind"]) == (3, 3, 0)
     assert detail["blind"]["gradedAfterUnblind"] == 1
     assert sorted(client.get(f"/api/eval/compare/{EXP}/blind").json()["grades"]) == ["X01", "X02", "X03"]
+
+
+# --- PR review (Copilot): a damaged record file is shown and holds its pair --------
+
+
+def test_pr_a_damaged_record_marks_the_call_and_nothing_stands_in_for_it(client, store):
+    """Flat (no claim) and versioned-without-claim damage both read as unreadableRecord,
+    and the call's readable older record is neither blind-graded nor graded after unblinding."""
+    root = store
+    (root / "calls" / "002-b.json").write_text('{"callId": "half', encoding="utf-8")  # flat, attempt 1
+    (root / "calls" / "001-a.a2.json").write_text("[]", encoding="utf-8")  # versioned, no claim, not an object
+    states = {c["callId"]: c["state"] for c in client.get(f"/api/eval/compare/{EXP}").json()["plan"]}
+    assert states["001-a"] == states["002-b"] == "unreadableRecord"
+    assert not {"X01", "X02"} & set(_blind_codes(client))
+    _unblind(client)
+    assert not {"X01", "X02"} & set(_blind_codes(client))
+    assert client.post(f"/api/eval/compare/{EXP}/grades/X02", json=GRADE).status_code == 404
+
+
+def test_pr_a_damaged_partner_holds_a_healthy_answer_until_unblinding(client, store):
+    (store / "calls" / "001-a.a2.json").write_text('{"callId": "half', encoding="utf-8")
+    assert "X01" not in _blind_codes(client)  # 002-b is fine, its partner is not
+    _unblind(client)
+    codes = _blind_codes(client)
+    assert "X01" in codes and "X02" not in codes
+
+
+def test_pr_a_damaged_call_is_not_summarised_or_counted_from_an_older_record(client, store):
+    """The older readable attempt would otherwise feed the Gate counts and the call view."""
+    (store / "calls" / "001-a.a2.json").write_text('{"callId": "half', encoding="utf-8")
+    _unblind(client)
+    detail = client.get(f"/api/eval/compare/{EXP}").json()
+    assert "001-a" not in {c["callId"] for c in detail["calls"]}
+    assert "002-b" in {c["callId"] for c in detail["calls"]}
+    response = client.get(f"/api/eval/compare/{EXP}/calls/001-a")
+    assert response.status_code == 409
+    assert client.get(f"/api/eval/compare/{EXP}/calls/002-b").status_code == 200

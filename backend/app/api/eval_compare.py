@@ -3,6 +3,7 @@
   GET  /api/eval/compare                                experiments in the store
   GET  /api/eval/compare/{exp}                          protocol, arms, call states, auto scores, grades
   GET  /api/eval/compare/{exp}/calls/{call_id}          one call in full, gate-rejected answer included
+                                                        (409 when a record file of the call is damaged)
   GET  /api/eval/compare/{exp}/payloads/{case}          both arms' model input for one case
   GET  /api/eval/compare/{exp}/blind                    answers by blind code, arm/gate/time hidden
                                                         (before unblinding: whole pairs only)
@@ -403,9 +404,13 @@ def get_experiment(exp: str) -> dict[str, Any]:
             {k: c[k] for k in ("callId", "case", "arm", "repeat", "seq")}
             | {"state": state["state"], "outcome": shown(state["outcome"]), "attempts": state["attempts"], "history": history}
         )
+    # A call with a damaged record file has no summary: an older readable attempt
+    # must not stand in for it in the counts (its plan state is unreadableRecord).
+    damaged = contract.unreadable_records(root)
     calls = [
         _project_call(by_attempt[max(by_attempt)], mock=mock, unblinded=unblinded, attempts=len(by_attempt))
-        for _call_id, by_attempt in sorted(records.items())
+        for call_id, by_attempt in sorted(records.items())
+        if call_id not in damaged
     ]
     approvals = []
     for approval_id, ap in contract.approvals(root).items():
@@ -473,6 +478,8 @@ def get_call(exp: str, call_id: str) -> dict[str, Any]:
     if not _ID.match(call_id):
         raise HTTPException(status_code=400, detail="malformed call id")
     by_attempt = contract.call_records(root).get(call_id)
+    if call_id in contract.unreadable_records(root):
+        raise HTTPException(status_code=409, detail="a record file of this call cannot be read; a person must look")
     if not by_attempt:
         raise HTTPException(status_code=404, detail="no such call")
     call = by_attempt[max(by_attempt)]
