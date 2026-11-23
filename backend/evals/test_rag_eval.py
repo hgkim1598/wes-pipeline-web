@@ -12,6 +12,7 @@ from __future__ import annotations
 import copy
 import json
 import re
+from pathlib import Path
 
 import pytest
 
@@ -228,14 +229,18 @@ def test_heldout_wording_result_as_measured(baseline):
     assert set(heldout["missed"]) <= {"ho-htslib-index-retrieve", "ho-bedtools-invalid-record"}
 
 
-def test_the_lexicon_on_the_older_48_query_set_never_names_a_cause_for_a_negative():
-    # evals/experiments/retrieval_queries.json predates the lexicon (log 17.2).
-    from pathlib import Path
+# evals/experiments/retrieval_queries.json predates the lexicon (log 17.2). It is
+# gitignored (local-only, like the local excerpt corpus), so this check runs on
+# the machine that has it and is skipped in CI -- the public held-out cases above
+# are what CI checks (log 62; CI run on b714ed4 failed on the missing file).
+OLDER_QUERIES = Path(__file__).parent / "experiments" / "retrieval_queries.json"
 
+
+@pytest.mark.skipif(not OLDER_QUERIES.is_file(), reason="local-only query set (gitignored)")
+def test_the_lexicon_on_the_older_48_query_set_never_names_a_cause_for_a_negative():
     from app.services.doc_search import lexicon
 
-    queries = json.loads((Path(__file__).parent / "experiments" / "retrieval_queries.json")
-                         .read_text(encoding="utf-8"))["queries"]
+    queries = json.loads(OLDER_QUERIES.read_text(encoding="utf-8"))["queries"]
     negatives = [q for q in queries if not q["expect"]]
     assert len(negatives) == 8
     assert [q["id"] for q in negatives if lexicon.suggest(q["text"])] == []

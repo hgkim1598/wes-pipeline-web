@@ -141,7 +141,7 @@ held-out 14사례는 코드와 같은 AI가 썼습니다. 그래서 **코드로�
 
 놓친 2건은 파일 종류를 알려 주는 단어(`.vcf.gz`, `.bed`)가 경로 가림(`<path>`)으로 사라진 경우입니다. 사례나 사전을 고쳐 맞추지 않았습니다.
 
-**기각한 대안과 비교**(`experiments/retrieval_queries.json`의 `unknown` 질의, top-1 문서의 원인 종류 기준)
+**기각한 대안과 비교**(`experiments/retrieval_queries.json`의 `unknown` 질의, top-1 문서의 원인 종류 기준. 이 질의 파일은 gitignore된 **로컬 전용**이라 CI에서는 해당 테스트가 건너뛰어집니다)
 
 | 방법 | 코퍼스 | dev 맞음/틀림/기권 | heldout 맞음/틀림/기권 | 음성 오검출 |
 |---|---|---|---|---|
