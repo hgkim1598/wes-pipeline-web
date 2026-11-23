@@ -331,7 +331,8 @@ def read_step_evidence(scope: RunScope, step_id: Any) -> StepEvidence:
     """
     try:
         detail = step_reader.read(
-            scope.run_dir, list(scope.planned_steps), scope.run_mode, step_id
+            scope.run_dir, list(scope.planned_steps), scope.run_mode, step_id,
+            process_ended=scope.process_ended,
         )
     except ValueError as exc:
         raise MalformedStepId(

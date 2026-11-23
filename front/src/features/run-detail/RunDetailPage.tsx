@@ -14,6 +14,7 @@ import { ApiError } from '@/api/client'
 import { isNotReady } from '@/features/run-detail/api'
 import { Button } from '@/components/ui/Button'
 import { MessageBlock } from '@/components/ui/MessageBlock'
+import { cx } from '@/lib/cx'
 import { TabsList, TabsPanel, TabsRoot, TabsTab } from '@/components/ui/Tabs'
 import { AiNote } from '@/features/run-detail/components/AiNote'
 import { AiStatusBar } from '@/features/run-detail/components/AiStatusBar'
@@ -23,10 +24,12 @@ import { DocEvidenceSection } from '@/features/run-detail/components/DocEvidence
 import { LogPanel } from '@/features/run-detail/components/LogPanel'
 import { ResultsView } from '@/features/run-detail/components/ResultsView'
 import { AttentionSection } from '@/features/run-detail/components/AttentionSection'
-import { RunFacts, RunHeader } from '@/features/run-detail/components/RunHeader'
+import { RunHeader } from '@/features/run-detail/components/RunHeader'
+import { RunVerdict } from '@/features/run-detail/components/RunVerdict'
 import { PipelineStepper } from '@/features/run-detail/components/PipelineStepper'
 import { ResourceCauseSection } from '@/features/run-detail/components/ResourceCauseSection'
 import { RunLimitations } from '@/features/run-detail/components/RunLimitations'
+import { OverviewRail } from '@/features/run-detail/components/OverviewRail'
 import { RunSynthesisPanel } from '@/features/run-detail/components/RunSynthesisPanel'
 import { artifactLabelMap } from '@/features/run-detail/locators'
 import {
@@ -55,12 +58,15 @@ import {
 } from '@/features/run-detail/factApplicability'
 import {
   findStepStatus,
+  phaseOf,
   useArtifactsQuery,
   useExplanationQuery,
   useJobDetailQuery,
+  useRefreshOnSettle,
   useResultsQuery,
   useStepDetailQuery,
 } from '@/features/run-detail/queries'
+import { connectionState } from '@/features/run-detail/runDetailPolicy'
 import { useCancelJobMutation } from '@/features/run-detail/useCancelJobMutation'
 import { useRunSynthesis } from '@/features/run-detail/useRunSynthesis'
 import {
@@ -87,7 +93,7 @@ import { describeStep } from '@/registries/steps'
     (개요 / 파이프라인 / 공식 문서 / AI 설명 / 파일) · 하단 RUO 문구.
     카드는 1px 선 + 옅은 --shadow-card + --radius-lg다(CLAUDE.md 23장).
     이전 탭 밖에 있던 실패 카드·제한·AI 상태·AI 패널은 각각 개요 탭과 AI 설명
-    탭으로 들어갔다. 헤더의 한 줄이 어느 탭에서든 멈춘 위치와 실패 건수를 말한다.
+    탭으로 들어갔다. 헤더의 한 줄이 개요 밖의 탭에서 멈춘 위치와 실패 건수를 말한다(개요는 RunVerdict).
 
   이 파일의 책임은 조립뿐이다. 쿼리 정책은 queries.ts, 표시는 components/,
   어휘는 registries/steps.ts와 stepStatus.ts에 있다. 탭이 늘어도 이 파일은
@@ -134,6 +140,9 @@ export function RunDetailPage() {
   const detail = useJobDetailQuery(jobId)
   const job = detail.data
   const terminal = job ? isTerminalStatus(job.status) : false
+  // 딸린 query의 정책은 모두 이 값 하나로 정한다(runDetailPolicy.ts).
+  const phase = phaseOf(job, detail.error)
+  useRefreshOnSettle(jobId, phase)
 
   /*
     파이프라인 워크스페이스의 선택 단계는 URL(?step=)이다(개발판단기록 40장).
@@ -214,9 +223,9 @@ export function RunDetailPage() {
 
   const stepStatus = findStepStatus(job, selectedStepId)
   const step = useStepDetailQuery(jobId, selectedStepId, stepStatus)
-  const results = useResultsQuery(jobId, job?.status)
-  const artifacts = useArtifactsQuery(jobId, job?.status)
-  const explanation = useExplanationQuery(jobId, job?.status)
+  const results = useResultsQuery(jobId, phase)
+  const artifacts = useArtifactsQuery(jobId, phase)
+  const explanation = useExplanationQuery(jobId, phase)
   const cancel = useCancelJobMutation(jobId)
   /*
     AI 종합 설명 요청은 페이지가 하나 가진다. 패널·상태 줄·각 항목의 AI 해설이
@@ -254,7 +263,12 @@ export function RunDetailPage() {
     )
   }
 
-  if (detail.error || !job) {
+  /*
+    받은 상세가 하나도 없을 때만 전체 오류 화면이다. 폴링 중의 일시적 실패는
+    react-query가 마지막 성공 값을 그대로 두므로 화면을 유지하고, 헤더의
+    PollingStatus가 "연결 끊김 · 마지막 성공 시각 기준"을 보여 준다.
+  */
+  if (!job) {
     return (
       <Shell>
         <RunDetailError error={detail.error} onRetry={() => void detail.refetch()} />
@@ -395,10 +409,14 @@ export function RunDetailPage() {
         job={job}
         listItem={listItem}
         issues={issues}
+        showPositionLine={activeTab !== 'overview'}
         polling={{
           updatedAt: detail.dataUpdatedAt,
-          failureCount: detail.failureCount,
-          isFetching: detail.isFetching,
+          connection: connectionState({
+            isError: detail.isError,
+            failureCount: detail.failureCount,
+            isFetching: detail.isFetching,
+          }),
         }}
         onCancel={() => cancel.mutate()}
         isCancelling={cancel.isPending}
@@ -428,7 +446,11 @@ export function RunDetailPage() {
                       size={15}
                       strokeWidth={1.5}
                       aria-hidden="true"
-                      className={item.id === 'ai' ? 'text-ai-fg' : undefined}
+                      /*
+                        좁은 화면에서는 아이콘을 뺀다 — 표식일 뿐이고 이름은 글자가
+                        말한다. 그래야 390px에서 다섯 탭이 한 줄에 들어간다.
+                      */
+                      className={cx('hidden md:block', item.id === 'ai' && 'text-ai-fg')}
                     />
                   ) : null}
                   {item.label}
@@ -459,8 +481,22 @@ export function RunDetailPage() {
               </MessageBlock>
             ) : null}
 
-            {/* 헤더에 있던 네 칸 요약. 값은 모두 응답에서 온다. */}
-            <RunFacts job={job} listItem={listItem} issues={issues} />
+            {/*
+              판정 · 측정값 · 단계 띠를 한 면에(2026-11-23 UI 정리, 개발판단기록 63장).
+              이전의 네 칸 요약 카드와 단계 띠 카드를 대신한다. 띠의 점을 누르면
+              그 단계의 파이프라인 상세로 간다.
+            */}
+            <RunVerdict
+              job={job}
+              listItem={listItem}
+              issues={issues}
+              results={results.data && !isNotReady(results.data) ? results.data : undefined}
+              steps={steps}
+              selectedStepId={selectedStepId}
+              terminal={terminal}
+              runPath={runPath}
+              onSelectStep={goToStep}
+            />
 
             {/*
               이 실행에서 일어난 일의 유일한 본문(실패·확인 필요·자동 해결).
@@ -469,37 +505,69 @@ export function RunDetailPage() {
               — 그 요청이 실패해도 원문만 남은 카드가 된다. 성공한 실행이면
               카드가 스스로 null을 반환한다.
             */}
-            {job.status !== 'cancelled' ? (
-              <AttentionSection
-                failures={explanation.data?.failures ?? []}
-                rawError={job.error}
-                diagnostics={diagnostics.all}
-                isPrecheck={explanation.data?.contextKind === 'precheck'}
-                onGoToStep={(stepId) => goToStep(stepId)}
-                renderAiNote={
-                  placement
-                    ? (kind, code) =>
-                        aiNote(
-                          (kind === 'failure' ? placement.byFailure : placement.byDiagnostic).get(code),
-                        )
-                    : undefined
-                }
+            {/*
+              본문 + 오른쪽 열(xl부터, 2026-11-23 발표용 정리). 오른쪽 열은 이미
+              있는 기록(공식 문서 검색·이 화면의 AI 응답)의 요약이고 본문의
+              판정을 바꾸지 않는다. xl 미만에서는 본문 아래로 내려간다.
+            */}
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+              <div className="flex min-w-0 flex-col gap-6">
+                {job.status !== 'cancelled' ? (
+                  <AttentionSection
+                    failures={explanation.data?.failures ?? []}
+                    rawError={job.error}
+                    diagnostics={diagnostics.all}
+                    isPrecheck={explanation.data?.contextKind === 'precheck'}
+                    onGoToStep={(stepId) => goToStep(stepId)}
+                    renderAiNote={
+                      placement
+                        ? (kind, code) =>
+                            aiNote(
+                              (kind === 'failure' ? placement.byFailure : placement.byDiagnostic).get(code),
+                            )
+                        : undefined
+                    }
+                  />
+                ) : null}
+  
+                {/*
+                  결과 해석의 범위 제한. backend deterministic explanation이 만든
+                  문장이며 AI 생성물이 아니다.
+                */}
+                {explanation.data ? (
+                  <RunLimitations
+                    limitations={explanation.data.limitations}
+                    renderAiNote={
+                      placement ? (code) => aiNote(placement.byLimitation.get(code)) : undefined
+                    }
+                  />
+                ) : null}
+  
+              </div>
+              <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
+              <OverviewRail
+                runPath={runPath}
+                docRuns={docHistory.data}
+                docPending={docHistory.isPending}
+                ai={{
+                  state: synthesis.isPending
+                    ? 'pending'
+                    : synthesis.isError
+                      ? 'error'
+                      : synthesis.result
+                        ? synthesis.result.available
+                          ? 'served'
+                          : 'unavailable'
+                        : 'none',
+                }}
               />
-            ) : null}
+              </div>
+            </div>
 
             {/*
-              결과 해석의 범위 제한. backend deterministic explanation이 만든
-              문장이며 AI 생성물이 아니다.
+              결과는 본문·오른쪽 열 격자 밖 전체 폭이다(2026-11-23 후속, 개발판단기록 64장).
+              오른쪽 열이 짧아 결과 블록 옆이 길게 비어 있었다. 결과 안에서 두 열로 나눈다.
             */}
-            {explanation.data ? (
-              <RunLimitations
-                limitations={explanation.data.limitations}
-                renderAiNote={
-                  placement ? (code) => aiNote(placement.byLimitation.get(code)) : undefined
-                }
-              />
-            ) : null}
-
             {/*
               분석 결과(이전 "결과" 탭, /results 주소는 이 탭으로 온다). 결과가
               없거나 아직 끝나지 않은 실행의 안내는 ResultsView가 그대로 말한다.
@@ -517,47 +585,43 @@ export function RunDetailPage() {
 
         <TabsPanel value="pipeline">
           <div className="flex flex-col gap-6">
-            {/* 가로 진행 표시(이전 헤더의 단계 띠). 점을 누르면 그 단계를 선택한다. */}
-            <section
-              aria-labelledby="pipeline-progress-heading"
-              className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5 shadow-card"
-            >
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <h2 id="pipeline-progress-heading" className="text-h3 font-semibold text-text-strong">
-                  파이프라인 진행
-                </h2>
-                <span className="text-small text-text-muted">
-                  {job.steps.length}단계 중{' '}
-                  <span className="font-mono text-data text-text">{finishedSteps}</span>단계 끝남
-                </span>
-              </div>
-              <PipelineStepper
-                steps={steps}
-                selectedStepId={selectedStepId}
-                terminal={terminal}
-                onSelect={selectStep}
-              />
-            </section>
-
             {/*
-              파이프라인 워크스페이스 — 왼쪽 단계 목록(약 60%), 오른쪽 선택 단계의
-              상세 패널(약 40%, sticky). 패널은 늘 있다(기본 선택: stepView.ts).
-              lg 미만에서는 목록 아래로 내려간다.
+              파이프라인 워크스페이스 — 왼쪽 카드(진행 띠 + 단계 목록, 약 60%),
+              오른쪽 선택 단계의 상세 패널(약 40%, sticky). 패널은 늘 있다(기본
+              선택: stepView.ts). lg 미만에서는 목록 아래로 내려간다.
+
+              진행 띠는 단계 목록과 한 카드다(2026-11-23 발표용 정리, ref 파이프라인
+              시안). 같은 단계를 두 번 그리는 두 카드가 아니라, 띠가 목록의 머리다.
 
               단계에 귀속되지 않은 진단은 여기 따로 그리지 않는다 — 개요 탭의
               AttentionSection이 전부 보여준다.
             */}
             <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
               <section
-                aria-labelledby="pipeline-steps-heading"
-                className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-card md:p-5"
+                aria-labelledby="pipeline-progress-heading"
+                className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-card md:p-5"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                  <h2 id="pipeline-steps-heading" className="text-h3 font-semibold text-text-strong">
-                    분석 단계
-                  </h2>
-                  <span className="text-small text-text-muted">{job.steps.length}단계 계획</span>
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <h2 id="pipeline-progress-heading" className="text-h3 font-semibold text-text-strong">
+                      파이프라인 진행
+                    </h2>
+                    <p className="text-small text-text-muted">
+                      단계를 누르면 그 단계의 기록이 열립니다.
+                    </p>
+                  </div>
+                  <span className="text-small text-text-muted">
+                    {job.steps.length}단계 중{' '}
+                    <span className="font-mono text-data text-text">{finishedSteps}</span>단계 끝남
+                  </span>
                 </div>
+                <PipelineStepper
+                  steps={steps}
+                  selectedStepId={selectedStepId}
+                  terminal={terminal}
+                  onSelect={selectStep}
+                />
+                <h3 className="sr-only">분석 단계</h3>
                 <StepTable
                   steps={steps}
                   currentStepId={job.currentStep}

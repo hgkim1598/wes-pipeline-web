@@ -5,6 +5,7 @@ import { MessageBlock } from '@/components/ui/MessageBlock'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import type { ArtifactList, NotReady } from '@/features/run-detail/api'
 import { artifactDownloadUrl, isNotReady } from '@/features/run-detail/api'
+import { artifactsNotReadyCopy } from '@/features/run-detail/emptyStateCopy'
 import { describeStep } from '@/registries/steps'
 import { formatBytes } from '@/lib/formatBytes'
 
@@ -58,13 +59,12 @@ export function ArtifactsView({
   if (!data) return null
 
   if (isNotReady(data)) {
+    // 끝난 실행이면 "아직"이 아니다 — 앞으로도 생기지 않는다(emptyStateCopy.ts).
+    const copy = artifactsNotReadyCopy(running)
     return (
-      <MessageBlock tone="info" role="status" title="산출물이 아직 없습니다">
+      <MessageBlock tone="info" role="status" title={copy.title}>
         <div className="flex flex-col gap-2">
-          <p>
-            이 실행은 아직 산출물을 등록하지 않았습니다. 단계가 끝날 때마다
-            추가됩니다. 0개로 확정된 것이 아닙니다.
-          </p>
+          <p>{copy.body}</p>
           {data.reason ? (
             <code className="break-all text-text-muted">{data.reason}</code>
           ) : null}

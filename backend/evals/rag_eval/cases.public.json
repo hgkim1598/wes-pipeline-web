@@ -1,0 +1,1207 @@
+{
+  "schema": "wes-rag-retrieval-cases/1",
+  "_comment": [
+    "Public, synthetic cases for the official-document search (services/doc_search). No model.",
+    "Every report sentence is built from the template main.sh writes (script/main.sh validate_reference_bundle, lines cited in `basis`); paths, sample names and digests are invented.",
+    "Ground truth is NOT confirmed: every case starts as review.status = 'unreviewed'. A reviewer sets 'accepted' or 'rejected' with name and date. Metrics are reported per review status.",
+    "category: positive = a passage filed under the expected kind should come back; coverage_gap = the kind is classified but no passage is filed for it, so the correct system output today is nothing; negative = nothing may come back.",
+    "relevant_kinds is the relevance rule: a returned passage is relevant iff it is filed under one of these kinds. preferred_local lists passage ids (without the 'synthetic-' prefix) a reviewer would want first; it is only scored against the local, non-public corpus and is a proposal until reviewed.",
+    "design: rule_replicating = the sentence is a main.sh template and only one outcome is possible once classified; independent_ranking = several passages share the kind and grades_local (0..2, provisional) judge which help most, independent of the rule table; phrasing_variant = same meaning, wording main.sh does not produce, testing robustness. grades_local are AI-proposed and provisional until review.",
+    "split (phrasing_variant only): dev = cases seen while building the lexical fallback (services/doc_search/lexicon.py); heldout = written before that code existed and never edited to fit it. Results are reported per split. The heldout cases were written by the same author (AI) as the code, so they are not independent of the author's vocabulary -- only of the code."
+  ],
+  "cases": [
+    {
+      "id": "pos-bwa-incomplete",
+      "category": "positive",
+      "run": {
+        "report_items": [
+          "BWA index at '/data/wes/ref/GRCh38.fa.*' is incomplete: missing or empty .sa, .pac. bwa resolves the reference to this prefix because '/data/wes/ref/GRCh38.fa.bwt' exists, and it never falls back to another naming variant, so an index at the other prefix would not be used. Rebuild it with `bwa index`."
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "bwa_index_incomplete"
+        ],
+        "relevant_kinds": [
+          "bwa_index_incomplete"
+        ],
+        "grades_local": {
+          "bwa-index-bwtsw": 2,
+          "bwa-index-default-is-limit": 2,
+          "bwa-index-resources": 1
+        },
+        "grade_basis": "An incomplete index means it must be rebuilt: -a bwtsw is how a human genome is indexed (2); the default IS algorithm fails above 2GB, a likely cause of the incomplete build (2); memory needed for the rebuild (1)."
+      },
+      "basis": "main.sh:1948 template; rule R-BWA-INCOMPLETE. Preferred: the sentence asks for a rebuild, and -a bwtsw is how a human-size reference is indexed.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "independent_ranking"
+    },
+    {
+      "id": "pos-bwa-not-found",
+      "category": "positive",
+      "run": {
+        "report_items": [
+          "BWA index not found: neither '/data/wes/ref/GRCh38.fa.64.bwt' nor '/data/wes/ref/GRCh38.fa.bwt' exists. Run `bwa index` on the reference; the pipeline never builds it."
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "bwa_index_not_found"
+        ],
+        "relevant_kinds": [
+          "bwa_index_not_found"
+        ],
+        "grades_local": {
+          "bwa-index-bwtsw": 2,
+          "bwa-index-default-is-limit": 1,
+          "bwa-index-resources": 1
+        },
+        "grade_basis": "No index: build one; bwtsw first (2). Algorithm limit and memory are supporting facts (1)."
+      },
+      "basis": "main.sh:1961 template; rule R-BWA-NONE.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "independent_ranking"
+    },
+    {
+      "id": "pos-fai-dict",
+      "category": "positive",
+      "run": {
+        "report_items": [
+          "reference .fai and .dict disagree on contig order or lengths"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "reference_index_mismatch"
+        ],
+        "relevant_kinds": [
+          "reference_index_mismatch"
+        ],
+        "grades_local": {
+          "faidx-creates-fai": 2,
+          "picard-dict-from-fasta": 2,
+          "picard-dict-no-overwrite": 1,
+          "vcf-contig-length-md5": 1
+        },
+        "grade_basis": "Regenerate both indexes from the same FASTA (2, 2). Rebuilding .dict needs the old file removed (1). VCF contig length/md5 is background about the same fields (1)."
+      },
+      "basis": "main.sh:1992 template; rule R-FAI-DICT. Preferred: the two documents that say how each index is regenerated from the FASTA.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "independent_ranking"
+    },
+    {
+      "id": "pos-contig-style",
+      "category": "positive",
+      "run": {
+        "report_items": [
+          "contig_style='ensembl' declares no 'chr' prefix but the reference uses 'chr'"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "contig_style_mismatch"
+        ],
+        "relevant_kinds": [
+          "contig_style_mismatch"
+        ],
+        "grades_local": {
+          "bcftools-rename-chrs": 2,
+          "gatk-no-overlapping-contigs": 1
+        },
+        "grade_basis": "Renaming chromosomes is the fix (2); the GATK message is what the mismatch looks like downstream (1)."
+      },
+      "basis": "main.sh:2019 template; rule R-STYLE.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "independent_ranking"
+    },
+    {
+      "id": "pos-checksum",
+      "category": "positive",
+      "run": {
+        "report_items": [
+          "target_bed SHA-256 mismatch: metadata=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa actual=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "checksum_mismatch"
+        ],
+        "relevant_kinds": [
+          "checksum_mismatch"
+        ]
+      },
+      "basis": "main.sh:2039 template; rule R-SHA.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "rule_replicating"
+    },
+    {
+      "id": "pos-bed-columns",
+      "category": "positive",
+      "run": {
+        "report_items": [
+          "target_bed line 12: fewer than 3 columns"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "bed_content_invalid"
+        ],
+        "relevant_kinds": [
+          "bed_content_invalid"
+        ],
+        "grades_local": {
+          "bed-three-mandatory-fields": 2,
+          "bed-zero-based-half-open": 0,
+          "ucsc-bed-first-base-zero": 0
+        },
+        "grade_basis": "Only the mandatory-fields rule addresses a missing column; coordinate conventions do not."
+      },
+      "basis": "main.sh:2058 template; rule R-BED-CONTENT. Preferred: the BED specification's three mandatory fields.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "independent_ranking"
+    },
+    {
+      "id": "pos-bed-empty",
+      "category": "positive",
+      "run": {
+        "report_items": [
+          "coverage_bed contains no usable intervals"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "bed_content_invalid"
+        ],
+        "relevant_kinds": [
+          "bed_content_invalid"
+        ],
+        "grades_local": {
+          "bed-three-mandatory-fields": 1,
+          "bed-zero-based-half-open": 1,
+          "ucsc-bed-first-base-zero": 0
+        },
+        "grade_basis": "No usable interval can come from malformed rows (1) or empty/inverted intervals under half-open coordinates (1)."
+      },
+      "basis": "main.sh:2072 template; rule R-BED-CONTENT.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "independent_ranking"
+    },
+    {
+      "id": "pos-vcf-index",
+      "category": "positive",
+      "run": {
+        "report_items": [
+          "known_sites entry index missing (.tbi or .csi): /data/wes/ref/known_indels.vcf.gz"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "vcf_index_missing"
+        ],
+        "relevant_kinds": [
+          "vcf_index_missing"
+        ],
+        "grades_local": {
+          "bcftools-index-tbi": 2,
+          "bcftools-index-default-csi": 2,
+          "tabix-input-sorted-bgzip": 2,
+          "tabix-csi-option": 1,
+          "tabix-force-overwrite": 0
+        },
+        "grade_basis": "The index is missing: how to create .tbi/.csi (2, 2) and the precondition that the input is bgzip-compressed and sorted (2). CSI option is an alternative (1). Overwriting an existing index does not apply when none exists (0)."
+      },
+      "basis": "main.sh:2116 template; rule R-VCF-INDEX. Preferred: how to build a .tbi (input must be bgzip-compressed and sorted; bcftools index -t). Disputable: the CSI options are also correct answers.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "independent_ranking"
+    },
+    {
+      "id": "pos-vcf-contig-length",
+      "category": "positive",
+      "run": {
+        "report_items": [
+          "dbsnp_vcf declares contig lengths that differ from the reference: /data/wes/ref/dbsnp.vcf.gz: ['chr1: header=248956422 reference=249250621']"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "vcf_contig_length_mismatch"
+        ],
+        "relevant_kinds": [
+          "vcf_contig_length_mismatch"
+        ],
+        "grades_local": {
+          "gatk-same-name-different-length": 2,
+          "vcf-contig-length-md5": 2,
+          "gatk-disable-validation-risk": 1
+        },
+        "grade_basis": "Same name, different length is exactly this failure (2); the VCF contig length field is where the value lives (2); disabling validation is a risk warning, not a fix (1)."
+      },
+      "basis": "main.sh:2143 template; rule R-VCF-LEN. Preferred: the two documents about a contig with the same name and a different length.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "independent_ranking"
+    },
+    {
+      "id": "pos-vcf-contigs-absent",
+      "category": "positive",
+      "run": {
+        "report_items": [
+          "known_sites entry contigs absent from the reference: /data/wes/ref/known_indels.vcf.gz: ['1', '2', 'X']"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "vcf_contigs_absent"
+        ],
+        "relevant_kinds": [
+          "vcf_contigs_absent"
+        ],
+        "grades_local": {
+          "gatk-no-overlapping-contigs": 2,
+          "gatk-disable-validation-risk": 1
+        },
+        "grade_basis": "No overlapping contigs is this failure (2); the risk warning (1)."
+      },
+      "basis": "main.sh:2153 template; rule R-VCF-ABSENT.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "independent_ranking"
+    },
+    {
+      "id": "pos-tabix-unavailable",
+      "category": "positive",
+      "run": {
+        "report_items": [
+          "tabix unavailable for /data/wes/ref/known_indels.vcf.gz: [Errno 2] No such file or directory: 'tabix'"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "vcf_tool_unavailable"
+        ],
+        "relevant_kinds": [
+          "vcf_tool_unavailable"
+        ],
+        "grades_local": {
+          "htslib-provides-tabix": 2
+        },
+        "grade_basis": "tabix ships with HTSlib (2)."
+      },
+      "basis": "main.sh:2158 template; rule R-VCF-TOOL-T.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "rule_replicating"
+    },
+    {
+      "id": "pos-bcftools-unavailable",
+      "category": "positive",
+      "run": {
+        "report_items": [
+          "bcftools unavailable for /data/wes/ref/dbsnp.vcf.gz: [Errno 2] No such file or directory: 'bcftools'"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "vcf_tool_unavailable"
+        ],
+        "relevant_kinds": [
+          "vcf_tool_unavailable"
+        ],
+        "grades_local": {
+          "htslib-provides-tabix": 1
+        },
+        "grade_basis": "The passage is about tabix/bgzip; it only helps by saying bcftools is a separate package (1)."
+      },
+      "basis": "main.sh:2123 template; rule R-VCF-TOOL-B. The only filed passage is about HTSlib (tabix/bgzip); whether it helps a missing bcftools is a review question.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "rule_replicating"
+    },
+    {
+      "id": "pos-two-causes",
+      "category": "positive",
+      "run": {
+        "report_items": [
+          "known_sites entry index missing (.tbi or .csi): /data/wes/ref/known_indels.vcf.gz",
+          "coverage_bed SHA-256 mismatch: metadata=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc actual=dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "vcf_index_missing",
+          "checksum_mismatch"
+        ],
+        "relevant_kinds": [
+          "vcf_index_missing",
+          "checksum_mismatch"
+        ]
+      },
+      "basis": "Two causes in one report: each becomes its own query; a hit for one input must not be about the other cause (scored per input).",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "rule_replicating"
+    },
+    {
+      "id": "gap-missing-file",
+      "category": "coverage_gap",
+      "run": {
+        "report_items": [
+          "target_bed missing or empty: /data/wes/beds/targets.bed"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "resource_missing_or_empty"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "main.sh:1910 template; rule R-MISSING. No passage is filed for this kind.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "rule_replicating"
+    },
+    {
+      "id": "gap-not-declared",
+      "category": "coverage_gap",
+      "run": {
+        "report_items": [
+          "dbsnp_vcf is not set in the resource bundle"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "resource_not_declared"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "main.sh:1908 template; rule R-NOTSET.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "rule_replicating"
+    },
+    {
+      "id": "gap-known-sites-empty",
+      "category": "coverage_gap",
+      "run": {
+        "report_items": [
+          "known_sites is empty; BQSR is a core step and requires known sites"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "known_sites_empty"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "main.sh:2162 template; rule R-KS-EMPTY.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "rule_replicating"
+    },
+    {
+      "id": "gap-vcf-header",
+      "category": "coverage_gap",
+      "run": {
+        "report_items": [
+          "cannot parse VCF header: /data/wes/ref/dbsnp.vcf.gz"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "vcf_header_unparseable"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "main.sh:2120 template; rule R-VCF-HEADER.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "rule_replicating"
+    },
+    {
+      "id": "gap-style-unrecognised",
+      "category": "coverage_gap",
+      "run": {
+        "report_items": [
+          "contig_style='GRCh38' is not a recognised chromosome naming convention; expected one of ensembl, ncbi, ucsc, gatk. An assembly or build name is not a contig style."
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "contig_style_unrecognised"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "main.sh:2025 template; rule R-STYLE (unrecognised). The style list in the sentence is invented.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "rule_replicating"
+    },
+    {
+      "id": "neg-unclassified-sentence",
+      "category": "negative",
+      "run": {
+        "report_items": [
+          "something unexpected happened while reading the resource bundle"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "A sentence no rule matches: it is still an input (kind unknown) and must retrieve nothing -- no fallback to free search (doc_retrieval.retrieve).",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "rule_replicating"
+    },
+    {
+      "id": "neg-completed-run",
+      "category": "negative",
+      "run": {
+        "completed": true
+      },
+      "expected": {
+        "input_kinds": [],
+        "relevant_kinds": []
+      },
+      "basis": "A run with no failed or warning step (like the real completed run cba73e): no query at all.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "rule_replicating"
+    },
+    {
+      "id": "neg-step-check-family",
+      "category": "negative",
+      "run": {
+        "step_checks": {
+          "step": "06_variant_calling",
+          "status": "failed",
+          "checks": [
+            {
+              "name": "vcf_index_raw",
+              "status": "FAIL",
+              "detail": "index not created"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "input_kinds": [
+          "vcf_index"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "commands._CHECK_FAMILIES maps it to an input, but curated passages are filed only under resource-check cause kinds (engine.REASON_CURATED_CHECK). With the manual corpus off nothing may come back.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "rule_replicating"
+    },
+    {
+      "id": "neg-unmapped-warning",
+      "category": "negative",
+      "run": {
+        "step_checks": {
+          "step": "06_variant_calling",
+          "status": "warning",
+          "checks": [
+            {
+              "name": "DBSNP_NOT_CONFIGURED",
+              "status": "WARN",
+              "detail": "no dbSNP"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "input_kinds": [],
+        "relevant_kinds": []
+      },
+      "basis": "No command ran for this check: excluded with a reason, never a query.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "rule_replicating"
+    },
+    {
+      "id": "neg-required-tools-only",
+      "category": "negative",
+      "run": {
+        "step_checks": {
+          "step": "00_input_validation",
+          "status": "failed",
+          "checks": [
+            {
+              "name": "required_tools",
+              "status": "FAIL",
+              "detail": "missing from PATH: bwa samtools gatk"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "input_kinds": [],
+        "relevant_kinds": []
+      },
+      "basis": "required_tools runs no tool command (commands.for_check is None): excluded, no query.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "design": "rule_replicating"
+    },
+    {
+      "id": "ind-bed-not-integers",
+      "category": "positive",
+      "design": "independent_ranking",
+      "run": {
+        "report_items": [
+          "target_bed line 7: start/end are not integers"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "bed_content_invalid"
+        ],
+        "relevant_kinds": [
+          "bed_content_invalid"
+        ],
+        "grades_local": {
+          "bed-three-mandatory-fields": 2,
+          "bed-zero-based-half-open": 1,
+          "ucsc-bed-first-base-zero": 0
+        },
+        "grade_basis": "chromStart/chromEnd are two of the three mandatory fields (2); the coordinate convention says what the integers mean (1)."
+      },
+      "basis": "main.sh:2062 template. Same kind as pos-bed-columns, different best document.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ind-bed-out-of-range",
+      "category": "positive",
+      "design": "independent_ranking",
+      "run": {
+        "report_items": [
+          "coverage_bed line 40: interval out of range chr1:248956000-248957000"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "bed_content_invalid"
+        ],
+        "relevant_kinds": [
+          "bed_content_invalid"
+        ],
+        "grades_local": {
+          "bed-zero-based-half-open": 2,
+          "ucsc-bed-first-base-zero": 2,
+          "bed-three-mandatory-fields": 0
+        },
+        "grade_basis": "Off-by-one and end-exclusive coordinates explain an end beyond the contig (2, 2); column count does not (0)."
+      },
+      "basis": "main.sh:2067 template. Range errors are about coordinates, not columns.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ind-bed-contig-absent",
+      "category": "negative",
+      "design": "independent_ranking",
+      "run": {
+        "report_items": [
+          "target_bed line 3: contig absent from reference: chrUn_synthetic"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "bed_content_invalid"
+        ],
+        "relevant_kinds": [],
+        "grades_local": {
+          "bed-three-mandatory-fields": 0,
+          "bed-zero-based-half-open": 0,
+          "ucsc-bed-first-base-zero": 0
+        },
+        "grade_basis": "No filed passage addresses contig naming."
+      },
+      "basis": "main.sh:2065 template. Filed under bed_content_invalid, but every filed BED passage is about columns or coordinates; none explains a contig name missing from the reference. Correct output: nothing (a wrong-document case).",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "var-tabix-index-wording",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "run": {
+        "report_items": [
+          "tabix index (.tbi) not found for known_sites VCF /data/wes/ref/known_indels.vcf.gz"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "vcf_index_missing"
+        ],
+        "relevant_kinds": [
+          "vcf_index_missing"
+        ]
+      },
+      "basis": "Not a current main.sh template: same meaning as R-VCF-INDEX in other words (older scripts, other pipelines). Measures robustness to wording.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "split": "dev"
+    },
+    {
+      "id": "var-bwa-files-missing",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "run": {
+        "report_items": [
+          "bwa index files are missing (.bwt, .sa) for reference /data/wes/ref/GRCh38.fa"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "bwa_index_not_found"
+        ],
+        "relevant_kinds": [
+          "bwa_index_not_found",
+          "bwa_index_incomplete"
+        ]
+      },
+      "basis": "Paraphrase of R-BWA-NONE/R-BWA-INCOMPLETE.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "split": "dev"
+    },
+    {
+      "id": "var-dict-fai",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "run": {
+        "report_items": [
+          "sequence dictionary (.dict) does not match the FASTA index (.fai)"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "reference_index_mismatch"
+        ],
+        "relevant_kinds": [
+          "reference_index_mismatch"
+        ]
+      },
+      "basis": "Paraphrase of R-FAI-DICT.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "split": "dev"
+    },
+    {
+      "id": "var-bed-two-columns",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "run": {
+        "report_items": [
+          "BED file has only 2 columns at line 5: /data/wes/beds/targets.bed"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "bed_content_invalid"
+        ],
+        "relevant_kinds": [
+          "bed_content_invalid"
+        ]
+      },
+      "basis": "Paraphrase of the R-BED-CONTENT column rule.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "split": "dev"
+    },
+    {
+      "id": "var-sha256-abbrev",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "run": {
+        "report_items": [
+          "checksum mismatch (sha256) for target_bed"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "checksum_mismatch"
+        ],
+        "relevant_kinds": [
+          "checksum_mismatch"
+        ]
+      },
+      "basis": "Abbreviated paraphrase of R-SHA.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "split": "dev"
+    },
+    {
+      "id": "var-tabix-not-found-shell",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "run": {
+        "report_items": [
+          "tabix: command not found"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "vcf_tool_unavailable"
+        ],
+        "relevant_kinds": [
+          "vcf_tool_unavailable"
+        ]
+      },
+      "basis": "A shell's own message for a missing tool, instead of main.sh's 'tabix unavailable for'.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "split": "dev"
+    },
+    {
+      "id": "ho-htslib-index-retrieve",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "[E::idx_find_and_load] Could not retrieve index file for '/data/wes/ref/known_indels.vcf.gz'"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": [
+          "vcf_index_missing"
+        ]
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. htslib's message when a VCF has no .tbi/.csi.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-tbi-not-found",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "tbi index not found for dbsnp VCF /data/wes/ref/dbsnp.vcf.gz"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": [
+          "vcf_index_missing"
+        ]
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. Short paraphrase using the .tbi extension name.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-bwa-fail-locate",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "[bwa_idx_load_from_disk] fail to locate the index files"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": [
+          "bwa_index_not_found",
+          "bwa_index_incomplete"
+        ]
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. bwa's message when the prefix has no index files.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-bwa-pac-missing",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "BWA index incomplete: .pac file missing for /data/wes/ref/GRCh38.fa"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": [
+          "bwa_index_incomplete",
+          "bwa_index_not_found"
+        ]
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. Paraphrase naming one index component.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-bcftools-cmd-not-found",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "bash: bcftools: command not found"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": [
+          "vcf_tool_unavailable"
+        ]
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. bash's message for a program missing from PATH.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-sha256sum-warning",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "sha256sum: WARNING: 1 computed checksum did NOT match"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": [
+          "checksum_mismatch"
+        ]
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. coreutils sha256sum --check output.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-dict-fai-lengths",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "sequence dictionary and FASTA index report different contig lengths"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": [
+          "reference_index_mismatch"
+        ]
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. Paraphrase of a dict/fai disagreement.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-bedtools-invalid-record",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "Error: Invalid record in file /data/wes/beds/targets.bed. Record is chr1 100"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": [
+          "bed_content_invalid"
+        ]
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. bedtools' message for a malformed BED line.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-neg-bai-missing",
+      "category": "negative",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "BAM index (.bai) not found for /data/wes/run/aligned.bam"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. Shares 'index not found' with the VCF index kind but is a BAM index; no filed passage covers it, so nothing may come back.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-neg-samtools-cmd",
+      "category": "negative",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "bash: samtools: command not found"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. Same shape as the bcftools case, but vcf_tool_unavailable is about bcftools/tabix; nothing filed covers samtools.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-neg-checksum-ok",
+      "category": "negative",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "sha256sum: targets.bed: OK"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. A passing checksum line; no failure to explain.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-neg-bed-merged",
+      "category": "negative",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "BED file sorted and merged: 1200 intervals"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. Mentions BED but reports no problem.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-neg-dict-created",
+      "category": "negative",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "picard CreateSequenceDictionary finished: GRCh38.dict written"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. Mentions the dictionary but reports success.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-neg-bwa-mem-done",
+      "category": "negative",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "bwa mem finished aligning 2000000 reads"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. Mentions bwa but is not an index problem.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    }
+  ]
+}

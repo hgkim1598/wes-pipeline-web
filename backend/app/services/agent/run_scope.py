@@ -44,6 +44,7 @@ from pathlib import Path
 from typing import Any
 
 from ... import db
+from .. import job_state
 from .privacy import Redactor
 from .tool_sink import ToolEvidenceSink
 
@@ -88,6 +89,9 @@ class RunScope:
     # Which pipeline impact sentences this run may be told (module docstring).
     # None: no decision could be made, so every impact sentence is withheld.
     impact_policy: ImpactPolicy | None = field(default=None, compare=False)
+    # The job row says no process drives this run any more (job_state.py), so a
+    # step still recorded as running is not reported to the model as running.
+    process_ended: bool = False
 
     def impact_decision(self, step_id: str, code: str, text: str) -> str | None:
         """None if `text` may be sent for this warning, else the withhold reason."""
@@ -178,6 +182,7 @@ def for_job(
         sink=sink,
         max_distinct_steps=max_distinct_steps,
         impact_policy=impact_policy_for(job_id),
+        process_ended=job_state.process_ended(row),
     )
 
 

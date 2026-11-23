@@ -53,6 +53,76 @@ RULE_COMMANDS: dict[str, Command] = {
     "R-VCF-ABSENT": _TABIX_LIST_BUNDLE,
 }
 
+# Analysis steps 01-06 (development log 65). main.sh records a failed tool
+# command as `require_cmd_ok <label> <argv...>` -> a FAIL check named <label>,
+# and a few `fail_step <code>` checks report the outcome of the one command
+# right before them. Both are facts of the code, like the VCF families below.
+#
+# Deliberately NOT here (a command would be invented):
+#   fastp_missing (presence test), fastp_empty_output / norm_empty /
+#   filter_empty (output-size tests), recal_table (grep), coverage_metrics
+#   (embedded Python), alignment_<lane> (a bwa | samtools sort pipe -- which one
+#   failed is in the message, not the check), bam_validation (several commands
+#   share the name), unexpected_error (the ERR trap's shell text).
+#
+# Exact names come before the lane-labelled `index_<lane>` / `fastqc_<lane>` /
+# `fastp_<lane>` patterns; a lane unit can carry the sample name, so for those
+# only the family is kept.
+_RAWQC = "script/main.sh 01_raw_qc (require_cmd_ok fastqc_<lane>)"
+_TRIM = "script/main.sh 02_preprocessing (require_cmd_ok fastp_<lane>)"
+_ALIGN = "script/main.sh 03_alignment"
+_PROC = "script/main.sh 04_processing"
+_COV = "script/main.sh 05_coverage_qc (require_cmd_ok mosdepth)"
+_VAR = "script/main.sh 06_variant_calling"
+_FILT = "script/main.sh optional filtering / normalisation / annotation"
+
+_SAMTOOLS_INDEX = ("samtools", "index", ())
+_QUICKCHECK = ("samtools", "quickcheck", ())
+
+
+def _exact(name: str, tool: str, sub: str | None, options: tuple[str, ...], where: str):
+    return (re.compile(rf"^{re.escape(name)}$"), name, Command(tool, sub, options, where))
+
+
+_ANALYSIS_FAMILIES: tuple[tuple[re.Pattern[str], str, Command], ...] = (
+    # 02 -- presence/size tests first so the lane pattern below cannot take them.
+    (re.compile(r"^fastp_(missing|empty_output)$"), "", Command("", None, (), "")),
+    # 03
+    _exact("merge", "samtools", "merge", (), _ALIGN),
+    _exact("index_sample", *_SAMTOOLS_INDEX, _ALIGN),
+    _exact("merge_quickcheck", *_QUICKCHECK, _ALIGN),
+    _exact("invalid_lane_bam", *_QUICKCHECK, _ALIGN),
+    # 04
+    _exact("markduplicates", "gatk", "MarkDuplicates", (), _PROC),
+    _exact("index_markdup", *_SAMTOOLS_INDEX, _PROC),
+    _exact("markdup_quickcheck", *_QUICKCHECK, _PROC),
+    _exact("calmd_failed", "samtools", "calmd", (), _PROC),
+    _exact("calmd_quickcheck", *_QUICKCHECK, _PROC),
+    _exact("base_recalibrator", "gatk", "BaseRecalibrator", (), _PROC),
+    _exact("apply_bqsr", "gatk", "ApplyBQSR", (), _PROC),
+    _exact("apply_bqsr_quickcheck", *_QUICKCHECK, _PROC),
+    _exact("index_analysis_ready", *_SAMTOOLS_INDEX, _PROC),
+    # 05
+    _exact("mosdepth", "mosdepth", None, (), _COV),
+    # 06
+    _exact("haplotypecaller", "gatk", "HaplotypeCaller", (), _VAR),
+    _exact("index_gvcf", "tabix", None, ("-p", "--preset"), _VAR),
+    _exact("gvcf_parse", "bcftools", "view", ("-h", "--header-only"), _VAR),
+    _exact("genotype_gvcfs", "gatk", "GenotypeGVCFs", (), _VAR),
+    _exact("index_raw_vcf", "tabix", None, ("-p", "--preset"), _VAR),
+    _exact("raw_vcf_parse", "bcftools", "view", ("-h", "--header-only"), _VAR),
+    # optional filtering / normalisation / annotation
+    _exact("bcftools_filter", "bcftools", "view", ("-i", "--include"), _FILT),
+    _exact("index_filtered", "bcftools", "index", ("-f", "--force"), _FILT),
+    _exact("bcftools_norm", "bcftools", "norm", ("-m", "--multiallelics"), _FILT),
+    _exact("index_normalized", "bcftools", "index", ("-f", "--force"), _FILT),
+    _exact("bcftools_annotate", "bcftools", "annotate", ("-a", "--annotations"), _FILT),
+    # lane-labelled (family only)
+    (re.compile(r"^index_"), "index_lane", Command(*_SAMTOOLS_INDEX, _ALIGN)),
+    (re.compile(r"^fastqc_"), "fastqc", Command("fastqc", None, (), _RAWQC)),
+    (re.compile(r"^fastp_"), "fastp", Command("fastp", None, (), _TRIM)),
+)
+
 # Step-check FAMILY -> command. A labelled check name (`vcf_parse_<file>`)
 # carries a file name, so only the family is ever kept or shown.
 _CHECK_FAMILIES: tuple[tuple[re.Pattern[str], str, Command], ...] = (
@@ -68,6 +138,7 @@ _CHECK_FAMILIES: tuple[tuple[re.Pattern[str], str, Command], ...] = (
      Command("bcftools", "norm", ("-c", "--check-ref"), _CALL)),
     (re.compile(r"^BCFTOOLS_STATS_FAILED$"), "BCFTOOLS_STATS_FAILED",
      Command("bcftools", "stats", (), _CALL)),
+    *_ANALYSIS_FAMILIES,
 )
 
 
@@ -79,7 +150,9 @@ def for_check(name: str) -> tuple[str, Command] | None:
     """(family, command) for a step check name, or None when no command ran."""
     for pattern, family, command in _CHECK_FAMILIES:
         if pattern.match(name):
-            return family, command
+            # An empty family marks a name that must NOT fall through to a
+            # broader pattern (a presence / size test that ran no command).
+            return (family, command) if family else None
     return None
 
 

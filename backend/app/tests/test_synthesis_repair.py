@@ -534,7 +534,10 @@ def test_the_endpoint_serves_a_rewrite_in_the_unchanged_shape(
     body = response.json()
     assert body["available"] is True
     # The response model is unchanged: the repair lives in the trace only.
-    assert set(body) == {"available", "synthesis", "provenance", "errorCategory", "errorMessage"}
+    # storedVersion (log 66): additive, null unless WES_SYNTHESIS_STORE_ANSWERS=1 stored it.
+    assert set(body) == {"available", "synthesis", "provenance", "errorCategory", "errorMessage",
+                         "storedVersion"}
+    assert body["storedVersion"] is None
     assert set(body["provenance"]) == {
         "provider",
         "models",

@@ -100,6 +100,41 @@
   --color-sidebar-line: #26313e;
 
   /*
+    진입 화면(night) — 다크 + 네온 (2026-11-23 사용자 결정).
+
+    진입 화면(`/`)에만 쓴다. 실행 목록·상세 등 작업 화면은 위의 밝은 토큰
+    그대로다. 두 화면을 잇는 것은 어두운 사이드바와 같은 네온 강조색이다.
+
+    "네온"은 채도 높은 색과 1px 선으로만 만든다. glow(blur 그림자)와
+    gradient는 쓰지 않는다(CLAUDE.md 23장).
+
+    대비(WCAG 2.2 SC 1.4.3, 가장 밝은 패널 night-850 기준):
+      night-strong 15.9 · night-text 10.1 · night-muted 5.8
+      neon-cyan 11.0 · neon-blue 8.0 · night 상태 fg 모두 6.0 이상
+      neon-blue 위 night-950 글자(주 버튼) 9.0
+  */
+  --color-night-950: #060a0f; /* 페이지 */
+  --color-night-900: #0b121a; /* 패널 */
+  --color-night-850: #101924; /* 올린 패널·hover */
+  --color-night-line: #1c2836; /* 구분선 */
+  --color-night-line-strong: #2c3b4d; /* 조작 요소 경계 */
+  --color-night-text: #b9c5d1; /* 본문 */
+  --color-night-strong: #eef3f8; /* 제목 */
+  --color-night-muted: #8695a4; /* 보조 텍스트 */
+
+  /* 네온 강조. 화면의 5% 이하 — 신호(살아 있음·선택·주 행동)에만 */
+  --color-neon-cyan: #3be3cb; /* 신호: 연결됨 · 파이프라인 선 · 라벨 */
+  --color-neon-blue: #7cb0ff; /* 행동: 주 버튼 · 링크 · 선택 (brand gel blue의 밝은 짝) */
+
+  /* night 위의 상태 글자. 배지는 면 대신 1px 테두리로 구분한다 */
+  --color-night-status-idle: #9aa8b5;
+  --color-night-status-running: #7cb0ff;
+  --color-night-status-success: #4fd9a2;
+  --color-night-status-warning: #f4bd55;
+  --color-night-status-failure: #ff8f80;
+  --color-night-status-cancelled: #8b98a5;
+
+  /*
     상태
     fg는 각 bg 위에서 WCAG 2.2 SC 1.4.3 AA(4.5:1)를 통과한다.
     색은 상태 전달의 유일한 수단이 아니다 — component 단계에서
@@ -219,6 +254,9 @@
   --leading-data: 1.45;
   --leading-log: 1.6;
 
+  /* 진입 화면 첫 제목 전용(2026-11-23). 작업 화면은 display 이하만 쓴다 */
+  --text-hero: 2.5rem; /* 40 */
+  --text-hero--line-height: 1.2;
   --text-display: 1.75rem; /* 28 */
   --text-display--line-height: var(--leading-display);
   --text-h1: 1.375rem; /* 22 */

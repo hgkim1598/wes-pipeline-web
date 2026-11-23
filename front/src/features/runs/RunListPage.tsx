@@ -5,9 +5,11 @@ import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { MessageBlock } from '@/components/ui/MessageBlock'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 import { JOBS_PATH } from '@/features/runs/api'
 import type { JobListItem } from '@/features/runs/api'
 import { RunListRow } from '@/features/runs/components/RunListRow'
+import { summarizeStatuses } from '@/features/runs/summary'
 import { useRunListQuery } from '@/features/runs/useRunListQuery'
 
 /*
@@ -43,6 +45,34 @@ export function RunListPage() {
               </span>
               건
             </p>
+          ) : null}
+          {/*
+            상태별 개수 한 줄(summary.ts). 목록을 읽기 전에 진행 중·실패가
+            있는지 보이게 한다. 응답에 있는 상태만, 주의가 필요한 순서로.
+            거르기 버튼이 아니다 — backend에 거르기 파라미터가 없다.
+          */}
+          {jobs && jobs.length > 0 ? (
+            <ul aria-label="상태별 실행 수" className="mt-1 flex flex-wrap items-center gap-2">
+              {summarizeStatuses(jobs).map((s) => (
+                <li key={s.status}>
+                  <StatusBadge
+                    tone={s.tone}
+                    size="sm"
+                    /*
+                      취소됨의 면 색은 페이지 배경(paper)과 같아 여기서는 알약이
+                      사라진다(features/dev/ComponentShowcase.tsx 주석과 같은 이유).
+                      목록 행은 흰 표면 위라 괜찮다. 여기서만 1px 테두리를 더한다.
+                      status-cancelled-bd(#e8edf1)는 paper 위에서 거의 보이지 않아
+                      조작 요소 경계색(border-strong)을 쓴다(2026-11-23 리뷰).
+                    */
+                    className={s.tone === 'cancelled' ? 'ring-1 ring-border-strong ring-inset' : undefined}
+                  >
+                    {s.label}{' '}
+                    <span className="font-mono">{s.count}</span>
+                  </StatusBadge>
+                </li>
+              ))}
+            </ul>
           ) : null}
         </div>
 
@@ -119,7 +149,7 @@ function RunList({
   }
 
   return (
-    <ul className="overflow-hidden rounded-md border border-border bg-surface">
+    <ul className="overflow-hidden rounded-lg border border-border bg-surface shadow-card">
       {jobs.map((job) => (
         <RunListRow key={job.jobId} job={job} />
       ))}

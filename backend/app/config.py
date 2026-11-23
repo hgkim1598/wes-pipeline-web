@@ -122,6 +122,13 @@ DOC_MANUAL_CHUNKS = _env("WES_DOC_MANUAL_CHUNKS")
 # this repository has measured whether a model answers better with it.
 AGENT_DOC_EVIDENCE = _env("WES_AGENT_DOC_EVIDENCE", "0") == "1"
 
+# Store AI explanations that passed every gate (services/explanation/llm/answers.py,
+# log 66), as numbered versions per run. Off (default): nothing is kept and the
+# answer lives only in the browser tab that asked for it, as before. Off until
+# the retention policy is decided -- an explanation is derived from one run of
+# one sample, and "kept forever by default" is not a choice the code may make.
+SYNTHESIS_STORE_ANSWERS = _env("WES_SYNTHESIS_STORE_ANSWERS", "0") == "1"
+
 # Evaluator-only A/B comparison screen (api/eval_compare.py, evals/ab_compare).
 # Off by default: every /api/eval/compare route answers 404, so a normal
 # deployment exposes neither the stored answers nor the gate-rejected ones.
@@ -160,6 +167,24 @@ SYNTHESIS_MODEL = _env("WES_SYNTHESIS_MODEL", "sonnet") or None
 # out again. The bound applies to each call, so with repair on (WES_SYNTHESIS_REPAIR) one
 # request can wait up to twice this long.
 SYNTHESIS_TIMEOUT_SECONDS = int(_env("WES_SYNTHESIS_TIMEOUT_SECONDS", "300"))
+
+
+def resolve_synthesis_max_concurrent(raw: str | None) -> int:
+    """Model calls POST /synthesis may run at once across all runs (log 61).
+
+    Default 1: one machine, one subscription, and a call can take minutes, so
+    a second concurrent call mostly doubles cost and contention. A second
+    request for the SAME run is refused whatever this says.
+    """
+    if raw is None or raw == "":
+        return 1
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ConfigError(f"Invalid WES_SYNTHESIS_MAX_CONCURRENT: {raw!r}. Expected an integer >= 1.") from exc
+    if value < 1:
+        raise ConfigError(f"Invalid WES_SYNTHESIS_MAX_CONCURRENT: {raw!r}. Expected an integer >= 1.")
+    return value
 
 # `bash` must be on PATH. On Windows this is Git Bash; on Linux the system bash.
 BASH_BIN = _env("WES_BASH", "bash")
@@ -229,6 +254,7 @@ def _resolve_synthesis_repair() -> bool:
 
 
 SYNTHESIS_REPAIR = _resolve_synthesis_repair()
+SYNTHESIS_MAX_CONCURRENT = resolve_synthesis_max_concurrent(_env("WES_SYNTHESIS_MAX_CONCURRENT"))
 
 # --- storage --------------------------------------------------------------
 RUNS_ROOT = Path(_env("WES_RUNS_ROOT") or (ROOT / "runs"))

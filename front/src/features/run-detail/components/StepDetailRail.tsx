@@ -56,7 +56,7 @@ import { formatBytes } from '@/lib/formatBytes'
   ── 2026-11-20 승인 시안 반영 ──────────────────────────────────────────
 
   머리(번호 · 이름 · 이전/다음 · 상태 · 소요 · exit) → 이 단계에서 확인하는
-  내용 → 발견된 문제 → 관련 근거 → (실제 해설이 있을 때만) AI 해설 → 시간 ·
+  내용 → 기록된 실패·경고 → 관련 근거 → (실제 해설이 있을 때만) AI 해설 → 시간 ·
   지표 · 검증 · 입력/출력 · 산출물 접기 → 공식 문서 · AI 설명 탭 이동. 기존
   정보는 하나도 빼지 않고 접기 안으로 옮겼다.
 */
@@ -256,7 +256,7 @@ export function StepDetailRail({
       {error ? <StepDetailError error={error} /> : null}
 
       {/*
-        발견된 문제. 이 단계 기록(/steps/{stepId})의 실패·경고가 먼저이고, 그것이
+        기록된 실패·경고(이전 이름 "발견된 문제" — 참고 수준 경고까지 "문제"로 셌다, 2026-11-23). 이 단계 기록(/steps/{stepId})의 실패·경고가 먼저이고, 그것이
         없으면 설명 응답에서 이 단계에 귀속된 실패다. 진단은 목록·결과 화면과 같은
         어휘(DiagnosticList)로, code와 backend 원문까지 보인다(Layer 3).
       */}
@@ -264,7 +264,7 @@ export function StepDetailRail({
         <section aria-labelledby="step-problems-heading" className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <h3 id="step-problems-heading" className="text-h3 font-semibold text-text-strong">
-              발견된 문제{' '}
+              기록된 실패·경고{' '}
               <span className="font-mono text-data text-text-muted">({problemCount})</span>
             </h3>
             <SourceMark kind="record" />

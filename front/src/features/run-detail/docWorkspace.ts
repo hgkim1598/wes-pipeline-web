@@ -43,7 +43,17 @@ export const RELATION_ORDER: readonly string[] = [
   'sameCommandSection',
   'otherCommandSection',
   'generalSection',
+  // 분류되지 않은 문장의 표현으로 추정한 종류의 해설(개발판단기록 62장). 가장 약한 관계라 마지막이다.
+  'suggestedByWording',
 ]
+
+/**
+ * 문장 표현으로 종류를 추정해 찾은 문서인가(개발판단기록 62장). 원인 판정이 아니고
+ * Agent 입력에 들어가지 않는다. 목록에서 이 문서에만 "추정" 표시를 붙인다.
+ */
+export function isWordingGuess(relation: string): boolean {
+  return relation === 'suggestedByWording'
+}
 
 function relationIndex(relation: string): number {
   const at = RELATION_ORDER.indexOf(relation)

@@ -7,6 +7,7 @@ import type { NotReady, Results } from '@/features/run-detail/api'
 import { isNotReady } from '@/features/run-detail/api'
 import { CoverageSection } from '@/features/run-detail/components/CoverageSection'
 import { VariantSection } from '@/features/run-detail/components/VariantSection'
+import { resultsNotReadyCopy } from '@/features/run-detail/emptyStateCopy'
 
 /*
   결과.
@@ -92,18 +93,10 @@ export function ResultsView({
       <MessageBlock
         tone="info"
         role="status"
-        title={
-          terminal
-            ? '이 실행은 결과 문서를 만들지 않았습니다'
-            : '결과가 아직 준비되지 않았습니다'
-        }
+        title={resultsNotReadyCopy(terminal).title}
       >
         <div className="flex flex-col gap-2">
-          <p>
-            {terminal
-              ? '실행이 끝났지만 결과 문서가 없습니다. 파이프라인이 결과를 기록하기 전에 중단된 경우입니다 — 원인은 파이프라인 탭의 실패 사유와 로그에서 확인하세요.'
-              : '이 실행은 결과 문서를 아직 만들지 않았습니다. 결과가 0건이라는 뜻이 아닙니다.'}
-          </p>
+          <p>{resultsNotReadyCopy(terminal).body}</p>
           {data.reason ? (
             <code className="break-all text-text-muted">{data.reason}</code>
           ) : null}
@@ -138,10 +131,19 @@ export function ResultsView({
         <CheckTable checks={data.checks} />
       ) : null}
 
+      {/*
+        측정 결과 두 열(2026-11-23 후속, 개발판단기록 64장). 정보량이 가장 큰
+        커버리지(염기 단위 + 구간 단위 표)가 넓은 왼쪽 열, 숫자 하나와 정의가
+        중심인 변이 검출·입력 요약·선택 단계가 오른쪽 열이다. 두 측정은 다른
+        section이고 서로 다른 제목·단위를 그대로 둔다. xl 미만에서는 예전과 같은
+        순서로 세로로 쌓인다.
+      */}
+      <div className="grid grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] xl:gap-10">
       {data.coverage ? (
         <CoverageSection coverage={data.coverage} />
       ) : null}
 
+      <div className={data.coverage ? 'flex min-w-0 flex-col gap-8' : 'flex min-w-0 flex-col gap-8 xl:col-span-2'}>
       {data.variantCalling ? (
         <VariantSection variantCalling={data.variantCalling} />
       ) : null}
@@ -232,6 +234,8 @@ export function ResultsView({
           </dl>
         </section>
       ) : null}
+      </div>
+      </div>
 
       {data.checks.length === 0 &&
       !data.coverage &&

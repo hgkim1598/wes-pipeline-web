@@ -8,6 +8,7 @@ import { DiagnosticKindMark } from '@/components/ui/DiagnosticNote'
 import { MessageBlock } from '@/components/ui/MessageBlock'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { SourceMark } from '@/components/ui/SourceMark'
+import { SynthesisHistory } from '@/features/run-detail/components/SynthesisHistory'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import type {
   SynthesisProvenance,
@@ -41,6 +42,7 @@ import { formatDuration, formatTimestamp } from '@/features/runs/time'
 import { describeDiagnostic, describeFailure } from '@/registries/diagnostics'
 import type { DiagnosticKind, DiagnosticView } from '@/registries/diagnostics'
 import { describeEvidenceRef } from '@/registries/evidence'
+import { synthesisErrorCopy } from '@/features/run-detail/synthesisErrorCopy'
 import { cx } from '@/lib/cx'
 
 /*
@@ -188,7 +190,7 @@ export function RunSynthesisPanel({
         }
       />
 
-      <div className="flex flex-col gap-4 rounded-md border border-border bg-surface p-4 sm:p-5">
+      <div className="flex flex-col gap-4 rounded-md border border-border bg-surface p-4 md:p-5">
         <p className="max-w-content text-small text-text-muted">
           위의 진단·검증 결과를 하나의 설명으로 묶어 줍니다. 파이프라인이 기록한
           사실과 등록된 근거만 사용하며, 품질 판정이나 임상 해석은 하지 않습니다.
@@ -198,6 +200,15 @@ export function RunSynthesisPanel({
           <p className="text-small text-text-muted">
             실행이 끝난 뒤 AI 종합 설명을 사용할 수 있습니다.
           </p>
+        ) : null}
+
+        {/*
+          요청 전에는 요청이 무엇을 하는지만 보여 준다(2026-11-23 발표용 정리).
+          순서는 backend/app/api/synthesis.py의 처리 순서 그대로이고, 응답이나
+          건수를 미리 만들어 보이지 않는다.
+        */}
+        {terminal && !result && !synthesis.isPending && !synthesis.isError ? (
+          <RequestFlow />
         ) : null}
 
         {/*
@@ -252,6 +263,12 @@ export function RunSynthesisPanel({
           </MessageBlock>
         ) : null}
 
+        {/*
+          저장된 설명의 기록과 출처(개발판단기록 66장). 저장이 꺼진 서버에서는
+          설명을 받은 뒤 "저장하지 않는다"는 한 줄만 보인다.
+        */}
+        {terminal ? <SynthesisHistory synthesis={synthesis} /> : null}
+
         {result?.available && result.synthesis ? (
           <SynthesisResultView
             synthesis={result.synthesis}
@@ -261,6 +278,43 @@ export function RunSynthesisPanel({
         ) : null}
       </div>
     </section>
+  )
+}
+
+/** 요청 한 번이 서버에서 거치는 순서(api/synthesis.py). 모델은 4번에서만 호출된다. */
+const REQUEST_FLOW: { title: string; body: string; ai?: boolean }[] = [
+  { title: '실행 기록 정리', body: '단계 상태·실패·진단을 모델 없이 결정론 설명으로 묶습니다' },
+  { title: '식별자 가림', body: '시료·Run·작업 ID를 바꾼 뒤에 서버 밖으로 보냅니다' },
+  { title: '공식 문서 첨부', body: '서버 설정이 켜져 있을 때만 검색한 문서를 함께 넣습니다' },
+  { title: 'Claude 요청', body: '버튼을 눌렀을 때만 호출합니다. 시간 초과·사용량 한도는 다시 시도하지 않습니다', ai: true },
+  { title: '근거 검사', body: '근거 id나 숫자가 이 Run의 기록에 없으면 응답 전체를 표시하지 않습니다', ai: true },
+]
+
+function RequestFlow() {
+  return (
+    <div className="flex flex-col gap-2 border-t border-border-subtle pt-4">
+      <h3 className="text-caption font-semibold tracking-wide-kr text-text-muted">
+        요청하면 서버가 하는 일
+      </h3>
+      {/*
+        2026-11-23 UI 정리(개발판단기록 63장): 단계마다 카드 다섯 장 → 한 줄의 순서
+        목록(1px 구분선). 보라색은 모델이 관여하는 04·05에만 쓴다(번호와 옅은 배경).
+      */}
+      <ol className="grid grid-cols-1 divide-y divide-border-subtle overflow-hidden rounded-md border border-border-subtle md:grid-cols-5 md:divide-x md:divide-y-0">
+        {REQUEST_FLOW.map((step, index) => (
+          <li
+            key={step.title}
+            className={step.ai ? 'flex flex-col gap-1 bg-ai-bg px-3 py-3' : 'flex flex-col gap-1 px-3 py-3'}
+          >
+            <span className={step.ai ? 'font-mono text-caption text-ai-fg' : 'font-mono text-caption text-text-muted'}>
+              {String(index + 1).padStart(2, '0')}
+            </span>
+            <span className="text-small font-semibold text-text-strong">{step.title}</span>
+            <span className="text-caption text-text">{step.body}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   )
 }
 
@@ -279,34 +333,14 @@ export function RunSynthesisPanel({
  */
 function SynthesisRequestError({ error }: { error: unknown }) {
   const apiError = error instanceof ApiError ? error : null
-  const status = apiError?.status ?? null
-
-  let title = '요청이 실패했습니다'
-  let body = 'AI 설명 요청을 처리하지 못했습니다.'
-  if (apiError?.kind === 'network') {
-    title = '서버에 연결하지 못했습니다'
-    body = 'backend가 실행 중인지, 주소가 맞는지 확인한 뒤 다시 요청하세요.'
-  } else if (apiError?.kind === 'malformed') {
-    title = '응답 형식이 예상과 다릅니다'
-    body = '서버의 응답을 frontend가 아는 계약대로 읽지 못했습니다. frontend와 backend의 버전이 맞는지 확인해야 합니다.'
-  } else if (status === 400) {
-    title = '잘못된 요청입니다'
-    body = '실행 ID 형식이 올바르지 않습니다. 실행 목록에서 다시 선택하세요.'
-  } else if (status === 404) {
-    title = '이 실행을 찾을 수 없습니다'
-    body = '서버에 이 실행의 기록이 없습니다. 실행 목록에서 다시 선택하세요.'
-  } else if (status === 409) {
-    title = '아직 끝나지 않은 실행입니다'
-    body = '실행이 끝난 뒤 다시 요청하세요. 이 요청은 모델을 호출하지 않았습니다.'
-  } else if (status !== null && status >= 500) {
-    title = '서버 내부 오류가 발생했습니다'
-    body = `서버가 HTTP ${status}로 응답했습니다. 실행 기록을 읽는 중 문제가 생겼을 수 있으며, 서버 로그를 확인해야 합니다.`
-  } else if (status !== null) {
-    body = `서버가 HTTP ${status}로 응답했습니다.`
-  }
+  const { title, body, tone } = synthesisErrorCopy({
+    kind: apiError?.kind ?? null,
+    status: apiError?.status ?? null,
+    code: apiError?.code ?? null,
+  })
 
   return (
-    <MessageBlock tone={status === 409 ? 'info' : 'warning'} title={title}>
+    <MessageBlock tone={tone} title={title}>
       <div className="flex flex-col gap-2">
         <p>{body}</p>
         {apiError?.detail ? (

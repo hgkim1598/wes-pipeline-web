@@ -27,7 +27,7 @@ import pytest
 from mcp import Client
 
 from app.agent_mcp import server as mcp_server
-from app.services import step_reader
+from app.services import step_reader, worker
 from app.services.agent import run_scope, step_evidence, tool_sink
 from app.services.agent.privacy import Redactor
 from app.services.agent.step_evidence import (
@@ -132,9 +132,15 @@ def processing_run(builder):
 
 @pytest.fixture
 def scope(make_job, run):
-    """A RunScope bound to the 04_processing fixture, as a server would build it."""
+    """A RunScope bound to the 04_processing fixture, as a server would build it.
+
+    The run is in flight, so its job row is RUNNING: a row whose process has
+    exited would make the step in flight read as interrupted (job_state.py).
+    """
     processing_run(run(RUN_ID))
-    job_id = make_job(RUN_ID, run_mode="full", planned=FULL_PLAN, sample_id=SAMPLE)
+    job_id = make_job(
+        RUN_ID, run_mode="full", planned=FULL_PLAN, sample_id=SAMPLE, status=worker.RUNNING
+    )
     return run_scope.for_job(job_id)
 
 

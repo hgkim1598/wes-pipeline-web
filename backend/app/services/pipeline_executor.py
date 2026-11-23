@@ -131,10 +131,46 @@ def terminate(pid: int, pgid: int | None) -> tuple[bool, str]:
         return False, f"could not signal process: {exc}"
 
 
-def is_alive(pid: int) -> bool:
-    """Best-effort liveness check used when recovering after a backend restart."""
+def is_alive(pid: int, command: str | None = None) -> bool:
+    """Is the pipeline process `pid` -- started as `command` -- still running?
+
+    Used after a backend restart, where a pid alone is not an identity: after a
+    reboot the number may belong to an unrelated process, and treating that as
+    the pipeline would keep the job RUNNING (and the queue waiting) until it
+    exits. Where the OS exposes the process's argv (/proc), it must equal the
+    command the worker recorded (jobs.command, " ".join of the argv), so a
+    recycled pid reads as gone. Where it does not (Windows, a POSIX system
+    without /proc), the pid check alone decides, as before.
+    """
     if pid <= 0:
         return False
+    if not _pid_exists(pid):
+        return False
+    if command is None:
+        return True
+    argv = _read_cmdline(pid)
+    if argv is None:
+        return True
+    return " ".join(argv) == command
+
+
+def _read_cmdline(pid: int) -> list[str] | None:
+    """The argv of `pid` from /proc, [] for an exited (zombie) process, None if unknowable."""
+    if not IS_POSIX:
+        return None
+    proc = Path("/proc")
+    if not proc.is_dir():
+        return None
+    try:
+        raw = (proc / str(pid) / "cmdline").read_bytes()
+    except FileNotFoundError:
+        return []  # exited between the two checks
+    except OSError:
+        return None
+    return [part.decode("utf-8", "surrogateescape") for part in raw.split(b"\0") if part]
+
+
+def _pid_exists(pid: int) -> bool:
     if IS_POSIX:
         try:
             os.kill(pid, 0)

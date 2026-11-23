@@ -12,6 +12,7 @@ pipeline: a WES run takes hours.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from pathlib import Path
 
@@ -26,10 +27,12 @@ from ..schemas import (
     JobStateResponse,
     StepState,
 )
-from ..services import config_builder, pipeline_executor, run_status_reader, worker
+from ..services import config_builder, job_state, pipeline_executor, run_status_reader, worker
 from ..services.agent.run_scope import redactor_for_row
 from ..services.public_text import project_error, project_lines
 from . import uploads
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
@@ -133,7 +136,16 @@ def create_job(payload: CreateJobRequest) -> CreateJobResponse:
     except config_builder.ConfigBuildError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"could not write run inputs: {exc}") from exc
+        # OSError's text names the file (the server's jobs directory). It goes to
+        # the server log only; the client gets what failed, not where (log 62).
+        log.error("could not write run inputs for %s: %s", run_id, exc)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "code": "runInputsNotWritten",
+                "message": "could not write the run's input files on the server; see the server log",
+            },
+        ) from exc
 
     planned = config_builder.planned_steps(config.RUN_MODE, intervar)
     run_dir = config.RUNS_ROOT / run_id
@@ -178,18 +190,6 @@ def _load_job(job_id: str):
     return row
 
 
-# Backend orchestration state -> frontend status, used only while the pipeline
-# has not written a run_status.json of its own.
-_FALLBACK_STATUS = {
-    worker.QUEUED: "queued",
-    worker.RUNNING: "running",
-    worker.CANCELLING: "running",
-    worker.CANCELLED: "cancelled",
-    worker.EXEC_FAILED: "failed",
-    worker.DONE: "failed",  # exited without leaving a status document
-}
-
-
 @router.get("", response_model=JobListResponse)
 @router.get("/", response_model=JobListResponse, include_in_schema=False)
 def list_jobs() -> JobListResponse:
@@ -211,21 +211,12 @@ def list_jobs() -> JobListResponse:
     items: list[JobListItem] = []
     for row in rows:
         planned: list[str] = db.loads(row["planned_steps"], [])
-        summary = run_status_reader.read_summary(Path(row["run_dir"]))
-
+        # Same contract as get_job(), from the same module (job_state.py).
+        summary = job_state.read_summary(row)
         if summary is None:
-            # The pipeline has written nothing yet; report the backend's own
-            # orchestration state, exactly as get_job() does.
-            status = _FALLBACK_STATUS.get(row["status"], "failed")
-            completed = 0
+            status, completed = job_state.fallback(row)[0], 0
         else:
-            status = summary["status"]
-            completed = summary["completedStepCount"]
-
-        # Same override as get_job(): a cancel the backend initiated but the
-        # pipeline could not record must still read as cancelled.
-        if row["status"] == worker.CANCELLED and status != "cancelled":
-            status = "cancelled"
+            status, completed = summary["status"], summary["completedStepCount"]
 
         items.append(
             JobListItem(
@@ -256,7 +247,8 @@ def get_job(job_id: str) -> JobStateResponse:
     planned: list[str] = db.loads(row["planned_steps"], [])
     unsupported: list[str] = db.loads(row["unsupported_options"], [])
 
-    adapted = run_status_reader.read(run_dir, planned, row["run_mode"])
+    # Status contract: services/job_state.py.
+    adapted = job_state.read(row)
     # Everything below that main.sh or executor.log wrote as free text --
     # logTail, error, steps[].messages -- leaves through this redactor, the
     # same one the step detail endpoint and the agent use (public_text.py).
@@ -265,10 +257,7 @@ def get_job(job_id: str) -> JobStateResponse:
     if adapted is None:
         # No run_status.json yet. Report the backend's own state; never guess a
         # pipeline status that was not written.
-        status = _FALLBACK_STATUS.get(row["status"], "failed")
-        error = row["error"]
-        if status == "failed" and not error:
-            error = "the pipeline exited without writing a run status document"
+        status, error = job_state.fallback(row)
         steps = [
             StepState(stepId=step_id, status="pending") for step_id in planned
         ]
@@ -290,11 +279,6 @@ def get_job(job_id: str) -> JobStateResponse:
         )
 
     status = adapted["status"]
-    # A cancel that the backend initiated but the pipeline could not record
-    # (Windows: bash gets no trappable signal) must still read as cancelled.
-    if row["status"] == worker.CANCELLED and status not in ("cancelled",):
-        status = "cancelled"
-
     return JobStateResponse(
         jobId=row["job_id"],
         runId=row["run_id"],
@@ -318,16 +302,42 @@ def get_job(job_id: str) -> JobStateResponse:
 
 @router.post("/{job_id}/cancel", status_code=204)
 def cancel_job(job_id: str) -> Response:
+    """Every transition here is a compare-and-set (db.update_job_if).
+
+    The worker thread moves the same row: it claims a queued job, records the
+    process it started, and closes the job out when the process exits. A status
+    read at the top of this handler can be stale by the time it is written, and
+    a plain update would then overwrite the worker -- a cancel lost to the start,
+    or a finished job turned into a CANCELLING one nobody will ever close.
+    """
     row = _load_job(job_id)
-    if row["status"] not in (worker.QUEUED, worker.RUNNING):
-        return Response(status_code=204)
 
-    if row["status"] == worker.QUEUED or not row["pid"]:
-        db.update_job(job_id, status=worker.CANCELLED, finished_at=db.now_iso(),
-                      error="cancelled before the pipeline started")
-        return Response(status_code=204)
+    if row["status"] == worker.QUEUED:
+        if db.update_job_if(
+            job_id, (worker.QUEUED,),
+            status=worker.CANCELLED, finished_at=db.now_iso(), error=worker.CANCELLED_BEFORE_START,
+        ):
+            return Response(status_code=204)
+        row = _load_job(job_id)  # the worker claimed it meanwhile
 
-    db.update_job(job_id, status=worker.CANCELLING)
+    if row["status"] != worker.RUNNING:
+        return Response(status_code=204)
+    if not db.update_job_if(job_id, (worker.RUNNING,), status=worker.CANCELLING):
+        return Response(status_code=204)  # closed out meanwhile; nothing to stop
+
+    row = _load_job(job_id)
+    if not row["pid"]:
+        # Claimed but its process not recorded yet. The worker records the pid
+        # with a compare-and-set that now fails, and stops the process itself.
+        return Response(status_code=204)
+    if not pipeline_executor.is_alive(row["pid"], row["command"]):
+        # Already exited. For a pipeline a previous backend left running (not our
+        # child) the pid may already belong to an unrelated process; signalling it
+        # or its group could stop that process. The worker, or the orphan
+        # supervisor, sees the exit and closes the job: CANCELLED, or DONE when
+        # the pipeline had already confirmed its own result -- a recorded
+        # failure, or exit 0 with a status document (worker._closing_state).
+        return Response(status_code=204)
     ok, detail = pipeline_executor.terminate(row["pid"], row["pgid"])
     if not ok:
         db.update_job(job_id, error=f"cancellation problem: {detail}")

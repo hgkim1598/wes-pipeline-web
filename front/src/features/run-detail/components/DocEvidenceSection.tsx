@@ -7,7 +7,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   BookOpen,
-  CalendarDays,
   Check,
   ChevronRight,
   CircleHelp,
@@ -52,6 +51,7 @@ import { newLinkedAgentSearch, seenFrom } from '@/features/run-detail/docTraceSe
 import type { SeenSearches } from '@/features/run-detail/docTraceSelection'
 import {
   hitKey,
+  isWordingGuess,
   orderedHits,
   resolveHit,
   runForEvidence,
@@ -108,6 +108,7 @@ const RELATION_LABEL: Record<string, string> = {
   sameCommandSection: '실행된 명령과 같은 매뉴얼 구간',
   otherCommandSection: '다른 명령의 매뉴얼 구간',
   generalSection: '매뉴얼의 일반 구간',
+  suggestedByWording: '분류되지 않은 문장의 표현으로 추정한 종류의 해설',
 }
 
 const MATCHED_BY_LABEL: Record<string, string> = {
@@ -115,6 +116,7 @@ const MATCHED_BY_LABEL: Record<string, string> = {
   optionLookup: '명령 옵션으로 조회',
   sectionIntro: '실행된 명령 구간의 첫 설명',
   fts5: '전문 검색',
+  wordingLexicon: '표현 사전으로 종류 추정',
 }
 
 const CORPUS_LABEL: Record<string, string> = {
@@ -331,48 +333,37 @@ function SearchStats({ run }: { run: DocSearchRun }) {
   const counts = stageCounts(run.hits)
   const time = formatTimestamp(run.createdAt)
   const stat = (value: number | null, none: string) => (value === null ? none : `${value}건`)
-  const items: { label: string; value: ReactNode; icon: typeof FileText; ai?: boolean }[] = [
+  const items: { label: string; value: ReactNode; ai?: boolean }[] = [
     {
       label: '검색 기록',
-      icon: CalendarDays,
       value: (
         <time dateTime={run.createdAt} title={time?.full}>
           {time?.display ?? run.createdAt}
         </time>
       ),
     },
-    { label: '입력', icon: FileInput, value: `${run.inputs.length}건` },
-    { label: '반환 문서', icon: FileText, value: `${run.resultCount}건` },
-    { label: '요청 입력 포함', icon: Layers, value: stat(counts.input, '기록 없음') },
+    { label: '입력', value: `${run.inputs.length}건` },
+    { label: '반환 문서', value: `${run.resultCount}건` },
+    { label: '요청 입력 포함', value: stat(counts.input, '기록 없음') },
     {
       label: '답변 인용 확인',
-      icon: Quote,
       value: stat(counts.cited, agent ? '확인 불가' : '기록 없음'),
       ai: true,
     },
   ]
+  /*
+    2026-11-23 UI 정리(개발판단기록 63장): 아이콘 타일 다섯 칸 → 한 줄 사실 목록.
+    "0건 · 기록 없음"을 지표 카드처럼 크게 그리면 비어 있는 값이 성과처럼 읽힌다.
+    값과 그 구분(0건 / 기록 없음 / 확인 불가)은 그대로다.
+  */
   return (
-    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border-subtle bg-border-subtle md:grid-cols-5">
-      {items.map((item) => {
-        const Icon = item.icon
-        return (
-          <div key={item.label} className="flex items-center gap-2.5 bg-surface px-3 py-2.5">
-            <span
-              aria-hidden="true"
-              className={cx(
-                'flex size-8 flex-none items-center justify-center rounded-md',
-                item.ai ? 'bg-ai-bg text-ai-fg' : 'bg-sunken text-text-muted',
-              )}
-            >
-              <Icon size={15} strokeWidth={1.5} />
-            </span>
-            <div className="flex min-w-0 flex-col">
-              <dt className="text-caption text-text-muted">{item.label}</dt>
-              <dd className="truncate text-body font-semibold text-text-strong">{item.value}</dd>
-            </div>
-          </div>
-        )
-      })}
+    <dl className="flex flex-wrap items-baseline gap-x-5 gap-y-1.5 border-t border-border-subtle pt-3 text-small">
+      {items.map((item) => (
+        <div key={item.label} className="flex items-baseline gap-1.5">
+          <dt className="text-text-muted">{item.label}</dt>
+          <dd className={cx('font-medium', item.ai ? 'text-ai-fg' : 'text-text-strong')}>{item.value}</dd>
+        </div>
+      ))}
     </dl>
   )
 }
@@ -539,6 +530,8 @@ function SearchResult({
 }
 
 function kindTitle(kind: string): string {
+  // 규칙표가 분류하지 못한 문장(backend resource_bundle_causes.UNKNOWN). 원문 어휘를 그대로 보이지 않는다.
+  if (kind === 'unknown') return '분류되지 않은 문장'
   return causeKindKnowledge(kind)?.title ?? kind
 }
 
@@ -595,6 +588,13 @@ function DocList({
                 검색 이유 · 기록된 실패{' '}
                 <span className="font-medium text-text-strong">{kindTitle(input.kind)}</span>
               </span>
+              {input.kind === 'unknown' && input.suggestedKind ? (
+                <span className="text-caption text-text">
+                  규칙표로 분류되지 않은 문장입니다. 아래 문서는 문장 표현으로 추정한 종류{' '}
+                  <span className="font-medium text-text-strong">{kindTitle(input.suggestedKind)}</span>의
+                  해설이며, 이 실행의 원인을 판정한 것이 아닙니다. AI 설명 요청에는 넣지 않습니다.
+                </span>
+              ) : null}
               <span className="text-caption break-all text-text-muted">
                 {input.stepId}
                 {input.ruleId ? ` · ${input.ruleId}` : ''}
@@ -641,6 +641,16 @@ function DocList({
                         >
                           {hit.sourceTitle}
                         </span>
+                        {/*
+                          표현으로 추정한 문서는 원인 종류로 찾은 문서와 같은 모양이면 안 된다
+                          (2026-11-23 실환경 확인, 개발판단기록 64장). 아이콘 + 글자로 표시한다.
+                        */}
+                        {isWordingGuess(hit.relation) ? (
+                          <span className="inline-flex w-fit items-center gap-1 rounded-sm border border-border px-1.5 py-0.5 text-caption text-text">
+                            <CircleHelp size={12} strokeWidth={1.75} aria-hidden="true" className="text-text-muted" />
+                            문장 표현으로 추정한 문서 · 원인 판정 아님 · AI 요청에 넣지 않음
+                          </span>
+                        ) : null}
                         {host || hit.version ? (
                           <span className="line-clamp-1 text-caption text-text-muted">
                             {host}
@@ -847,7 +857,11 @@ function DocDetail({
 
       <DetailBlock title="문서 주요 내용 (발췌)">
         {hit.excerpt ? (
-          <pre className="max-h-80 overflow-auto rounded-sm border-l-2 border-brand bg-sunken px-3 py-2 font-mono text-caption leading-body break-words whitespace-pre-wrap text-text">
+          /*
+            인용 표시는 1px 전체 테두리다. 이전의 왼쪽 2px 브랜드 선은 CLAUDE.md 23장의
+            "한쪽 accent rail"과 같은 모양이었다(2026-11-23 화면 점검).
+          */
+          <pre className="max-h-80 overflow-auto rounded-sm border border-border bg-sunken px-3 py-2 font-mono text-caption leading-body break-words whitespace-pre-wrap text-text">
             {hit.excerpt}
           </pre>
         ) : (
@@ -1307,8 +1321,15 @@ function EvidenceFlow({ run, agent }: { run: DocSearchRun; agent: AgentRequest |
 
 function CorporaList({ corpora, method }: { corpora: DocCorpus[]; method: string }) {
   return (
-    <details className="rounded-lg border border-border bg-surface p-4 shadow-card">
-      <summary className="cursor-pointer text-small font-medium text-text-strong">
+    <details className="group rounded-lg border border-border bg-surface p-4 shadow-card">
+      {/* 다른 접힘 묶음(실행 로그 등)과 같은 chevron 표식. 브라우저 기본 ▶를 쓰지 않는다. */}
+      <summary className="flex min-h-6 cursor-pointer list-none items-center gap-2 text-small font-medium text-text-strong [&::-webkit-details-marker]:hidden">
+        <ChevronRight
+          size={16}
+          strokeWidth={1.5}
+          aria-hidden="true"
+          className="text-text-muted transition-transform group-open:rotate-90"
+        />
         검색한 자료와 방법
       </summary>
       <ul className="mt-3 flex flex-col gap-3">

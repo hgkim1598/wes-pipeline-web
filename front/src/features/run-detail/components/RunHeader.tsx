@@ -1,6 +1,11 @@
-import { Ban, CalendarDays, ChevronLeft, ChevronRight, Clock } from 'lucide-react'
+import {
+  Ban,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+} from 'lucide-react'
 import { useState } from 'react'
-import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 
 import { Button } from '@/components/ui/Button'
@@ -9,6 +14,8 @@ import { MessageBlock } from '@/components/ui/MessageBlock'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import type { JobState } from '@/features/run-detail/api'
 import { PollingStatus } from '@/features/run-detail/components/PollingStatus'
+import { describePosition as positionOf } from '@/features/run-detail/runPosition'
+import type { ConnectionState } from '@/features/run-detail/runDetailPolicy'
 import type { JobListItem } from '@/features/runs/api'
 import { describeJobStatus, isTerminalStatus } from '@/features/runs/status'
 import { durationBetween, formatTimestamp } from '@/features/runs/time'
@@ -25,7 +32,7 @@ import { describeStep } from '@/registries/steps'
 
   2026-11-20 (개발판단기록 41장): 승인된 밝은 시안대로 헤더를 줄였다 — 경로 ·
   상태 · 제목 · run id · 시작 시각 · 소요 시간 · 멈춘 위치와 문제 건수 한 줄.
-  네 칸 요약(RunFacts)은 개요 탭으로, 단계 띠는 파이프라인 탭의 진행 표시로
+  네 칸 요약은 개요 탭으로(2026-11-23 RunVerdict로 대체), 단계 띠는 파이프라인 탭의 진행 표시로
   옮겼다. 시안의 공유·내보내기·다시 실행 버튼은 없는 기능이라 만들지 않았다.
 
   시안과 다른 점 두 가지.
@@ -45,8 +52,7 @@ export interface RunHeaderProps {
   listItem: JobListItem | undefined
   polling: {
     updatedAt: number
-    failureCount: number
-    isFetching: boolean
+    connection: ConnectionState
   }
   onCancel: () => void
   isCancelling: boolean
@@ -56,6 +62,11 @@ export interface RunHeaderProps {
    * 센다 — 요약 띠와 본문의 숫자가 달라지면 안 된다.
    */
   issues: RunIssueCounts
+  /**
+   * "어디서 멈췄고 문제가 몇 건인가" 한 줄. 개요 탭은 바로 아래 판정 면(RunVerdict)이
+   * 같은 문장을 말하므로 false다 — 같은 사실이 위아래로 두 번 보였다.
+   */
+  showPositionLine?: boolean
 }
 
 export interface RunIssueCounts {
@@ -73,6 +84,7 @@ export function RunHeader({
   isCancelling,
   cancelError,
   issues,
+  showPositionLine = true,
 }: RunHeaderProps) {
   const [confirmingCancel, setConfirmingCancel] = useState(false)
 
@@ -104,7 +116,7 @@ export function RunHeader({
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
-            <h1 className="min-w-0 text-h2 font-semibold tracking-tight break-all text-text-strong">
+            <h1 className="min-w-0 text-h2 font-semibold tracking-tight [overflow-wrap:anywhere] text-text-strong">
               {job.profileId}
               {sample ? (
                 <>
@@ -145,31 +157,32 @@ export function RunHeader({
             <PollingStatus
               active={!terminal}
               updatedAt={polling.updatedAt}
-              failureCount={polling.failureCount}
-              isFetching={polling.isFetching}
+              connection={polling.connection}
             />
           </div>
 
           {/*
-            어느 탭에 있든 "어디서 멈췄고 문제가 몇 건인가"가 보이게 한 줄로
-            둔다. 실패의 본문(실패 카드)은 개요 탭에 있다.
+            개요 밖의 탭에서도 "어디서 멈췄고 문제가 몇 건인가"가 보이게 한 줄로
+            둔다. 개요 탭은 RunVerdict가 같은 말을 하므로 숨긴다(showPositionLine).
           */}
-          <p className="flex flex-wrap items-baseline gap-x-2 text-small">
-            <span className="font-medium text-text-strong">{position.headline}</span>
-            {position.detail ? <span className="text-text-muted">{position.detail}</span> : null}
-            {issues.failures > 0 || issues.attention > 0 ? (
-              <span className="text-text-muted">
-                ·{' '}
-                <span className={issues.failures > 0 ? 'font-medium text-status-failure-fg' : undefined}>
-                  실패 {issues.failures}
-                </span>{' '}
-                ·{' '}
-                <span className={issues.attention > 0 ? 'font-medium text-status-warning-fg' : undefined}>
-                  확인 필요 {issues.attention}
+          {showPositionLine ? (
+            <p className="flex flex-wrap items-baseline gap-x-2 text-small">
+              <span className="font-medium text-text-strong">{position.headline}</span>
+              {position.detail ? <span className="text-text-muted">{position.detail}</span> : null}
+              {issues.failures > 0 || issues.attention > 0 ? (
+                <span className="text-text-muted">
+                  ·{' '}
+                  <span className={issues.failures > 0 ? 'font-medium text-status-failure-fg' : undefined}>
+                    실패 {issues.failures}
+                  </span>{' '}
+                  ·{' '}
+                  <span className={issues.attention > 0 ? 'font-medium text-status-warning-fg' : undefined}>
+                    확인 필요 {issues.attention}
+                  </span>
                 </span>
-              </span>
-            ) : null}
-          </p>
+              ) : null}
+            </p>
+          ) : null}
         </div>
 
         {/*
@@ -228,142 +241,7 @@ export function RunHeader({
   )
 }
 
-/*
-  실행 요약 (2026-11-17 설계판단, 2026-11-20 개요 탭으로 이동).
-
-  헤더에 있던 네 칸(지금 위치 · 진행 · 문제 · 실행 조건)이다. 값은 모두
-  backend 응답에서 오고, 없는 값은 칸을 비우지 않고 말한다. 분석 모드와 캡처
-  키트는 다른 필드라 라벨을 따로 붙인다.
-*/
-export function RunFacts({
-  job,
-  listItem,
-  issues,
-}: {
-  job: JobState
-  listItem: JobListItem | undefined
-  issues: RunIssueCounts
-}) {
-  const completed = job.steps.filter(
-    (step) => step.status !== 'pending' && step.status !== 'running',
-  ).length
-  const position = describePosition(job)
-  const elapsed = durationBetween(job.startedAt, job.finishedAt)
-  return (
-    <dl className="grid grid-cols-1 rounded-lg border border-border bg-surface shadow-card md:grid-cols-2 lg:grid-cols-4">
-      <Fact term="지금 위치">
-        <span className="text-body font-medium text-text-strong">
-          {position.headline}
-        </span>
-        {position.detail ? (
-          <span className="text-caption text-text-muted">{position.detail}</span>
-        ) : null}
-      </Fact>
-      <Fact term="진행">
-        <span className="text-body text-text-strong">
-          <span className="font-mono text-data">
-            {completed} / {job.steps.length}
-          </span>{' '}
-          단계 끝남
-        </span>
-        <span className="text-caption text-text-muted">
-          완료 비율이며 남은 시간이 아닙니다
-        </span>
-      </Fact>
-      <Fact term="문제">
-        <span className="text-body text-text-strong">
-          {issues.failures > 0 || issues.attention > 0 ? (
-            <>
-              <span className={issues.failures > 0 ? 'text-status-failure-fg' : undefined}>
-                실패 {issues.failures}
-              </span>
-              <span className="px-1.5 text-ink-400">·</span>
-              <span className={issues.attention > 0 ? 'text-status-warning-fg' : undefined}>
-                확인 필요 {issues.attention}
-              </span>
-            </>
-          ) : (
-            '기록된 실패·확인 필요 없음'
-          )}
-        </span>
-        {issues.notes > 0 ? (
-          <span className="text-caption text-text-muted">
-            참고·자동 처리 {issues.notes}건
-          </span>
-        ) : null}
-      </Fact>
-      <Fact term="실행 조건">
-        <span className="text-body text-text-strong">
-          {job.runMode === 'full'
-            ? '전체 분석'
-            : job.runMode === 'check_only'
-              ? '사전 점검'
-              : job.runMode}
-          {elapsed ? (
-            <span className="text-text-muted">
-              <span className="px-1.5 text-ink-400">·</span>
-              {elapsed} 소요
-            </span>
-          ) : null}
-        </span>
-        {listItem?.captureKitId ? (
-          <span className="text-caption text-text-muted">
-            캡처 키트{' '}
-            <span className="font-mono text-text">{listItem.captureKitId}</span>
-          </span>
-        ) : null}
-      </Fact>
-    </dl>
-  )
-}
-
-function Fact({ term, children }: { term: string; children: ReactNode }) {
-  return (
-    /*
-      칸 사이 구분선. 1열은 아래선, 2열(sm)은 왼쪽 칸 오른선 + 윗줄 아래선,
-      4열(lg)은 마지막 칸을 뺀 오른선만.
-    */
-    <div className="flex min-w-0 flex-col gap-1 border-border-subtle px-4 py-3 not-last:border-b md:odd:border-r md:nth-last-[-n+2]:border-b-0 lg:border-b-0 lg:not-last:border-r">
-
-      <dt className="text-caption font-medium tracking-wide-kr text-text-muted">{term}</dt>
-      <dd className="flex min-w-0 flex-col gap-0.5">{children}</dd>
-    </div>
-  )
-}
-
-/**
- * "지금 어디인가"를 한 문장으로.
- *
- * 실패한 실행은 currentStep이 null이라 이전 헤더는 "1/8단계"만 보여주고 어디서
- * 멈췄는지 말하지 않았다. 단계 상태에서 직접 찾는다 — backend가 준 값만 쓴다.
- */
-function describePosition(job: JobState): { headline: string; detail: string | null } {
-  const steps = job.steps
-  const failed = steps.find((step) => step.status === 'failed')
-  const waiting = steps.filter((step) => step.status === 'pending').length
-
-  if (failed) {
-    return {
-      headline: `${describeStep(failed.stepId).label}에서 멈춤`,
-      detail: waiting > 0 ? `이후 ${waiting}단계는 실행되지 않았습니다` : null,
-    }
-  }
-  if (job.currentStep) {
-    const index = steps.findIndex((step) => step.stepId === job.currentStep)
-    const next = index >= 0 ? steps[index + 1] : undefined
-    return {
-      headline: `${describeStep(job.currentStep).label} 진행 중`,
-      detail: next ? `다음: ${describeStep(next.stepId).label}` : '마지막 단계입니다',
-    }
-  }
-  if (job.status === 'queued') {
-    return { headline: '시작 대기 중', detail: null }
-  }
-  if (job.status === 'cancelled') {
-    return { headline: '취소됨', detail: waiting > 0 ? `${waiting}단계는 실행되지 않았습니다` : null }
-  }
-  if (steps.length > 0 && waiting === 0) {
-    return { headline: '모든 단계가 끝났습니다', detail: null }
-  }
-  return { headline: '기록 없음', detail: null }
+/** 위치 문장(runPosition.ts)에 단계 이름 registry를 붙인다. */
+function describePosition(job: JobState) {
+  return positionOf(job, (stepId) => describeStep(stepId).label)
 }

@@ -8,6 +8,7 @@ import { SectionHeader } from '@/components/ui/SectionHeader'
 import { SourceMark } from '@/components/ui/SourceMark'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { cx } from '@/lib/cx'
+import { readGrader, writeGrader } from '@/lib/evalGrader'
 
 import { saveGrade } from './api'
 import type { Blind, ClaimGrade, Grade, GradeInput } from './api'
@@ -25,23 +26,6 @@ import { evalCompareKey, useBlind } from './queries'
   가장 최근 판을 쓴다. 이전 판은 지워지지 않는다.
 */
 
-const GRADER_KEY = 'wes.evalCompare.grader'
-
-function readGrader(): string {
-  try {
-    return localStorage.getItem(GRADER_KEY) ?? ''
-  } catch {
-    return ''
-  }
-}
-
-function writeGrader(value: string) {
-  try {
-    localStorage.setItem(GRADER_KEY, value)
-  } catch {
-    /* 저장하지 못해도 채점은 된다 */
-  }
-}
 
 const SOURCE_LABEL: Record<string, 'record' | 'doc' | 'knowledge'> = {
   record: 'record',
@@ -62,7 +46,7 @@ export function EvalGradePage() {
   const { experimentId = '' } = useParams()
   const { data, error, isPending } = useBlind(experimentId)
   return (
-    <main className="mx-auto flex max-w-app flex-col gap-8 px-4 py-8 sm:px-6">
+    <main className="mx-auto flex max-w-app flex-col gap-8 px-4 py-8 md:px-6">
       <nav className="text-caption text-text-muted">
         <Link to="/eval/compare">비교 분석</Link> / <span className="font-mono">{experimentId}</span> / 블라인드 채점
       </nav>

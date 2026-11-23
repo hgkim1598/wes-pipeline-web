@@ -1,13 +1,16 @@
 import type { ReactNode } from 'react'
-import { ArrowRight, CircleCheck, OctagonX, TriangleAlert } from 'lucide-react'
+import { ArrowRight, BookOpenCheck, CircleCheck, Info, ListChecks, OctagonX, TriangleAlert } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { WithheldLine } from '@/components/ui/DiagnosticNote'
 import { HelpTerm } from '@/components/ui/HelpTerm'
 import type { ExplanationFailure } from '@/features/run-detail/api'
 import type { RunDiagnostic } from '@/features/run-detail/diagnostics'
+import { attentionHeading, failureLead, failureLeadText } from '@/features/run-detail/emptyStateCopy'
+import { nextActions } from '@/features/run-detail/nextActions'
 import { describeFailureCode } from '@/registries/failures'
 import { describeStep } from '@/registries/steps'
+import { cx } from '@/lib/cx'
 
 /*
   이 실행에서 일어난 일의 **유일한 본문**.
@@ -93,7 +96,7 @@ export function AttentionSection({
 
     실패의 표현은 `failures` prop 하나가 맡는다 — 그쪽은
     `wes_failures.json`의 title·meaning을 쓴다. raw message는 사라지지 않고
-    맨 아래 "기술 정보"에 그대로 남는다.
+    맨 아래 "멈춘 이유의 원문"에 그대로 남는다.
   */
   const warnings = diagnostics.filter((item) => item.view.kind !== 'failure')
   const repaired = warnings.filter((item) => item.view.kind === 'repaired')
@@ -101,42 +104,60 @@ export function AttentionSection({
     (item) => item.view.kind !== 'repaired',
   )
 
-  const hasFailure = failures.length > 0 || Boolean(rawError)
+  // items: 아래에 실패 항목이 있다. rawOnly: 원문 error뿐이다 — "아래 항목"이라고
+  // 말하지 않고 원문을 펼쳐 보인다(emptyStateCopy.ts).
+  const lead = failureLead(failures.length, rawError)
+  const hasFailure = lead !== 'none'
   if (!hasFailure && needsAttention.length === 0 && repaired.length === 0) {
     return null
   }
 
-  const helpPaths = [
-    ...new Set(
-      failures
-        .map((failure) => describeFailureCode(failure.code).helpPath)
-        .filter((path): path is string => Boolean(path)),
-    ),
-  ]
+  /*
+    다음 행동: 준비 안내(helpPath) + 실패 단계의 근거 보기. 기록에서만 만든다
+    (nextActions.ts). 단계 이동은 onGoToStep이 있을 때만 — 갈 곳 없는 버튼 금지.
+  */
+  const actions = nextActions(failures, (code) => describeFailureCode(code).helpPath).filter(
+    (action) => action.kind === 'help' || onGoToStep,
+  )
 
-  const tone = hasFailure
-    ? 'border-status-failure-bd bg-status-failure-bg'
-    : 'border-border bg-surface'
+  const heading = attentionHeading(
+    hasFailure,
+    isPrecheck,
+    needsAttention.filter((item) => item.view.kind === 'attention').length,
+  )
+
+  /*
+    카드 전체를 빨갛게 칠하지 않는다(2026-11-23 발표용 정리, ref 다크 시안의
+    "Analysis Stopped" 띠). 카드는 중립 면이고 상태 tint는 맨 위 제목 띠에만
+    둔다 — 아래 구획(멈춘 이유·다음 행동·함께 기록된 항목)이 같은 무게로 읽힌다.
+
+    2026-11-23 UI 정리(개발판단기록 63장): 제목 띠를 카드 안의 또 다른 상자로
+    두지 않고 카드 머리(가장자리까지 닿는 띠)로 만든다. 그 아래 목록도 테두리
+    상자 대신 위아래 hairline으로 나눈다 — 카드 속 카드 속 목록의 3중 중첩을 없앤다.
+  */
+  const banner =
+    heading.tone === 'failure'
+      ? 'border-b border-status-failure-bd bg-status-failure-bg'
+      : heading.tone === 'warning'
+        ? 'border-b border-status-warning-bd bg-status-warning-bg'
+        : 'border-b border-border-subtle'
 
   return (
     <section
-      className={`flex flex-col gap-4 rounded-md border p-4 ${tone}`}
+      className="flex flex-col gap-5 overflow-hidden rounded-lg border border-border bg-surface pb-5 shadow-card [&>*:not(:first-child)]:mx-5"
       aria-labelledby="run-attention-heading"
     >
-      <div className="flex items-start gap-2">
-        {hasFailure ? (
-          <OctagonX
-            size={16}
-            strokeWidth={1.5}
-            aria-hidden="true"
-            className="mt-0.5 flex-none text-status-failure-fg"
-          />
+      <div className={cx('flex items-start gap-3 px-5 py-4', banner)}>
+        {heading.tone === 'failure' ? (
+          <OctagonX size={20} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 flex-none text-status-failure-fg" />
+        ) : heading.tone === 'warning' ? (
+          <TriangleAlert size={20} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 flex-none text-status-warning-fg" />
         ) : (
-          <TriangleAlert
+          <Info
             size={16}
             strokeWidth={1.5}
             aria-hidden="true"
-            className="mt-0.5 flex-none text-status-warning-fg"
+            className="mt-0.5 flex-none text-text-muted"
           />
         )}
         <div className="flex min-w-0 flex-col gap-1">
@@ -144,103 +165,143 @@ export function AttentionSection({
             id="run-attention-heading"
             className="text-h3 font-semibold text-text-strong"
           >
-            {hasFailure
-              ? isPrecheck
-                ? '분석을 시작하기 전 확인에서 멈췄습니다'
-                : '분석이 완료되지 못했습니다'
-              : '확인이 필요한 사항이 있습니다'}
+            {heading.title}
           </h2>
           {hasFailure ? (
             <p className="max-w-prose text-body text-text">
-              {isPrecheck ? (
+              {lead === 'items' && isPrecheck ? (
                 <>
                   <HelpTerm termId="precheck">사전 점검</HelpTerm>에서 문제가
                   확인되어 분석을 시작하지 않았습니다. 아래 항목을 준비한 뒤 다시
                   실행하면 됩니다.
                 </>
               ) : (
-                '아래 항목에서 실행이 중단되었습니다.'
+                failureLeadText(lead, isPrecheck)
               )}
             </p>
           ) : null}
         </div>
       </div>
 
-      {/* --- 실패 ------------------------------------------------------- */}
-      {failures.length > 0 ? (
-        <ul className="flex flex-col gap-3 border-t border-status-failure-bd pt-3">
-          {failures.map((failure, index) => {
-            const view = describeFailureCode(failure.code)
-            return (
-              <li key={`${failure.code}-${index}`} className="flex flex-col gap-1">
-                <div className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="text-body font-medium text-text-strong">
-                    {/*
-                      미등록 code면 backend 원문이 제목이 된다. 지어낸 문장보다
-                      낫고, 등록된 두 code는 이 경로를 타지 않는다.
-                    */}
-                    {view.known ? view.title : failure.message}
-                  </span>
-                  {/*
-                    code는 제목 옆에 두지 않는다. `required_tools`는 사용자
-                    어휘가 아니라 식별자이고, 제목 옆에 있으면 무엇을 읽어야
-                    할지 흐려진다. 아래 "기술 정보"에서 확인할 수 있다.
-                  */}
-                  {failure.actualStepLabel ? (
-                    <span className="text-caption text-text-muted">
-                      {failure.actualStepLabel}
-                    </span>
-                  ) : null}
-                </div>
-                {view.known ? (
-                  <p className="max-w-prose text-small text-text">
-                    {view.meaning}
-                  </p>
-                ) : null}
-                {renderAiNote ? renderAiNote('failure', failure.code) : null}
-              </li>
-            )
-          })}
-        </ul>
+      {/* --- 원문만 있는 실패: 접지 않는다. 이것이 유일한 단서다 ----------- */}
+      {lead === 'rawOnly' && rawError ? (
+        <div className="flex flex-col gap-1">
+          <p className="text-caption font-medium text-text-muted">
+            실행이 남긴 오류 원문
+          </p>
+          {/* 스크롤되는 영역이라 키보드로도 들어갈 수 있게 tabIndex를 준다(2026-11-23 리뷰). */}
+          <pre
+            tabIndex={0}
+            aria-label="실행이 남긴 오류 원문"
+            className="max-h-48 overflow-auto rounded-sm border border-border bg-surface p-3 font-mono text-caption break-words whitespace-pre-wrap text-text">
+            {rawError}
+          </pre>
+        </div>
       ) : null}
 
-      {helpPaths.length > 0 ? (
-        <div className="flex flex-wrap gap-3">
-          {helpPaths.map((path) => (
-            <Link
-              key={path}
-              to={path}
-              className="inline-flex min-h-8 items-center rounded-sm border border-border-strong bg-surface px-4 text-body font-medium text-text-strong no-underline hover:bg-sunken hover:no-underline"
-            >
-              {path.endsWith('#tools')
-                ? '프로그램 준비 방법 보기'
-                : '참조 데이터 준비 방법 보기'}
-            </Link>
-          ))}
+      {/* --- 실패 ------------------------------------------------------- */}
+      {/*
+        세 구획(2026-11-23, ref 1의 위계): 멈춘 이유 → 다음 행동 → 함께 기록된
+        항목. 구획 제목이 있어서 경고가 중단 원인처럼 읽히지 않는다 — 원인을
+        잇는 문장은 여전히 쓰지 않는다.
+      */}
+      {failures.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          <SubHeading>멈춘 이유 {failures.length}건</SubHeading>
+          <ul className="flex flex-col divide-y divide-border-subtle border-y border-border-subtle">
+            {failures.map((failure, index) => {
+              const view = describeFailureCode(failure.code)
+              return (
+                <li key={`${failure.code}-${index}`} className="flex items-start gap-3 py-3">
+                  <RowIcon tone="failure" />
+                  <div className="flex min-w-0 flex-col gap-1">
+                  <div className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="text-body font-medium text-text-strong">
+                      {/*
+                        미등록 code면 backend 원문이 제목이 된다. 지어낸 문장보다
+                        낫고, 등록된 두 code는 이 경로를 타지 않는다.
+                      */}
+                      {view.known ? view.title : failure.message}
+                    </span>
+                    {/*
+                      code는 제목 옆에 두지 않는다. `required_tools`는 사용자
+                      어휘가 아니라 식별자이고, 제목 옆에 있으면 무엇을 읽어야
+                      할지 흐려진다. 아래 "멈춘 이유의 원문"에서 확인할 수 있다.
+                    */}
+                    {failure.actualStepLabel ? (
+                      <span className="text-caption text-text-muted">
+                        {failure.actualStepLabel}
+                      </span>
+                    ) : null}
+                  </div>
+                  {view.known ? (
+                    <p className="max-w-prose text-small text-text">
+                      {view.meaning}
+                    </p>
+                  ) : null}
+                  {renderAiNote ? renderAiNote('failure', failure.code) : null}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ) : null}
+
+      {actions.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          <SubHeading>다음 행동</SubHeading>
+          <ul className="flex flex-wrap gap-2">
+            {actions.map((action) =>
+              action.kind === 'help' ? (
+                <li key={action.path}>
+                  <Link
+                    to={action.path}
+                    className="inline-flex min-h-8 items-center gap-1.5 rounded-sm border border-border-strong bg-surface px-3 text-body font-medium text-text-strong no-underline hover:bg-sunken hover:no-underline"
+                  >
+                    <BookOpenCheck size={15} strokeWidth={1.5} aria-hidden="true" />
+                    {action.label}
+                  </Link>
+                </li>
+              ) : (
+                <li key={action.stepId}>
+                  <button
+                    type="button"
+                    onClick={() => onGoToStep?.(action.stepId)}
+                    className="inline-flex min-h-8 items-center gap-1.5 rounded-sm border border-border bg-surface px-3 text-body text-text hover:bg-sunken"
+                  >
+                    <ListChecks size={15} strokeWidth={1.5} aria-hidden="true" />
+                    {describeStep(action.stepId).label} 단계 기록 보기
+                  </button>
+                </li>
+              ),
+            )}
+          </ul>
         </div>
       ) : null}
 
       {/* --- 확인이 필요한 진단 ------------------------------------------ */}
       {needsAttention.length > 0 ? (
-        <ul
-          className={`flex flex-col gap-4 ${
-            hasFailure ? 'border-t border-status-failure-bd pt-3' : ''
-          }`}
-        >
-          {needsAttention.map((item) => (
-            <DiagnosticItem
-              key={item.key}
-              item={item}
-              onGoToStep={onGoToStep}
-              renderAiNote={renderAiNote}
-            />
-          ))}
-        </ul>
+        <div className="flex flex-col gap-2">
+          {hasFailure ? (
+            <SubHeading>함께 기록된 항목 {needsAttention.length}건</SubHeading>
+          ) : null}
+          <ul className={cx('flex flex-col divide-y divide-border-subtle border-b border-border-subtle', hasFailure && 'border-t')}>
+            {needsAttention.map((item) => (
+              <DiagnosticItem
+                key={item.key}
+                item={item}
+                onGoToStep={onGoToStep}
+                renderAiNote={renderAiNote}
+              />
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       {/* --- 자동 해결 ---------------------------------------------------- */}
       {repaired.length > 0 ? (
-        <details className="border-t border-border pt-3">
+        <details className="border-t border-border-subtle pt-3">
           <summary className="inline-flex min-h-6 cursor-pointer items-center gap-2 text-small font-medium text-text-muted">
             <CircleCheck
               size={14}
@@ -255,7 +316,7 @@ export function AttentionSection({
             */}
             파이프라인이 처리해 조치가 필요 없는 항목 {repaired.length}건
           </summary>
-          <ul className="mt-3 flex flex-col gap-4">
+          <ul className="mt-3 flex flex-col divide-y divide-border-subtle border-y border-border-subtle">
             {repaired.map((item) => (
               <DiagnosticItem
                 key={item.key}
@@ -269,11 +330,15 @@ export function AttentionSection({
         </details>
       ) : null}
 
-      {/* --- 실패 원문 ---------------------------------------------------- */}
-      {hasFailure ? (
-        <details className="border-t border-status-failure-bd pt-3">
+      {/* --- 실패 원문 (구조화된 실패의 code·원문) ---------------------------- */}
+      {lead === 'items' ? (
+        <details className="border-t border-border-subtle pt-3">
           <summary className="inline-flex min-h-6 cursor-pointer items-center text-small font-medium text-text-muted">
-            기술 정보
+            {/*
+              항목마다 있는 "기술 정보"와 이름이 같아 두 개가 나란히 보였다
+              (2026-11-23 화면 점검). 무엇의 원문인지 이름에 쓴다.
+            */}
+            멈춘 이유의 원문 (code · message)
           </summary>
           <dl className="mt-3 flex flex-col gap-3">
             {failures.map((failure, index) => (
@@ -287,23 +352,20 @@ export function AttentionSection({
               </div>
             ))}
             {/*
-              구조화된 failure가 없을 때만 원문 error가 유일한 단서다.
-              둘 다 있으면 같은 내용이 두 번 나오므로 그리지 않는다.
+              구조화된 failure가 없을 때의 원문 error는 위에서 펼쳐 보인다
+              (rawOnly). 둘 다 있으면 같은 내용이 두 번 나오므로 그리지 않는다.
             */}
-            {failures.length === 0 && rawError ? (
-              <div className="flex flex-col gap-1">
-                <dt className="font-mono text-caption text-text-muted">
-                  pipeline error
-                </dt>
-                <dd className="text-caption break-words whitespace-pre-wrap text-text">
-                  {rawError}
-                </dd>
-              </div>
-            ) : null}
           </dl>
         </details>
       ) : null}
     </section>
+  )
+}
+
+/** 카드 안 구획 제목. 시각은 작게, 구조는 h3로 — 화면 낭독기가 구획을 건너뛸 수 있다. */
+function SubHeading({ children }: { children: ReactNode }) {
+  return (
+    <h3 className="text-caption font-semibold tracking-wide-kr text-text-muted">{children}</h3>
   )
 }
 
@@ -333,7 +395,11 @@ function DiagnosticItem({
 }) {
   const { view } = item
   return (
-    <li className="flex flex-col gap-1">
+    <li className="flex items-start gap-3 py-3">
+      <RowIcon
+        tone={view.kind === 'attention' ? 'warning' : view.kind === 'repaired' ? 'success' : 'note'}
+      />
+      <div className="flex min-w-0 flex-col gap-1">
       <div className="flex flex-wrap items-baseline gap-x-2">
         <span
           className={
@@ -432,6 +498,35 @@ function DiagnosticItem({
           </dl>
         </details>
       ) : null}
+      </div>
     </li>
+  )
+}
+
+/** 목록 행 머리의 상태 아이콘 타일. 글자 라벨이 함께 있어 색만으로 말하지 않는다. */
+function RowIcon({ tone }: { tone: 'failure' | 'warning' | 'success' | 'note' }) {
+  const Icon =
+    tone === 'failure'
+      ? OctagonX
+      : tone === 'warning'
+        ? TriangleAlert
+        : tone === 'success'
+          ? CircleCheck
+          : Info
+  const color =
+    tone === 'failure'
+      ? 'bg-status-failure-bg text-status-failure-fg'
+      : tone === 'warning'
+        ? 'bg-status-warning-bg text-status-warning-fg'
+        : tone === 'success'
+          ? 'bg-status-success-bg text-status-success-fg'
+          : 'bg-status-info-bg text-status-info-fg'
+  return (
+    <span
+      aria-hidden="true"
+      className={cx('mt-0.5 flex size-7 flex-none items-center justify-center rounded-md', color)}
+    >
+      <Icon size={15} strokeWidth={1.5} />
+    </span>
   )
 }

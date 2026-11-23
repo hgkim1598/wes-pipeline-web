@@ -39,17 +39,23 @@ from typing import Any, Protocol
 from pydantic import ValidationError
 
 from app import config, db
-from app.services import resource_bundle_diagnosis, step_reader
+from app.services import job_state, resource_bundle_diagnosis, step_reader
 from app.services.agent import doc_retrieval
 from app.services.agent.privacy import Redactor
 from app.services.agent.run_scope import redactor_for_row
 
-from . import commands, manual_corpus
+from app.services.resource_bundle_causes import UNKNOWN as UNKNOWN_KIND
+
+from . import commands, lexicon, manual_corpus
 from .models import CorpusInfo, CorpusSkip, ExcludedObservation, ObservedCommand, SearchInput
 
-METHOD = "curated: cause-kind key, FTS5 order | manual: option lookup + FTS5 bm25 (same command section first)"
+METHOD = ("curated: cause-kind key, FTS5 order; unknown kind: wording-lexicon suggestion (separate relation)"
+          " | manual: option lookup + FTS5 bm25 (same command section first)")
 MAX_MANUAL_HITS = 5
 MAX_QUERY_TERMS = 24
+# Passages for a kind only SUGGESTED by wording (lexicon.py): fewer than for a
+# classified cause, because the kind itself is a guess.
+MAX_SUGGESTED_PASSAGES = 3
 
 _WORD = re.compile(r"[A-Za-z][A-Za-z0-9]+")
 _PLACEHOLDER = re.compile(r"<[a-z_]+>")
@@ -62,6 +68,10 @@ _STOP = frozenset(
 REASON_NOT_SEARCHABLE = "이 검사에 연결된 도구 명령이 파이프라인 코드에 없어 검색 질의를 만들지 않았습니다."
 REASON_BUNDLE_UNPARSED = "리소스 검사 원인 문장을 분류하지 못해 검색 질의를 만들지 않았습니다."
 REASON_CURATED_NOT_FILED = "이 종류에 등록된 공식 문서 발췌가 없습니다."
+REASON_CURATED_UNCLASSIFIED = (
+    "규칙표로 분류되지 않은 문장이고, 표현으로도 원인 종류를 하나로 추정하지 못해 "
+    "문서를 찾지 않았습니다. 엉뚱한 문서를 보여 주지 않기 위해서입니다."
+)
 REASON_CURATED_CHECK = "등록 발췌는 리소스 검사 원인 종류로만 분류되어 있습니다."
 REASON_MANUAL_OFF = "전체 매뉴얼 자료가 이 서버에 설정되어 있지 않습니다."
 REASON_MANUAL_ERROR = "전체 매뉴얼 자료를 읽지 못했습니다."
@@ -163,7 +173,10 @@ def collect_inputs(row: Any) -> tuple[list[_Input], list[ExcludedObservation]]:
 
     for step_id in planned:
         try:
-            payload = step_reader.read(run_dir, planned, row["run_mode"], step_id)
+            payload = step_reader.read(
+                run_dir, planned, row["run_mode"], step_id,
+                process_ended=job_state.process_ended(row),
+            )
         except step_reader.StepNotPlanned:
             continue
         except (OSError, ValueError) as exc:
@@ -178,14 +191,21 @@ def collect_inputs(row: Any) -> tuple[list[_Input], list[ExcludedObservation]]:
                 cmd = commands.for_rule(cause.ruleId)
                 tool = cause.tool or (cmd.tool if cmd else None)
                 evidence = _terms(cause.evidenceText or "", redactor)
+                # The rule table could not classify the sentence: ask the wording
+                # lexicon for a SUGGESTION. The input's kind stays `unknown`.
+                suggestion = (lexicon.suggest(cause.evidenceText or "")
+                              if cause.kind == UNKNOWN_KIND else None)
 
-                def build(iid, cause=cause, cmd=cmd, tool=tool, evidence=evidence):
+                def build(iid, cause=cause, cmd=cmd, tool=tool, evidence=evidence,
+                          suggestion=suggestion):
                     return _Input(
                         SearchInput(
                             inputId=iid, origin="resourceBundleCause", stepId=step_id,
                             kind=cause.kind, tool=tool, ruleId=cause.ruleId,
                             command=_command_model(cmd) if cmd else None,
                             queryTerms=_query_terms(cause.kind, cmd, tool, evidence),
+                            suggestedKind=suggestion.kind if suggestion else None,
+                            suggestionRule=suggestion.rule_id if suggestion else None,
                         ),
                         evidence_text=cause.evidenceText or "",
                     )
@@ -322,11 +342,19 @@ def _search_manual(item: SearchInput, corpus: manual_corpus.ManualCorpus,
 
 
 def _search_curated(item: SearchInput, evidence_text: str) -> list[HitRecord]:
+    if item.kind == UNKNOWN_KIND and item.suggestedKind:
+        # A guess from wording: fewer passages, and its own relation so nothing
+        # downstream can read it as "filed under this run's cause".
+        found = doc_retrieval.retrieve(item.suggestedKind, evidence_text, limit=MAX_SUGGESTED_PASSAGES)
+        relation, matched_by = "suggestedByWording", ["wordingLexicon"]
+    else:
+        found = doc_retrieval.retrieve(item.kind, evidence_text)
+        relation, matched_by = "filedUnderCauseKind", ["causeKindKey"]
     hits = []
-    for rank, p in enumerate(doc_retrieval.retrieve(item.kind, evidence_text), start=1):
+    for rank, p in enumerate(found, start=1):
         hits.append(HitRecord(
             input_id=item.inputId, corpus="curated", rank=rank, evidence_id=p.evidence_id,
-            relation="filedUnderCauseKind", matched_by=["causeKindKey"],
+            relation=relation, matched_by=matched_by,
             source_title=doc_retrieval.source_title(p), source_url=doc_retrieval.source_url(p),
             location=p.heading, version=p.toolVersion, checked_on=p.checkedOn,
             item_sha256=hashlib.sha256(p.quote.encode("utf-8")).hexdigest(),
@@ -355,7 +383,10 @@ def run_search(row: Any) -> SearchRecord:
         else:
             found = _search_curated(m, item.evidence_text)
             if not found:
-                m.skipped.append(CorpusSkip(corpus="curated", reason=REASON_CURATED_NOT_FILED))
+                unclassified = m.kind == UNKNOWN_KIND and not m.suggestedKind
+                m.skipped.append(CorpusSkip(
+                    corpus="curated",
+                    reason=REASON_CURATED_UNCLASSIFIED if unclassified else REASON_CURATED_NOT_FILED))
             hits += found
 
         if manual is None:

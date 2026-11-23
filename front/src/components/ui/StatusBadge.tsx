@@ -51,6 +51,19 @@ const TONE_CLASS: Record<StatusTone, string> = {
 }
 
 /*
+  진입 화면(night) 위의 같은 배지. 어두운 면 위에서 옅은 면 색은 구분되지
+  않으므로 글자색 + 같은 색 1px 테두리(40%)로 구분한다. 아이콘·문구는 같다.
+*/
+const NIGHT_TONE_CLASS: Record<StatusTone, string> = {
+  idle: 'text-night-status-idle border-night-status-idle/40',
+  running: 'text-night-status-running border-night-status-running/40',
+  success: 'text-night-status-success border-night-status-success/40',
+  warning: 'text-night-status-warning border-night-status-warning/40',
+  failure: 'text-night-status-failure border-night-status-failure/40',
+  cancelled: 'text-night-status-cancelled border-night-status-cancelled/40',
+}
+
+/*
   E안 아이콘 세트.
 
   badge-shapes-2가 5개 후보(A~E) 중 "6종 모두 실루엣으로 갈림"으로 평가한
@@ -90,6 +103,8 @@ export interface StatusBadgeProps {
   /** 보이는 상태 텍스트. 색만으로 상태를 전달하지 않기 위해 필수다. */
   children: ReactNode
   size?: 'md' | 'sm'
+  /** 놓이는 면. 기본은 밝은 작업 화면, 'night'는 진입 화면. */
+  surface?: 'light' | 'night'
   className?: string
 }
 
@@ -97,6 +112,7 @@ export function StatusBadge({
   tone,
   children,
   size = 'md',
+  surface = 'light',
   className,
 }: StatusBadgeProps) {
   const Icon = TONE_ICON[tone]
@@ -107,7 +123,9 @@ export function StatusBadge({
         'inline-flex items-center gap-2 rounded-pill py-1 font-medium whitespace-nowrap',
         // 가로 padding은 시안의 --pad-pill-x(12px)를 그대로 쓴다.
         'px-[var(--pad-pill-x)]',
-        TONE_CLASS[tone],
+        surface === 'night'
+          ? cx('border bg-night-900', NIGHT_TONE_CLASS[tone])
+          : TONE_CLASS[tone],
         SIZE_CLASS[size],
         className,
       )}

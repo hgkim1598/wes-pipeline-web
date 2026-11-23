@@ -11,7 +11,8 @@ Nothing here calls the HTTP API. The same readers the API routes use are called
 directly, so there is one source of truth per fact:
 
     db.jobs row              identity, orchestration status, timestamps
-    run_status_reader        reconciled status, progress, per-step state
+    job_state                reconciled status, progress, per-step state
+                             (run_status_reader + the job row; job_state.py)
     result_reader            checks / warnings / failures / coverage / variants
     step documents           per-step warnings and failures when no result exists
 
@@ -55,22 +56,9 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from ... import db
-from .. import result_reader, run_status_reader, worker
+from .. import job_state, result_reader, run_status_reader
 
 ContextKind = Literal["full", "precheck", "failed", "in_progress"]
-
-# Backend orchestration state -> reported status, used only when the pipeline
-# has written no run_status.json of its own. Mirrors api/jobs.py._FALLBACK_STATUS;
-# imported rather than redefined would couple a service to an API module, and the
-# two are asserted equal in the tests.
-_FALLBACK_STATUS = {
-    worker.QUEUED: "queued",
-    worker.RUNNING: "running",
-    worker.CANCELLING: "running",
-    worker.CANCELLED: "cancelled",
-    worker.EXEC_FAILED: "failed",
-    worker.DONE: "failed",
-}
 
 _TERMINAL_FAILURE = ("failed", "cancelled")
 
@@ -288,15 +276,11 @@ def _outcome_without_results(
 ) -> tuple[RunOutcome, str]:
     """Status and progress when there is no result document.
 
-    Same reconciliation GET /api/jobs/{id} performs, so the two never disagree:
-    the pipeline's own run_status.json wins, and a cancel the backend recorded
-    but the pipeline could not overrides it.
+    `adapted` comes from job_state.read(), the same contract GET /api/jobs/{id}
+    uses, so the two never disagree (services/job_state.py).
     """
     if adapted is None:
-        status = _FALLBACK_STATUS.get(row["status"], "failed")
-        error = row["error"]
-        if status == "failed" and not error:
-            error = "the pipeline exited without writing a run status document"
+        status, error = job_state.fallback(row)
         return (
             RunOutcome(
                 status=status,
@@ -308,12 +292,9 @@ def _outcome_without_results(
             "db.jobs",
         )
 
-    status = adapted["status"]
-    if row["status"] == worker.CANCELLED and status != "cancelled":
-        status = "cancelled"
     return (
         RunOutcome(
-            status=status,
+            status=adapted["status"],
             pipelineStatus=adapted["pipelineStatus"],
             progress=adapted["progress"],
             currentStep=adapted["currentStep"],
@@ -349,7 +330,7 @@ def build_run_diagnostic_context(job_id: str) -> RunDiagnosticContext:
         runMode=row["run_mode"],
     )
 
-    adapted = run_status_reader.read(run_dir, planned, row["run_mode"])
+    adapted = job_state.read(row)
     steps = [
         RunStepState(
             stepId=state["stepId"],

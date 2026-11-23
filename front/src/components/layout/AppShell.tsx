@@ -39,6 +39,13 @@ import { cx } from '@/lib/cx'
 
   lg(70rem) 미만에서는 사이드바 대신 위쪽 한 줄 + "메뉴" 버튼이 같은 목록을
   펼친다.
+
+  ── 진입 화면과 잇기 (2026-11-23) ──────────────────────────────────────
+
+  진입 화면(`/`, 다크)과 밝은 작업 화면 사이의 다리가 이 어두운 사이드바다.
+  브랜드 아이콘은 진입 화면과 같은 neon-cyan, 선택 항목 테두리는 neon-blue.
+  브랜드를 누르면 진입 화면으로 간다. 어두운 면에서는 기본 포커스 링
+  (brand-600)이 거의 보이지 않으므로(약 2:1) 사이드바 안에서는 neon-blue를 쓴다.
 */
 
 interface NavItem {
@@ -76,7 +83,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-dvh bg-paper">
       <aside
         aria-label="서비스 메뉴"
-        className="sticky top-0 hidden h-dvh w-sidebar flex-none flex-col bg-sidebar text-sidebar-text lg:flex"
+        className="sticky top-0 hidden h-dvh w-sidebar flex-none flex-col bg-sidebar text-sidebar-text [--focus-ring-color:var(--color-neon-blue)] lg:flex"
       >
         <Brand />
         <NavList />
@@ -87,7 +94,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* 작은 화면의 위쪽 줄 */}
-        <div className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-sidebar px-4 py-2 text-sidebar-text lg:hidden">
+        <div className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-sidebar px-4 py-2 text-sidebar-text [--focus-ring-color:var(--color-neon-blue)] lg:hidden">
           <Brand compact />
           <button
             type="button"
@@ -107,7 +114,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {open ? (
           <div
             id="mobile-service-menu"
-            className="sticky top-[3.25rem] z-20 border-b border-sidebar-line bg-sidebar pb-3 text-sidebar-text lg:hidden"
+            className="sticky top-[3.25rem] z-20 border-b border-sidebar-line bg-sidebar pb-3 text-sidebar-text [--focus-ring-color:var(--color-neon-blue)] lg:hidden"
           >
             <NavList />
             <div className="px-4 pt-2">
@@ -125,13 +132,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <NavLink
-      to="/runs"
+      to="/"
+      aria-label="WES Analysis Workspace 처음 화면"
       className={cx(
         'flex items-center gap-2.5 text-sidebar-strong no-underline hover:no-underline',
         compact ? 'py-1' : 'border-b border-sidebar-line px-5 py-5',
       )}
     >
-      <Workflow size={compact ? 20 : 26} strokeWidth={1.75} aria-hidden="true" className="flex-none text-brand-100" />
+      <Workflow size={compact ? 20 : 26} strokeWidth={1.75} aria-hidden="true" className="flex-none text-neon-cyan" />
       <span className={cx('leading-tight font-semibold', compact ? 'text-body' : 'text-h3')}>
         WES Analysis
         {compact ? ' ' : <br />}
@@ -160,7 +168,7 @@ function NavList() {
                 className={cx(
                   'flex min-h-10 items-center gap-3 rounded-md px-3 text-body no-underline hover:no-underline',
                   active
-                    ? 'bg-sidebar-active font-medium text-sidebar-strong ring-1 ring-brand-500/60 ring-inset'
+                    ? 'bg-sidebar-active font-medium text-sidebar-strong ring-1 ring-neon-blue/60 ring-inset'
                     : 'text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-strong',
                 )}
               >

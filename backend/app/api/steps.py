@@ -37,7 +37,7 @@ from fastapi import APIRouter, HTTPException
 
 from .. import db
 from ..schemas import StepDetailResponse
-from ..services import resource_bundle_diagnosis, step_reader
+from ..services import job_state, resource_bundle_diagnosis, step_reader
 from ..services.agent.run_scope import redactor_for_row
 from .jobs import _load_job
 
@@ -52,7 +52,8 @@ def get_step(job_id: str, step_id: str) -> StepDetailResponse:
 
     try:
         payload = step_reader.read(
-            Path(row["run_dir"]), planned, row["run_mode"], step_id
+            Path(row["run_dir"]), planned, row["run_mode"], step_id,
+            process_ended=job_state.process_ended(row),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="malformed step id") from exc

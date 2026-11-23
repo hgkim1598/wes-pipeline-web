@@ -21,7 +21,6 @@ import json
 
 import pytest
 
-from ..api import jobs as jobs_api
 from ..services import worker
 from ..services.explanation import run_context
 
@@ -36,16 +35,6 @@ def build(job_id: str):
 def test_unknown_job_raises(env):
     with pytest.raises(run_context.JobNotFound):
         build("wes-does-not-exist")
-
-
-def test_fallback_table_matches_the_api_layer():
-    """Two copies of the same mapping would drift.
-
-    The service cannot import the API module (a service depending on a route
-    module inverts the layering), so the table is duplicated deliberately and
-    pinned here instead.
-    """
-    assert run_context._FALLBACK_STATUS == jobs_api._FALLBACK_STATUS
 
 
 # --- full run ---------------------------------------------------------------

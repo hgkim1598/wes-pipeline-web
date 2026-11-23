@@ -47,6 +47,8 @@ MAX_TOTAL = 6
 CANDIDATE_RELATIONS = frozenset({"filedUnderCauseKind", "sameCommandSection"})
 
 REASON_RELATION = "실행된 명령의 매뉴얼 절이 아니어서 Agent 입력 후보에서 제외했습니다."
+# lexicon.py (log 62): the kind was guessed from wording, not classified.
+REASON_WORDING = "원인이 분류되지 않은 문장에서 표현으로만 추정한 문서라 Agent 입력 후보에서 제외했습니다."
 REASON_INPUT_CAP = "실패 기록 하나당 최대 {n}개까지만 Agent 입력에 넣습니다."
 REASON_TOTAL_CAP = "요청 하나당 최대 {n}개까지만 Agent 입력에 넣습니다."
 REASON_TEXT_CHANGED = "검색 이후 문서 본문이 바뀌어 Agent 입력에 넣지 않았습니다."
@@ -142,7 +144,7 @@ def build(record: engine.SearchRecord, redactor: Redactor) -> AgentDocInput:
                 per_input[hit.input_id] = per_input.get(hit.input_id, 0) + 1
             continue
         if hit.relation not in CANDIDATE_RELATIONS:
-            decide(hit, REASON_RELATION)
+            decide(hit, REASON_WORDING if hit.relation == "suggestedByWording" else REASON_RELATION)
             continue
         if per_input.get(hit.input_id, 0) >= MAX_PER_INPUT:
             decide(hit, REASON_INPUT_CAP.format(n=MAX_PER_INPUT))

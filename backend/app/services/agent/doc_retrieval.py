@@ -149,6 +149,40 @@ def match_query(text: str) -> str | None:
     return " OR ".join(f'"{word}"' for word in seen[:32])
 
 
+# What a resource-check sentence carries besides its message (log 61). main.sh
+# fills its templates with locations and values -- a path, a file name, a quoted
+# prefix, a digest, a list of contig names, key=value pairs. Their words are
+# about where this run's files live, not about the failure, and fed to FTS5 they
+# steer the order: a directory called bgzip_sorted/ lifted the "input must be
+# bgzip-compressed and sorted" passage for a sentence that never said so. Only
+# the template's own words order the excerpts. Extensions written alone in the
+# message ("(.tbi or .csi)") are message words and stay. On the run page and in
+# the agent tool the sentence arrives already redacted, so its locations are
+# placeholders -- and a placeholder's word ("path", "file") is no message word
+# either.
+_VALUE_PATTERNS = (
+    re.compile(r"'[^']*'|\"[^\"]*\""),                       # quoted values
+    re.compile(r"\[[^\]]*\]"),                                # lists
+    re.compile(r"\b\w+=\S+"),                                 # key=value
+    re.compile(r"\S*[\\/]\S*"),                               # anything with a path separator
+    re.compile(r"\b[\w-]*\w\.(?:[A-Za-z0-9]{1,6}\.?)+\b"),   # file names (stem.ext[.ext])
+    re.compile(r"\b[0-9a-fA-F]{16,}\b"),                      # digests
+    re.compile(r"<[a-z_]+>"),                                 # redaction placeholders (<path>, <sample>)
+)
+
+
+def query_words(evidence_text: str) -> list[str]:
+    """The message words of a cause sentence, in order, without locations or values."""
+    text = evidence_text
+    for pattern in _VALUE_PATTERNS:
+        text = pattern.sub(" ", text)
+    words: list[str] = []
+    for word in _WORD.findall(text.lower()):
+        if word not in _STOP and word not in words:
+            words.append(word)
+    return words
+
+
 @lru_cache(maxsize=1)
 def _index() -> sqlite3.Connection:
     conn = sqlite3.connect(":memory:", check_same_thread=False)
@@ -188,7 +222,7 @@ def retrieve(kind: str, evidence_text: str, limit: int = MAX_PASSAGES_PER_CAUSE)
     candidates = [p for p in all_passages() if kind in p.causeKinds]
     if not candidates:
         return []
-    scores = _scores(evidence_text)
+    scores = _scores(" ".join(query_words(evidence_text)))
     order = {p.id: i for i, p in enumerate(candidates)}
     ranked = sorted(
         candidates,
