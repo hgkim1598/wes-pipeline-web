@@ -14,6 +14,7 @@ import { ApiError } from '@/api/client'
 import { isNotReady } from '@/features/run-detail/api'
 import { Button } from '@/components/ui/Button'
 import { MessageBlock } from '@/components/ui/MessageBlock'
+import { cx } from '@/lib/cx'
 import { TabsList, TabsPanel, TabsRoot, TabsTab } from '@/components/ui/Tabs'
 import { AiNote } from '@/features/run-detail/components/AiNote'
 import { AiStatusBar } from '@/features/run-detail/components/AiStatusBar'
@@ -55,12 +56,15 @@ import {
 } from '@/features/run-detail/factApplicability'
 import {
   findStepStatus,
+  phaseOf,
   useArtifactsQuery,
   useExplanationQuery,
   useJobDetailQuery,
+  useRefreshOnSettle,
   useResultsQuery,
   useStepDetailQuery,
 } from '@/features/run-detail/queries'
+import { connectionState } from '@/features/run-detail/runDetailPolicy'
 import { useCancelJobMutation } from '@/features/run-detail/useCancelJobMutation'
 import { useRunSynthesis } from '@/features/run-detail/useRunSynthesis'
 import {
@@ -87,7 +91,7 @@ import { describeStep } from '@/registries/steps'
     (개요 / 파이프라인 / 공식 문서 / AI 설명 / 파일) · 하단 RUO 문구.
     카드는 1px 선 + 옅은 --shadow-card + --radius-lg다(CLAUDE.md 23장).
     이전 탭 밖에 있던 실패 카드·제한·AI 상태·AI 패널은 각각 개요 탭과 AI 설명
-    탭으로 들어갔다. 헤더의 한 줄이 어느 탭에서든 멈춘 위치와 실패 건수를 말한다.
+    탭으로 들어갔다. 헤더의 한 줄이 개요 밖의 탭에서 멈춘 위치와 실패 건수를 말한다(개요는 RunFacts).
 
   이 파일의 책임은 조립뿐이다. 쿼리 정책은 queries.ts, 표시는 components/,
   어휘는 registries/steps.ts와 stepStatus.ts에 있다. 탭이 늘어도 이 파일은
@@ -134,6 +138,9 @@ export function RunDetailPage() {
   const detail = useJobDetailQuery(jobId)
   const job = detail.data
   const terminal = job ? isTerminalStatus(job.status) : false
+  // 딸린 query의 정책은 모두 이 값 하나로 정한다(runDetailPolicy.ts).
+  const phase = phaseOf(job, detail.error)
+  useRefreshOnSettle(jobId, phase)
 
   /*
     파이프라인 워크스페이스의 선택 단계는 URL(?step=)이다(개발판단기록 40장).
@@ -214,9 +221,9 @@ export function RunDetailPage() {
 
   const stepStatus = findStepStatus(job, selectedStepId)
   const step = useStepDetailQuery(jobId, selectedStepId, stepStatus)
-  const results = useResultsQuery(jobId, job?.status)
-  const artifacts = useArtifactsQuery(jobId, job?.status)
-  const explanation = useExplanationQuery(jobId, job?.status)
+  const results = useResultsQuery(jobId, phase)
+  const artifacts = useArtifactsQuery(jobId, phase)
+  const explanation = useExplanationQuery(jobId, phase)
   const cancel = useCancelJobMutation(jobId)
   /*
     AI 종합 설명 요청은 페이지가 하나 가진다. 패널·상태 줄·각 항목의 AI 해설이
@@ -254,7 +261,12 @@ export function RunDetailPage() {
     )
   }
 
-  if (detail.error || !job) {
+  /*
+    받은 상세가 하나도 없을 때만 전체 오류 화면이다. 폴링 중의 일시적 실패는
+    react-query가 마지막 성공 값을 그대로 두므로 화면을 유지하고, 헤더의
+    PollingStatus가 "연결 끊김 · 마지막 성공 시각 기준"을 보여 준다.
+  */
+  if (!job) {
     return (
       <Shell>
         <RunDetailError error={detail.error} onRetry={() => void detail.refetch()} />
@@ -395,10 +407,14 @@ export function RunDetailPage() {
         job={job}
         listItem={listItem}
         issues={issues}
+        showPositionLine={activeTab !== 'overview'}
         polling={{
           updatedAt: detail.dataUpdatedAt,
-          failureCount: detail.failureCount,
-          isFetching: detail.isFetching,
+          connection: connectionState({
+            isError: detail.isError,
+            failureCount: detail.failureCount,
+            isFetching: detail.isFetching,
+          }),
         }}
         onCancel={() => cancel.mutate()}
         isCancelling={cancel.isPending}
@@ -428,7 +444,11 @@ export function RunDetailPage() {
                       size={15}
                       strokeWidth={1.5}
                       aria-hidden="true"
-                      className={item.id === 'ai' ? 'text-ai-fg' : undefined}
+                      /*
+                        좁은 화면에서는 아이콘을 뺀다 — 표식일 뿐이고 이름은 글자가
+                        말한다. 그래야 390px에서 다섯 탭이 한 줄에 들어간다.
+                      */
+                      className={cx('hidden md:block', item.id === 'ai' && 'text-ai-fg')}
                     />
                   ) : null}
                   {item.label}
@@ -461,6 +481,39 @@ export function RunDetailPage() {
 
             {/* 헤더에 있던 네 칸 요약. 값은 모두 응답에서 온다. */}
             <RunFacts job={job} listItem={listItem} issues={issues} />
+
+            {/*
+              어디서 멈췄나·어디까지 왔나를 띠 하나로(2026-11-23, ref 1). 파이프라인
+              탭과 같은 component·같은 단계 상태(장부 반영)다. 점을 누르면 그
+              단계의 파이프라인 상세로 간다. 강조 단계는 실패 → 실행 중 → 경고 순
+              (stepView.resolveStepId)이라 URL에 ?step=이 없어도 멈춘 곳이 보인다.
+            */}
+            {steps.length > 0 ? (
+              <section
+                aria-labelledby="overview-pipeline-heading"
+                className="flex flex-col gap-3 rounded-lg border border-border bg-surface px-5 py-4 shadow-card"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <h2 id="overview-pipeline-heading" className="text-body font-semibold text-text-strong">
+                    파이프라인
+                  </h2>
+                  <Link
+                    to={`${runPath}/pipeline`}
+                    className="inline-flex min-h-6 items-center gap-1 text-small text-text-muted no-underline hover:text-brand hover:underline"
+                  >
+                    단계별 상세 보기
+                    <ChevronRight size={14} strokeWidth={1.5} aria-hidden="true" />
+                  </Link>
+                </div>
+                <PipelineStepper
+                  steps={steps}
+                  selectedStepId={selectedStepId}
+                  terminal={terminal}
+                  onSelect={goToStep}
+                  controlsDetail={false}
+                />
+              </section>
+            ) : null}
 
             {/*
               이 실행에서 일어난 일의 유일한 본문(실패·확인 필요·자동 해결).

@@ -9,6 +9,8 @@ import { MessageBlock } from '@/components/ui/MessageBlock'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import type { JobState } from '@/features/run-detail/api'
 import { PollingStatus } from '@/features/run-detail/components/PollingStatus'
+import { describePosition as positionOf } from '@/features/run-detail/runPosition'
+import type { ConnectionState } from '@/features/run-detail/runDetailPolicy'
 import type { JobListItem } from '@/features/runs/api'
 import { describeJobStatus, isTerminalStatus } from '@/features/runs/status'
 import { durationBetween, formatTimestamp } from '@/features/runs/time'
@@ -45,8 +47,7 @@ export interface RunHeaderProps {
   listItem: JobListItem | undefined
   polling: {
     updatedAt: number
-    failureCount: number
-    isFetching: boolean
+    connection: ConnectionState
   }
   onCancel: () => void
   isCancelling: boolean
@@ -56,6 +57,11 @@ export interface RunHeaderProps {
    * 센다 — 요약 띠와 본문의 숫자가 달라지면 안 된다.
    */
   issues: RunIssueCounts
+  /**
+   * "어디서 멈췄고 문제가 몇 건인가" 한 줄. 개요 탭은 바로 아래 요약 칸(RunFacts)이
+   * 같은 문장을 말하므로 false다 — 같은 사실이 위아래로 두 번 보였다.
+   */
+  showPositionLine?: boolean
 }
 
 export interface RunIssueCounts {
@@ -73,6 +79,7 @@ export function RunHeader({
   isCancelling,
   cancelError,
   issues,
+  showPositionLine = true,
 }: RunHeaderProps) {
   const [confirmingCancel, setConfirmingCancel] = useState(false)
 
@@ -104,7 +111,7 @@ export function RunHeader({
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
-            <h1 className="min-w-0 text-h2 font-semibold tracking-tight break-all text-text-strong">
+            <h1 className="min-w-0 text-h2 font-semibold tracking-tight [overflow-wrap:anywhere] text-text-strong">
               {job.profileId}
               {sample ? (
                 <>
@@ -145,31 +152,32 @@ export function RunHeader({
             <PollingStatus
               active={!terminal}
               updatedAt={polling.updatedAt}
-              failureCount={polling.failureCount}
-              isFetching={polling.isFetching}
+              connection={polling.connection}
             />
           </div>
 
           {/*
-            어느 탭에 있든 "어디서 멈췄고 문제가 몇 건인가"가 보이게 한 줄로
-            둔다. 실패의 본문(실패 카드)은 개요 탭에 있다.
+            개요 밖의 탭에서도 "어디서 멈췄고 문제가 몇 건인가"가 보이게 한 줄로
+            둔다. 개요 탭은 RunFacts가 같은 말을 하므로 숨긴다(showPositionLine).
           */}
-          <p className="flex flex-wrap items-baseline gap-x-2 text-small">
-            <span className="font-medium text-text-strong">{position.headline}</span>
-            {position.detail ? <span className="text-text-muted">{position.detail}</span> : null}
-            {issues.failures > 0 || issues.attention > 0 ? (
-              <span className="text-text-muted">
-                ·{' '}
-                <span className={issues.failures > 0 ? 'font-medium text-status-failure-fg' : undefined}>
-                  실패 {issues.failures}
-                </span>{' '}
-                ·{' '}
-                <span className={issues.attention > 0 ? 'font-medium text-status-warning-fg' : undefined}>
-                  확인 필요 {issues.attention}
+          {showPositionLine ? (
+            <p className="flex flex-wrap items-baseline gap-x-2 text-small">
+              <span className="font-medium text-text-strong">{position.headline}</span>
+              {position.detail ? <span className="text-text-muted">{position.detail}</span> : null}
+              {issues.failures > 0 || issues.attention > 0 ? (
+                <span className="text-text-muted">
+                  ·{' '}
+                  <span className={issues.failures > 0 ? 'font-medium text-status-failure-fg' : undefined}>
+                    실패 {issues.failures}
+                  </span>{' '}
+                  ·{' '}
+                  <span className={issues.attention > 0 ? 'font-medium text-status-warning-fg' : undefined}>
+                    확인 필요 {issues.attention}
+                  </span>
                 </span>
-              </span>
-            ) : null}
-          </p>
+              ) : null}
+            </p>
+          ) : null}
         </div>
 
         {/*
@@ -331,39 +339,7 @@ function Fact({ term, children }: { term: string; children: ReactNode }) {
   )
 }
 
-/**
- * "지금 어디인가"를 한 문장으로.
- *
- * 실패한 실행은 currentStep이 null이라 이전 헤더는 "1/8단계"만 보여주고 어디서
- * 멈췄는지 말하지 않았다. 단계 상태에서 직접 찾는다 — backend가 준 값만 쓴다.
- */
-function describePosition(job: JobState): { headline: string; detail: string | null } {
-  const steps = job.steps
-  const failed = steps.find((step) => step.status === 'failed')
-  const waiting = steps.filter((step) => step.status === 'pending').length
-
-  if (failed) {
-    return {
-      headline: `${describeStep(failed.stepId).label}에서 멈춤`,
-      detail: waiting > 0 ? `이후 ${waiting}단계는 실행되지 않았습니다` : null,
-    }
-  }
-  if (job.currentStep) {
-    const index = steps.findIndex((step) => step.stepId === job.currentStep)
-    const next = index >= 0 ? steps[index + 1] : undefined
-    return {
-      headline: `${describeStep(job.currentStep).label} 진행 중`,
-      detail: next ? `다음: ${describeStep(next.stepId).label}` : '마지막 단계입니다',
-    }
-  }
-  if (job.status === 'queued') {
-    return { headline: '시작 대기 중', detail: null }
-  }
-  if (job.status === 'cancelled') {
-    return { headline: '취소됨', detail: waiting > 0 ? `${waiting}단계는 실행되지 않았습니다` : null }
-  }
-  if (steps.length > 0 && waiting === 0) {
-    return { headline: '모든 단계가 끝났습니다', detail: null }
-  }
-  return { headline: '기록 없음', detail: null }
+/** 위치 문장(runPosition.ts)에 단계 이름 registry를 붙인다. */
+function describePosition(job: JobState) {
+  return positionOf(job, (stepId) => describeStep(stepId).label)
 }

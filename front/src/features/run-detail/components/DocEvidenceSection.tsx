@@ -847,7 +847,11 @@ function DocDetail({
 
       <DetailBlock title="문서 주요 내용 (발췌)">
         {hit.excerpt ? (
-          <pre className="max-h-80 overflow-auto rounded-sm border-l-2 border-brand bg-sunken px-3 py-2 font-mono text-caption leading-body break-words whitespace-pre-wrap text-text">
+          /*
+            인용 표시는 1px 전체 테두리다. 이전의 왼쪽 2px 브랜드 선은 CLAUDE.md 23장의
+            "한쪽 accent rail"과 같은 모양이었다(2026-11-23 화면 점검).
+          */
+          <pre className="max-h-80 overflow-auto rounded-sm border border-border bg-sunken px-3 py-2 font-mono text-caption leading-body break-words whitespace-pre-wrap text-text">
             {hit.excerpt}
           </pre>
         ) : (
@@ -1307,8 +1311,15 @@ function EvidenceFlow({ run, agent }: { run: DocSearchRun; agent: AgentRequest |
 
 function CorporaList({ corpora, method }: { corpora: DocCorpus[]; method: string }) {
   return (
-    <details className="rounded-lg border border-border bg-surface p-4 shadow-card">
-      <summary className="cursor-pointer text-small font-medium text-text-strong">
+    <details className="group rounded-lg border border-border bg-surface p-4 shadow-card">
+      {/* 다른 접힘 묶음(실행 로그 등)과 같은 chevron 표식. 브라우저 기본 ▶를 쓰지 않는다. */}
+      <summary className="flex min-h-6 cursor-pointer list-none items-center gap-2 text-small font-medium text-text-strong [&::-webkit-details-marker]:hidden">
+        <ChevronRight
+          size={16}
+          strokeWidth={1.5}
+          aria-hidden="true"
+          className="text-text-muted transition-transform group-open:rotate-90"
+        />
         검색한 자료와 방법
       </summary>
       <ul className="mt-3 flex flex-col gap-3">

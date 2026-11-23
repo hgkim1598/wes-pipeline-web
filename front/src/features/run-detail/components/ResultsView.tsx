@@ -7,6 +7,7 @@ import type { NotReady, Results } from '@/features/run-detail/api'
 import { isNotReady } from '@/features/run-detail/api'
 import { CoverageSection } from '@/features/run-detail/components/CoverageSection'
 import { VariantSection } from '@/features/run-detail/components/VariantSection'
+import { resultsNotReadyCopy } from '@/features/run-detail/emptyStateCopy'
 
 /*
   결과.
@@ -92,18 +93,10 @@ export function ResultsView({
       <MessageBlock
         tone="info"
         role="status"
-        title={
-          terminal
-            ? '이 실행은 결과 문서를 만들지 않았습니다'
-            : '결과가 아직 준비되지 않았습니다'
-        }
+        title={resultsNotReadyCopy(terminal).title}
       >
         <div className="flex flex-col gap-2">
-          <p>
-            {terminal
-              ? '실행이 끝났지만 결과 문서가 없습니다. 파이프라인이 결과를 기록하기 전에 중단된 경우입니다 — 원인은 파이프라인 탭의 실패 사유와 로그에서 확인하세요.'
-              : '이 실행은 결과 문서를 아직 만들지 않았습니다. 결과가 0건이라는 뜻이 아닙니다.'}
-          </p>
+          <p>{resultsNotReadyCopy(terminal).body}</p>
           {data.reason ? (
             <code className="break-all text-text-muted">{data.reason}</code>
           ) : null}
