@@ -289,15 +289,15 @@ function RequestFlow() {
       <h3 className="text-caption font-semibold tracking-wide-kr text-text-muted">
         요청하면 서버가 하는 일
       </h3>
-      <ol className="grid grid-cols-1 gap-2 md:grid-cols-5">
+      {/*
+        2026-11-23 UI 정리(개발판단기록 63장): 단계마다 카드 다섯 장 → 한 줄의 순서
+        목록(1px 구분선). 보라색은 모델이 관여하는 04·05에만 쓴다(번호와 옅은 배경).
+      */}
+      <ol className="grid grid-cols-1 divide-y divide-border-subtle overflow-hidden rounded-md border border-border-subtle md:grid-cols-5 md:divide-x md:divide-y-0">
         {REQUEST_FLOW.map((step, index) => (
           <li
             key={step.title}
-            className={
-              step.ai
-                ? 'flex flex-col gap-1 rounded-md border border-ai-bd bg-ai-bg px-3 py-3'
-                : 'flex flex-col gap-1 rounded-md border border-border bg-paper px-3 py-3'
-            }
+            className={step.ai ? 'flex flex-col gap-1 bg-ai-bg px-3 py-3' : 'flex flex-col gap-1 px-3 py-3'}
           >
             <span className={step.ai ? 'font-mono text-caption text-ai-fg' : 'font-mono text-caption text-text-muted'}>
               {String(index + 1).padStart(2, '0')}

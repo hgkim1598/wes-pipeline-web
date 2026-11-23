@@ -7,7 +7,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   BookOpen,
-  CalendarDays,
   Check,
   ChevronRight,
   CircleHelp,
@@ -333,48 +332,37 @@ function SearchStats({ run }: { run: DocSearchRun }) {
   const counts = stageCounts(run.hits)
   const time = formatTimestamp(run.createdAt)
   const stat = (value: number | null, none: string) => (value === null ? none : `${value}건`)
-  const items: { label: string; value: ReactNode; icon: typeof FileText; ai?: boolean }[] = [
+  const items: { label: string; value: ReactNode; ai?: boolean }[] = [
     {
       label: '검색 기록',
-      icon: CalendarDays,
       value: (
         <time dateTime={run.createdAt} title={time?.full}>
           {time?.display ?? run.createdAt}
         </time>
       ),
     },
-    { label: '입력', icon: FileInput, value: `${run.inputs.length}건` },
-    { label: '반환 문서', icon: FileText, value: `${run.resultCount}건` },
-    { label: '요청 입력 포함', icon: Layers, value: stat(counts.input, '기록 없음') },
+    { label: '입력', value: `${run.inputs.length}건` },
+    { label: '반환 문서', value: `${run.resultCount}건` },
+    { label: '요청 입력 포함', value: stat(counts.input, '기록 없음') },
     {
       label: '답변 인용 확인',
-      icon: Quote,
       value: stat(counts.cited, agent ? '확인 불가' : '기록 없음'),
       ai: true,
     },
   ]
+  /*
+    2026-11-23 UI 정리(개발판단기록 63장): 아이콘 타일 다섯 칸 → 한 줄 사실 목록.
+    "0건 · 기록 없음"을 지표 카드처럼 크게 그리면 비어 있는 값이 성과처럼 읽힌다.
+    값과 그 구분(0건 / 기록 없음 / 확인 불가)은 그대로다.
+  */
   return (
-    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border-subtle bg-border-subtle md:grid-cols-5">
-      {items.map((item) => {
-        const Icon = item.icon
-        return (
-          <div key={item.label} className="flex items-center gap-2.5 bg-surface px-3 py-2.5">
-            <span
-              aria-hidden="true"
-              className={cx(
-                'flex size-8 flex-none items-center justify-center rounded-md',
-                item.ai ? 'bg-ai-bg text-ai-fg' : 'bg-sunken text-text-muted',
-              )}
-            >
-              <Icon size={15} strokeWidth={1.5} />
-            </span>
-            <div className="flex min-w-0 flex-col">
-              <dt className="text-caption text-text-muted">{item.label}</dt>
-              <dd className="truncate text-body font-semibold text-text-strong">{item.value}</dd>
-            </div>
-          </div>
-        )
-      })}
+    <dl className="flex flex-wrap items-baseline gap-x-5 gap-y-1.5 border-t border-border-subtle pt-3 text-small">
+      {items.map((item) => (
+        <div key={item.label} className="flex items-baseline gap-1.5">
+          <dt className="text-text-muted">{item.label}</dt>
+          <dd className={cx('font-medium', item.ai ? 'text-ai-fg' : 'text-text-strong')}>{item.value}</dd>
+        </div>
+      ))}
     </dl>
   )
 }
