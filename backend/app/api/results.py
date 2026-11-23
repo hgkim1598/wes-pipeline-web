@@ -32,10 +32,9 @@ from urllib.parse import quote
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from .. import db
 from ..schemas import ArtifactListResponse, JobResultsResponse
-from ..services import artifact_reader, result_reader, run_status_reader, worker
-from .jobs import _FALLBACK_STATUS, _load_job
+from ..services import artifact_reader, job_state, result_reader
+from .jobs import _load_job
 
 log = logging.getLogger(__name__)
 
@@ -63,20 +62,8 @@ def _safe_content_disposition(relative_path: str) -> str:
 
 
 def _reconciled_status(row) -> str:
-    """The same job status GET /api/jobs/{id} reports.
-
-    Reusing run_status_reader keeps the two endpoints from ever disagreeing
-    about a job, including the cancelled case that the pipeline could not
-    record itself.
-    """
-    planned: list[str] = db.loads(row["planned_steps"], [])
-    adapted = run_status_reader.read(Path(row["run_dir"]), planned, row["run_mode"])
-    if adapted is None:
-        return _FALLBACK_STATUS.get(row["status"], "failed")
-    status = adapted["status"]
-    if row["status"] == worker.CANCELLED and status != "cancelled":
-        status = "cancelled"
-    return status
+    """The same job status GET /api/jobs/{id} reports (services/job_state.py)."""
+    return job_state.status_of(row)
 
 
 @router.get("/{job_id}/results", response_model=JobResultsResponse)

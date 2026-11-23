@@ -63,6 +63,21 @@ STEP_STATUS_MAP = {
 
 TERMINAL_STEP_STATES = {"completed", "warning", "skipped"}
 
+# What a run reads as when run_status.json still says `running` but the backend
+# knows the process that would have finished it is gone (see read()). main.sh
+# rewrites `running` only from its own traps; a SIGKILL, an OOM kill of bash or a
+# power cut skips them and the word stays on disk for ever.
+INTERRUPTED_ERROR = (
+    "the pipeline process ended without recording a final status; the run "
+    "status document still says 'running'. The outcome is unknown, so it is "
+    "reported as failed, not as completed."
+)
+
+
+def _ended_while_running(pipeline_status: str, process_ended: bool) -> bool:
+    """`running` on disk is only true while the process that writes it lives."""
+    return process_ended and pipeline_status == "running"
+
 
 def _read_json(path: Path) -> dict[str, Any] | None:
     """Read a status document, tolerating a concurrent atomic replace.
@@ -187,7 +202,7 @@ def _check_only_status(run_dir: Path) -> tuple[str, str | None]:
     return "failed", reason
 
 
-def read_summary(run_dir: Path) -> dict[str, Any] | None:
+def read_summary(run_dir: Path, *, process_ended: bool = False) -> dict[str, Any] | None:
     """The run-level verdict only, for the job list.
 
     read() below is the authority for one job and merges the recorded plan with
@@ -200,7 +215,8 @@ def read_summary(run_dir: Path) -> dict[str, Any] | None:
     passed) while reusing the same status maps as read(), so the list and the
     detail endpoint cannot disagree about a status.
 
-    None means "no run_status.json", exactly as in read().
+    None means "no run_status.json", exactly as in read(). `process_ended` has
+    the meaning it has there.
     """
     run_status = _read_json(run_dir / "status" / "run_status.json")
     if run_status is None:
@@ -210,6 +226,8 @@ def read_summary(run_dir: Path) -> dict[str, Any] | None:
 
     if pipeline_status == "check_only":
         status, _ = _check_only_status(run_dir)
+    elif _ended_while_running(pipeline_status, process_ended):
+        status = "failed"
     else:
         status = RUN_STATUS_MAP.get(pipeline_status, "failed")
 
@@ -233,12 +251,21 @@ def _collect_failure_reason(run_dir: Path, run_status: dict[str, Any]) -> str | 
     return None
 
 
-def read(run_dir: Path, planned: list[str], run_mode: str) -> dict[str, Any] | None:
+def read(
+    run_dir: Path, planned: list[str], run_mode: str, *, process_ended: bool = False
+) -> dict[str, Any] | None:
     """Return the adapted view, or None when the pipeline has written nothing yet.
 
     None means "no run_status.json"; the caller then falls back to the backend's
     own orchestration state (queued / executor failure / cancelled). A status is
     never fabricated here.
+
+    `process_ended` is the backend's knowledge, not the pipeline's: the process
+    that drives this run has exited (services/job_state.py decides it from the
+    job row). A document that still says `running` then describes a run nobody
+    is finishing. It is reported as failed with INTERRUPTED_ERROR and no step is
+    shown as running; the step that was in flight stays in recordedCurrentStep,
+    so run_ledger reports it as unknown rather than as failed or not run.
     """
     run_status = _read_json(run_dir / "status" / "run_status.json")
     if run_status is None:
@@ -251,6 +278,8 @@ def read(run_dir: Path, planned: list[str], run_mode: str) -> dict[str, Any] | N
     if pipeline_status == "check_only":
         status, error = _check_only_status(run_dir)
         current_step = None
+    elif _ended_while_running(pipeline_status, process_ended):
+        status, error = "failed", INTERRUPTED_ERROR
     else:
         status = RUN_STATUS_MAP.get(pipeline_status)
         if status is None:

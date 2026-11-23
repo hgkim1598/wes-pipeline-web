@@ -273,6 +273,28 @@ def update_job(job_id: str, **fields: Any) -> None:
     )
 
 
+def update_job_if(job_id: str, expected: tuple[str, ...], **fields: Any) -> bool:
+    """Update the row only if its status is still one of `expected`.
+
+    The worker thread and request threads both move a job's status. A plain
+    read-then-update lets one of them overwrite a transition the other made in
+    between (a cancel landing while the worker starts the job, or a cancel
+    landing on a job the worker has just closed out). This compare-and-set is
+    the one way a status transition that depends on the current status is
+    written. Returns False when the row had moved on, and nothing was written.
+    """
+    if not fields or not expected:
+        raise ValueError("update_job_if needs fields and at least one expected status")
+    fields["updated_at"] = now_iso()
+    assignments = ", ".join(f"{key} = ?" for key in fields)
+    marks = ", ".join("?" for _ in expected)
+    cur = execute(
+        f"UPDATE jobs SET {assignments} WHERE job_id = ? AND status IN ({marks})",
+        (*fields.values(), job_id, *expected),
+    )
+    return cur.rowcount == 1
+
+
 def loads(value: str | None, default: Any) -> Any:
     if not value:
         return default

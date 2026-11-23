@@ -39,7 +39,7 @@ from typing import Any, Protocol
 from pydantic import ValidationError
 
 from app import config, db
-from app.services import resource_bundle_diagnosis, step_reader
+from app.services import job_state, resource_bundle_diagnosis, step_reader
 from app.services.agent import doc_retrieval
 from app.services.agent.privacy import Redactor
 from app.services.agent.run_scope import redactor_for_row
@@ -163,7 +163,10 @@ def collect_inputs(row: Any) -> tuple[list[_Input], list[ExcludedObservation]]:
 
     for step_id in planned:
         try:
-            payload = step_reader.read(run_dir, planned, row["run_mode"], step_id)
+            payload = step_reader.read(
+                run_dir, planned, row["run_mode"], step_id,
+                process_ended=job_state.process_ended(row),
+            )
         except step_reader.StepNotPlanned:
             continue
         except (OSError, ValueError) as exc:

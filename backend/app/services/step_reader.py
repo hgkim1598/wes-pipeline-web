@@ -105,10 +105,10 @@ def _step_artifacts(run_dir: Path, step_id: str) -> list[dict[str, Any]]:
 
 
 def _state_of(
-    run_dir: Path, planned: list[str], run_mode: str, step_id: str
+    run_dir: Path, planned: list[str], run_mode: str, step_id: str, process_ended: bool
 ) -> dict[str, Any]:
     """Status and elapsed time, reconciled the way GET /api/jobs/{id} does."""
-    adapted = run_status_reader.read(run_dir, planned, run_mode)
+    adapted = run_status_reader.read(run_dir, planned, run_mode, process_ended=process_ended)
     if adapted is None:
         # No run_status.json: the pipeline has not started writing. Every
         # planned step is still ahead of it.
@@ -122,11 +122,18 @@ def _state_of(
 
 
 def read(
-    run_dir: Path | str, planned: list[str], run_mode: str, step_id: str
+    run_dir: Path | str,
+    planned: list[str],
+    run_mode: str,
+    step_id: str,
+    *,
+    process_ended: bool = False,
 ) -> dict[str, Any]:
     """Build the pipeline-derived half of the step detail response.
 
-    The caller supplies jobId and runId.
+    The caller supplies jobId and runId, and `process_ended` from
+    job_state.process_ended(row): without it a step of a run whose process is
+    gone would still read as running here while GET /api/jobs/{id} says failed.
 
     Raises ValueError for a step id that is not one, and StepNotPlanned for a
     well-formed id this run never planned. Both checks run before any path is
@@ -138,7 +145,7 @@ def read(
         raise StepNotPlanned(step_id)
 
     root = Path(run_dir)
-    state = _state_of(root, planned, run_mode, step_id)
+    state = _state_of(root, planned, run_mode, step_id, process_ended)
     doc = run_status_reader.read_step_document(root, step_id) or {}
 
     validation = doc.get("validation")

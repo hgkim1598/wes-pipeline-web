@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from app.services import step_reader
+from app.services import step_reader, worker
 
 from .conftest import artifact_file_id
 
@@ -226,7 +226,7 @@ def test_step_ahead_of_the_current_one_is_pending(client, make_job, run):
 def test_running_step_is_200_not_404(client, make_job, run):
     """finish_step() has not run, so none of its three documents exist yet."""
     in_flight(run(), "03_alignment", finished=["00_input_validation"])
-    job_id = make_job(run_mode="full")
+    job_id = make_job(run_mode="full", status=worker.RUNNING)
 
     response = client.get(f"/api/jobs/{job_id}/steps/03_alignment")
 
@@ -450,7 +450,7 @@ def test_running_step_reports_elapsed_from_stage_status(client, make_job, run):
             (iso_ago(600), "03_alignment", "STARTED"),
         ]
     )
-    job_id = make_job(run_mode="full")
+    job_id = make_job(run_mode="full", status=worker.RUNNING)
 
     body = client.get(f"/api/jobs/{job_id}/steps/03_alignment").json()
 
@@ -463,7 +463,7 @@ def test_running_elapsed_also_reaches_the_polled_job_endpoint(client, make_job, 
     """The job page polls GET /api/jobs/{id}; it must see the same number."""
     builder = in_flight(run(), "03_alignment", finished=["00_input_validation"])
     builder.stage_status([(iso_ago(600), "03_alignment", "STARTED")])
-    job_id = make_job(run_mode="full")
+    job_id = make_job(run_mode="full", status=worker.RUNNING)
 
     steps = client.get(f"/api/jobs/{job_id}").json()["steps"]
     alignment = next(s for s in steps if s["stepId"] == "03_alignment")

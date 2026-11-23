@@ -474,6 +474,18 @@ backend는 `main.sh`를 `start_new_session=True`로 띄웁니다. 즉 파이프�
 재기동 후 DB row를 다시 붙입니다(`backend/app/services/pipeline_executor.py`,
 `worker.py`의 주석).
 
+재기동 후 동작:
+
+- 아직 살아 있는 파이프라인은 worker가 끝날 때까지 지켜봅니다(15초 간격). 그동안
+  대기열의 다음 분석은 **시작하지 않습니다**. 한 번에 파이프라인 하나라는 규칙은
+  재기동 뒤에도 같습니다. 끝나면 그 job을 종료 처리합니다.
+- "살아 있다"는 pid만으로 판단하지 않습니다. `/proc/<pid>/cmdline`이 job에 기록된
+  명령과 같아야 합니다. VM 재부팅 뒤 같은 pid를 다른 프로세스가 쓰고 있어도
+  파이프라인으로 착각하지 않습니다.
+- 이미 사라진 파이프라인의 `run_status.json`이 아직 `running`이면(전원 차단·SIGKILL로
+  main.sh의 trap이 실행되지 못한 경우) 그 실행은 **실패**로 표시됩니다. 결과를
+  알 수 없으므로 완료로도, 실행 중으로도 표시하지 않습니다.
+
 systemd 기본값(`KillMode=control-group`)을 쓰면 서비스를 재시작할 때 cgroup의
 **모든** 프로세스가 죽습니다 — 웹 서버 하나 재시작하려고 몇 시간짜리 WES 분석을
 같이 죽이는 셈입니다. 그래서 main process에만 신호를 보냅니다.
@@ -481,6 +493,24 @@ systemd 기본값(`KillMode=control-group`)을 쓰면 서비스를 재시작할 
 > 반대급부도 분명합니다: `systemctl stop` 후에도 파이프라인이 계속 돌면서
 > backend 없이 run 디렉터리에 씁니다. 다음 기동 때 다시 붙습니다.
 > **실행을 끝내려면 API로 job을 cancel하세요.**
+> cancel은 기록된 pid가 여전히 그 파이프라인인지(`/proc`의 명령줄이 기록과 같은지)
+> 확인한 뒤에만 신호를 보냅니다. 이미 끝났거나 pid가 다른 프로세스에 재사용됐으면
+> 신호를 보내지 않고, worker가 종료를 확인해 `cancelled`로 닫습니다.
+
+남은 위험(2026-11-23 기준, 코드: `api/jobs.py` cancel_job · `pipeline_executor.py`):
+
+- **확인과 신호 사이의 짧은 틈.** 명령줄 확인 직후 main.sh가 끝나고 같은 번호의
+  process group이 새로 생기면 그 group에 SIGTERM이 갈 수 있습니다. 두 호출 사이
+  수 밀리초 안에 pgid가 재사용되어야 하므로 드물지만 0은 아닙니다.
+- **main.sh만 먼저 사라진 경우.** 확인 대상은 main.sh의 pid입니다. main.sh가
+  비정상 종료하고 자식 도구(bwa·gatk 등)만 같은 group에 남아 있으면 "살아 있지
+  않음"으로 판단해 신호를 보내지 않습니다. 남은 자식은 직접 확인해야 합니다
+  (`pgrep -a -g <pgid>` — `-g`는 process group 기준).
+- **명령줄을 읽을 수 없는 경우.** `/proc/<pid>/cmdline`을 권한 등으로 읽지 못하면
+  살아 있는 것으로 보고 신호를 보냅니다(이전 동작과 같음).
+- **검증 범위.** 실제 프로세스로 확인하는 테스트
+  (`test_the_identity_check_and_the_group_signal_on_a_real_linux_process`)는 Linux
+  전용이라 Windows 개발 환경에서는 건너뜁니다. CI(ubuntu)에서 확인합니다.
 
 ### 4-3. 설치
 
