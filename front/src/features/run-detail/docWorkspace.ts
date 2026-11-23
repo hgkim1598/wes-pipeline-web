@@ -47,6 +47,14 @@ export const RELATION_ORDER: readonly string[] = [
   'suggestedByWording',
 ]
 
+/**
+ * 문장 표현으로 종류를 추정해 찾은 문서인가(개발판단기록 62장). 원인 판정이 아니고
+ * Agent 입력에 들어가지 않는다. 목록에서 이 문서에만 "추정" 표시를 붙인다.
+ */
+export function isWordingGuess(relation: string): boolean {
+  return relation === 'suggestedByWording'
+}
+
 function relationIndex(relation: string): number {
   const at = RELATION_ORDER.indexOf(relation)
   return at === -1 ? RELATION_ORDER.length : at

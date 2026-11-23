@@ -51,6 +51,7 @@ import { newLinkedAgentSearch, seenFrom } from '@/features/run-detail/docTraceSe
 import type { SeenSearches } from '@/features/run-detail/docTraceSelection'
 import {
   hitKey,
+  isWordingGuess,
   orderedHits,
   resolveHit,
   runForEvidence,
@@ -640,6 +641,16 @@ function DocList({
                         >
                           {hit.sourceTitle}
                         </span>
+                        {/*
+                          표현으로 추정한 문서는 원인 종류로 찾은 문서와 같은 모양이면 안 된다
+                          (2026-11-23 실환경 확인, 개발판단기록 64장). 아이콘 + 글자로 표시한다.
+                        */}
+                        {isWordingGuess(hit.relation) ? (
+                          <span className="inline-flex w-fit items-center gap-1 rounded-sm border border-border px-1.5 py-0.5 text-caption text-text">
+                            <CircleHelp size={12} strokeWidth={1.75} aria-hidden="true" className="text-text-muted" />
+                            문장 표현으로 추정한 문서 · 원인 판정 아님 · AI 요청에 넣지 않음
+                          </span>
+                        ) : null}
                         {host || hit.version ? (
                           <span className="line-clamp-1 text-caption text-text-muted">
                             {host}
