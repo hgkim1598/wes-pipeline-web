@@ -27,6 +27,7 @@ AI나 개발자가 "테스트를 돌렸다"고 말하는 것과 별개로 확인
 - 모델 자격증명(`ANTHROPIC_API_KEY` 등)이 환경에 없는지 확인합니다. 하나라도 있으면 실패합니다.
 - `python -m pytest app/tests -ra`: 앱 테스트를 실행합니다.
 - `python -m pytest evals -ra`: 평가 도구 테스트를 실행합니다(채점기, A/B 실행 계약, 기록된 답 검사). 모델 호출은 없습니다.
+  - 이 중 `test_the_default_protocol_explains_every_arm_difference`는 기본 A/B 프로토콜의 두 arm 사이에서 다른 파일이 모두 분류돼 있는지 확인합니다. v4부터 두 arm 모두 커밋이라 제품 코드 수정으로는 실패하지 않습니다. 실패하면 메시지에 해당 파일이 모두 나옵니다. 검사를 건너뛰거나 파일을 제외하지 말고 `backend/evals/ab_compare/protocols/README.md`의 절차를 따르세요.
 
 `-ra`를 붙였기 때문에 로그 끝에 skip된 테스트와 그 이유가 함께 출력됩니다.
 
@@ -36,7 +37,7 @@ AI나 개발자가 "테스트를 돌렸다"고 말하는 것과 별개로 확인
 - 검사 순서:
   1. `npm run lint` (oxlint)
   2. `npm run typecheck` (`tsc -b --force`)
-  3. 스크립트 테스트 7종: `test:scripts`, `test:trace`, `test:placement`, `test:docview`, `test:workspace`, `test:facts`, `test:compare`
+  3. 스크립트 테스트 10종(`test:scripts`는 check-dist와 반응형 구간 검사 포함): `test:scripts`, `test:trace`, `test:placement`, `test:docview`, `test:workspace`, `test:facts`, `test:compare`, `test:policy`, `test:copy`, `test:entry`
   4. `npm run build`: `tsc -b`와 `vite build`를 실행한 뒤 postbuild로 `check-dist`를 실행합니다.
 
 ## 안전 경계
@@ -83,7 +84,8 @@ cd front
 npm ci
 npm run lint && npm run typecheck
 npm run test:scripts && npm run test:trace && npm run test:placement && npm run test:docview \
-  && npm run test:workspace && npm run test:facts && npm run test:compare
+  && npm run test:workspace && npm run test:facts && npm run test:compare && npm run test:policy \
+  && npm run test:copy && npm run test:entry
 npm run build
 ```
 
