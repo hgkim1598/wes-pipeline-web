@@ -9,8 +9,9 @@ The question this answers, days later, is narrow:
 That is an execution record. It is **not** a transcript. The model's reasoning,
 the prompt, the tool results, the generated text and the evidence sink are all
 absent by construction -- not filtered out afterwards, but never assembled into
-the record in the first place. `SynthesisTrace` has eleven fields (nine until
-log 27 added the two document fields below) and no room for
+the record in the first place. `SynthesisTrace` has twelve fields (nine until
+log 27 added the two document fields below, eleven until log 66 added
+the input hash, which is never a column here) and no room for
 anything else, so "we could also store..." is a schema change someone has to
 make on purpose.
 
@@ -110,6 +111,10 @@ class SynthesisTrace:
     firstRejection: str | None = None
     docEvidenceIds: tuple[str, ...] = ()
     citedDocEvidenceIds: tuple[str, ...] | None = None
+    # sha256 of the redacted payload this request was built from (log 66).
+    # Not a column here: synthesis_answers keeps it for a served answer, so a
+    # later version can say whether its input differed. The payload is not kept.
+    inputSha256: str | None = None
 
     @property
     def toolUsed(self) -> bool:

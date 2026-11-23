@@ -234,10 +234,14 @@ class Observation:
     def on_trace(self, trace) -> None:
         # The same fields synthesis_traces stores, as JSON. Tuples become
         # lists; nothing is added. Records made before the repair fields
-        # existed simply lack them.
+        # existed simply lack them. `inputSha256` (log 66) is left out: it
+        # links a stored answer to its request, an eval record has no stored
+        # answer, and a digest-shaped string is exactly what the archive leak
+        # check refuses -- so records keep the shape they had.
         self.trace = {
             key: list(value) if isinstance(value, tuple) else value
             for key, value in dataclasses.asdict(trace).items()
+            if key != "inputSha256"
         }
 
     def on_rejection(self, rejected: dict[str, Any]) -> None:

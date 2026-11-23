@@ -149,6 +149,33 @@ CREATE TABLE IF NOT EXISTS agent_doc_evidence (
 CREATE INDEX IF NOT EXISTS idx_agent_doc_evidence_search
     ON agent_doc_evidence (search_id);
 
+-- AI explanations that passed every gate (services/explanation/llm/answers.py,
+-- log 66). Written only when WES_SYNTHESIS_STORE_ANSWERS=1. Append-only: a new
+-- request is a new version, an older version is never rewritten. A rejected or
+-- failed attempt has no row -- its trace already says why. Deleting a version
+-- clears body_json and sets deleted_at; the hashes stay so the history still
+-- says that something was served and from which input. Additive only.
+--   input_sha256       the redacted payload sent to the model (payload not kept)
+--   run_record_sha256  the run record as read for that request (run_context)
+CREATE TABLE IF NOT EXISTS synthesis_answers (
+    answer_id         TEXT PRIMARY KEY,
+    trace_id          TEXT NOT NULL UNIQUE,  -- synthesis_traces.trace_id, never in a response
+    job_id            TEXT NOT NULL,         -- internal linkage, never in a response
+    version           INTEGER NOT NULL,
+    supersedes        TEXT,                  -- previous answer_id, NULL for version 1
+    created_at        TEXT NOT NULL,
+    models            TEXT NOT NULL,         -- JSON array
+    contract_version  TEXT NOT NULL,
+    input_sha256      TEXT NOT NULL,
+    run_record_sha256 TEXT NOT NULL,
+    doc_search_id     TEXT,
+    provenance_json   TEXT NOT NULL,         -- SynthesisProvenance as served
+    body_json         TEXT,                  -- RunSynthesis as served; NULL once deleted
+    status            TEXT NOT NULL,         -- served
+    deleted_at        TEXT,
+    UNIQUE (job_id, version)
+);
+
 CREATE TABLE IF NOT EXISTS uploads (
     upload_id         TEXT PRIMARY KEY,
     original_filename TEXT NOT NULL,
@@ -185,6 +212,10 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "repair_enabled": "INTEGER",
         "attempts": "INTEGER",
         "first_rejection": "TEXT",
+        # What happened to a served answer's body (log 66): stored |
+        # refusedSensitive | storeFailed. NULL = no store was attempted (not
+        # served, storing off) and every row from before the column.
+        "answer_store": "TEXT",
     },
     # Why a document search ran (log 27): 'agentRequest' for one a synthesis
     # request made for itself. NULL = the run page's button, and every row

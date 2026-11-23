@@ -122,6 +122,13 @@ DOC_MANUAL_CHUNKS = _env("WES_DOC_MANUAL_CHUNKS")
 # this repository has measured whether a model answers better with it.
 AGENT_DOC_EVIDENCE = _env("WES_AGENT_DOC_EVIDENCE", "0") == "1"
 
+# Store AI explanations that passed every gate (services/explanation/llm/answers.py,
+# log 66), as numbered versions per run. Off (default): nothing is kept and the
+# answer lives only in the browser tab that asked for it, as before. Off until
+# the retention policy is decided -- an explanation is derived from one run of
+# one sample, and "kept forever by default" is not a choice the code may make.
+SYNTHESIS_STORE_ANSWERS = _env("WES_SYNTHESIS_STORE_ANSWERS", "0") == "1"
+
 # Evaluator-only A/B comparison screen (api/eval_compare.py, evals/ab_compare).
 # Off by default: every /api/eval/compare route answers 404, so a normal
 # deployment exposes neither the stored answers nor the gate-rejected ones.

@@ -25,7 +25,7 @@
 
 import { z } from 'zod'
 
-import { ApiError, getJson, postJson } from '@/api/client'
+import { ApiError, deleteJson, getJson, postJson } from '@/api/client'
 import { JOBS_PATH } from '@/features/runs/api'
 
 /** 아직 준비되지 않은 응답(409)을 오류와 구분하기 위한 표식. */
@@ -635,6 +635,11 @@ export const SynthesisResultSchema = z.object({
   /** 화면 분기는 이 값으로 한다. errorMessage 문자열로 분기하지 않는다. */
   errorCategory: z.string().nullable(),
   errorMessage: z.string().nullable(),
+  /**
+   * 이 답변이 저장된 버전 번호(개발판단기록 66장). 저장하지 않았으면 null —
+   * 저장 꺼짐 · 답변 없음 · 저장 거부/실패. 이 필드가 없던 서버는 undefined다.
+   */
+  storedVersion: z.number().int().nullable().optional(),
 })
 
 export type SynthesisResult = z.infer<typeof SynthesisResultSchema>
@@ -649,6 +654,89 @@ export async function createSynthesis(
     payload,
     'AI 설명 응답이 예상한 형식과 다릅니다.',
   )
+}
+
+/*
+  저장된 AI 설명 — GET/DELETE /api/jobs/{id}/synthesis/answers[/{version}]
+  (개발판단기록 66장, backend/app/services/explanation/llm/answers.py)
+
+  모델을 부르지 않는다. 게이트를 통과해 사용자에게 보인 설명만, Run마다 번호를
+  붙여 저장한다. 서버에서 WES_SYNTHESIS_STORE_ANSWERS=1일 때만 저장하며,
+  꺼져 있으면 `storing: false`다(보관 기간 정책 미정).
+
+    recordChanged            설명 이후 Run 기록이 바뀌었다(null = 지금 기록을 읽지 못함)
+    inputChangedFromPrevious 바로 앞 버전과 모델 입력이 다르다(null = 첫 버전)
+    citationsOutsidePayload  요청에 넣지 않은 문서를 인용. 게이트가 막으므로
+                             비어 있어야 하며, 아니면 그 버전을 신뢰하지 않는다
+*/
+
+const StoredDocEvidenceSchema = z.object({
+  evidenceId: z.string(),
+  title: z.string().nullable(),
+  selected: z.boolean(),
+  selectionReason: z.string().nullable(),
+  inPayload: z.boolean(),
+  cited: z.boolean().nullable(),
+})
+
+export type StoredDocEvidence = z.infer<typeof StoredDocEvidenceSchema>
+
+const StoredAnswerSummarySchema = z.object({
+  version: z.number().int(),
+  createdAt: z.string(),
+  models: z.array(z.string()),
+  contractVersion: z.string(),
+  status: z.string(),
+  deleted: z.boolean(),
+  supersedesVersion: z.number().int().nullable(),
+  inputDigest: z.string(),
+  inputChangedFromPrevious: z.boolean().nullable(),
+  recordChanged: z.boolean().nullable(),
+  docSearchLinked: z.boolean(),
+  contextKind: z.string().nullable(),
+  runStatus: z.string().nullable(),
+})
+
+export type StoredAnswerSummary = z.infer<typeof StoredAnswerSummarySchema>
+
+const StoredAnswerListSchema = z.object({
+  storing: z.boolean(),
+  latestVersion: z.number().int().nullable(),
+  /** 최신 버전이 먼저 온다. */
+  versions: z.array(StoredAnswerSummarySchema),
+})
+
+export type StoredAnswerList = z.infer<typeof StoredAnswerListSchema>
+
+const StoredAnswerSchema = StoredAnswerSummarySchema.extend({
+  synthesis: RunSynthesisSchema.nullable(),
+  provenance: SynthesisProvenanceSchema.nullable(),
+  docEvidence: z.array(StoredDocEvidenceSchema),
+  citedDocIds: z.array(z.string()),
+  citationsOutsidePayload: z.array(z.string()),
+})
+
+export type StoredAnswer = z.infer<typeof StoredAnswerSchema>
+
+export async function listSynthesisAnswers(
+  jobId: string,
+  signal?: AbortSignal,
+): Promise<StoredAnswerList> {
+  const payload = await getJson(`${jobPath(jobId)}/synthesis/answers`, { signal })
+  return parse(StoredAnswerListSchema, payload, '저장된 AI 설명 목록이 예상한 형식과 다릅니다.')
+}
+
+export async function getSynthesisAnswer(
+  jobId: string,
+  version: number,
+  signal?: AbortSignal,
+): Promise<StoredAnswer> {
+  const payload = await getJson(`${jobPath(jobId)}/synthesis/answers/${version}`, { signal })
+  return parse(StoredAnswerSchema, payload, '저장된 AI 설명이 예상한 형식과 다릅니다.')
+}
+
+export async function deleteSynthesisAnswer(jobId: string, version: number): Promise<void> {
+  await deleteJson(`${jobPath(jobId)}/synthesis/answers/${version}`)
 }
 
 /*

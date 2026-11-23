@@ -61,7 +61,12 @@ export function AiStatusBar({
       : null
     if (result.provenance) {
       const models = result.provenance.models.join(', ') || '모델 미상'
-      detail = [detail, `${models} · 생성 ${generated ? generated.full : result.provenance.generatedAt}`]
+      // 저장본이면 몇 번째인지 함께 적는다(개발판단기록 66장).
+      const stored =
+        synthesis.source === 'stored' && result.storedVersion != null
+          ? `저장된 설명 v${result.storedVersion} · `
+          : ''
+      detail = [detail, `${stored}${models} · 생성 ${generated ? generated.full : result.provenance.generatedAt}`]
         .filter(Boolean)
         .join(' ')
     }

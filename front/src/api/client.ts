@@ -196,6 +196,19 @@ export async function postJson(
   return readJson(response)
 }
 
+/** 본문 없는 DELETE 요청 하나. 응답 JSON을 돌려준다. */
+export async function deleteJson(
+  path: string,
+  options?: { signal?: AbortSignal },
+): Promise<unknown> {
+  const response = await send(
+    path,
+    { method: 'DELETE', headers: { Accept: 'application/json' } },
+    options?.signal,
+  )
+  return readJson(response)
+}
+
 /**
  * 이진 본문을 보내는 PUT 요청 하나.
  *

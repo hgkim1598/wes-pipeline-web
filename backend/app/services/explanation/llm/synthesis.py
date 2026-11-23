@@ -100,6 +100,8 @@ decide whether a rewrite is asked for.
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 import logging
 from collections.abc import Callable
 from contextlib import nullcontext
@@ -159,6 +161,10 @@ class SynthesisResult(BaseModel):
     # never off `errorMessage`.
     errorCategory: str | None = None
     errorMessage: str | None = None
+    # The stored version this answer became (log 66), set by the route. None
+    # when nothing was stored: storing off, nothing served, or the store was
+    # refused or failed. Additive: a client that does not know it ignores it.
+    storedVersion: int | None = None
 
 
 # What the user is told, per category. Curated constants, never the provider's
@@ -280,6 +286,9 @@ def build_run_synthesis(
     payload, initial_refs = contract.build_payload(
         explanation, redactor=redactor, official_docs=official_docs
     )
+    input_sha256 = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
     doc_ids = tuple(
         item["evidenceId"] for item in (payload.get("officialDocs") or {}).get("items", [])
     )
@@ -316,6 +325,7 @@ def build_run_synthesis(
                     attempts=attempts,
                     firstRejection=first_rejection,
                     docEvidenceIds=doc_ids,
+                    inputSha256=input_sha256,
                     # Only an answer that passed every gate verifies a
                     # citation; gate 3 has then checked each id was supplied.
                     citedDocEvidenceIds=(

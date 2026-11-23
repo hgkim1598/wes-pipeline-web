@@ -8,6 +8,7 @@ import { DiagnosticKindMark } from '@/components/ui/DiagnosticNote'
 import { MessageBlock } from '@/components/ui/MessageBlock'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { SourceMark } from '@/components/ui/SourceMark'
+import { SynthesisHistory } from '@/features/run-detail/components/SynthesisHistory'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import type {
   SynthesisProvenance,
@@ -261,6 +262,12 @@ export function RunSynthesisPanel({
             </p>
           </MessageBlock>
         ) : null}
+
+        {/*
+          저장된 설명의 기록과 출처(개발판단기록 66장). 저장이 꺼진 서버에서는
+          설명을 받은 뒤 "저장하지 않는다"는 한 줄만 보인다.
+        */}
+        {terminal ? <SynthesisHistory synthesis={synthesis} /> : null}
 
         {result?.available && result.synthesis ? (
           <SynthesisResultView

@@ -18,6 +18,7 @@
     "test:policy": "node --experimental-strip-types --test scripts/run-detail-policy.test.mjs",
     "test:copy": "node --experimental-strip-types --test scripts/run-detail-copy.test.mjs",
     "test:entry": "node --experimental-strip-types --test scripts/entry-model.test.mjs",
+    "test:synthview": "node --experimental-strip-types --test scripts/synthesis-view.test.mjs",
     "typecheck": "tsc -b --force",
     "lint": "oxlint",
     "preview": "vite preview"

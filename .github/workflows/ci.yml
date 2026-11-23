@@ -111,6 +111,7 @@ jobs:
           npm run test:policy
           npm run test:copy
           npm run test:entry
+          npm run test:synthview
 
       - name: Build (tsc + vite build + check-dist)
         run: npm run build

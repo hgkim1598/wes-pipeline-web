@@ -211,6 +211,9 @@ def test_the_row_has_exactly_the_agreed_columns(explanation):
         "repair_enabled",
         "attempts",
         "first_rejection",
+        # What became of a served answer's body (log 66): an outcome word,
+        # never the body.
+        "answer_store",
     }
 
 
