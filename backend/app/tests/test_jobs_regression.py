@@ -201,3 +201,38 @@ def test_create_job_rejects_mismatched_assembly(client):
     )
     assert response.status_code == 400
     assert "does not match" in response.json()["detail"]
+
+
+def test_a_failure_to_write_run_inputs_does_not_reveal_the_server_path(
+    client, make_upload, reference_configured, monkeypatch
+):
+    """A 500 says what failed, not where on the server (log 62).
+
+    OSError's text carries the full file name, e.g. the jobs directory; that is
+    server layout, so it is logged and kept out of the response.
+    """
+    from app import config
+    from app.services import config_builder
+
+    secret = str(config.JOBS_ROOT / "wes-secret-layout" / "run_config.json")
+
+    def boom(*_args, **_kwargs):
+        raise PermissionError(13, "Permission denied", secret)
+
+    monkeypatch.setattr(config_builder, "write_run_config", boom)
+    response = client.post(
+        "/api/jobs",
+        json={
+            "profileId": "germline-illumina-wes-breast",
+            "captureKitId": "idt_xgen_exome_hyb_panel_v2",
+            "samples": [{"sampleId": "NA12878", "files": {
+                "r1": make_upload("NA12878_R1.fastq.gz"),
+                "r2": make_upload("NA12878_R2.fastq.gz"),
+            }}],
+        },
+    )
+    assert response.status_code == 500, response.text
+    body = response.text
+    assert "wes-secret-layout" not in body
+    assert str(config.JOBS_ROOT) not in body and str(config.JOBS_ROOT).replace("\\", "\\\\") not in body
+    assert response.json()["detail"]["code"] == "runInputsNotWritten"

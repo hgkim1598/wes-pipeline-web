@@ -12,6 +12,7 @@ pipeline: a WES run takes hours.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from pathlib import Path
 
@@ -30,6 +31,8 @@ from ..services import config_builder, job_state, pipeline_executor, run_status_
 from ..services.agent.run_scope import redactor_for_row
 from ..services.public_text import project_error, project_lines
 from . import uploads
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
@@ -133,7 +136,16 @@ def create_job(payload: CreateJobRequest) -> CreateJobResponse:
     except config_builder.ConfigBuildError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"could not write run inputs: {exc}") from exc
+        # OSError's text names the file (the server's jobs directory). It goes to
+        # the server log only; the client gets what failed, not where (log 62).
+        log.error("could not write run inputs for %s: %s", run_id, exc)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "code": "runInputsNotWritten",
+                "message": "could not write the run's input files on the server; see the server log",
+            },
+        ) from exc
 
     planned = config_builder.planned_steps(config.RUN_MODE, intervar)
     run_dir = config.RUNS_ROOT / run_id
