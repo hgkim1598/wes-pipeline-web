@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "postbuild": "node scripts/check-dist.mjs",
     "check:dist": "node scripts/check-dist.mjs",
-    "test:scripts": "node --test scripts/check-dist.test.mjs scripts/breakpoints.test.mjs",
+    "test:scripts": "node --test scripts/check-dist.test.mjs scripts/breakpoints.test.mjs scripts/storage-boundary.test.mjs",
     "test:trace": "node --experimental-strip-types --test scripts/doc-trace-selection.test.mjs",
     "test:placement": "node --experimental-strip-types --test scripts/synthesis-placement.test.mjs",
     "test:docview": "node --experimental-strip-types --test scripts/doc-hit-view.test.mjs",
