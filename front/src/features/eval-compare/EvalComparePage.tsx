@@ -157,7 +157,7 @@ export function MockTag({ mock }: { mock: boolean }) {
 export function EvalCompareListPage() {
   const { data, error, isPending } = useExperiments()
   return (
-    <main className="mx-auto flex max-w-app flex-col gap-6 px-4 py-8 sm:px-6">
+    <main className="mx-auto flex max-w-app flex-col gap-6 px-4 py-8 md:px-6">
       <h1 className="text-h1 font-semibold tracking-tight text-text-strong">비교 분석</h1>
       <p className="max-w-content text-body text-text">
         같은 Run을 변경 전·후 두 코드 경로에 넣어 각각 새로 받은 Claude 답변과 평가를 나란히 봅니다.
@@ -203,7 +203,7 @@ export function EvalComparePage() {
   const { experimentId = '' } = useParams()
   const { data, error, isPending } = useExperiment(experimentId)
   return (
-    <main className="mx-auto flex max-w-app flex-col gap-8 px-4 py-8 sm:px-6">
+    <main className="mx-auto flex max-w-app flex-col gap-8 px-4 py-8 md:px-6">
       <nav className="text-caption text-text-muted">
         <Link to="/eval/compare">비교 분석</Link> / <span className="font-mono">{experimentId}</span>
       </nav>

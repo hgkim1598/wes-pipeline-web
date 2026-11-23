@@ -62,7 +62,7 @@ export function EvalGradePage() {
   const { experimentId = '' } = useParams()
   const { data, error, isPending } = useBlind(experimentId)
   return (
-    <main className="mx-auto flex max-w-app flex-col gap-8 px-4 py-8 sm:px-6">
+    <main className="mx-auto flex max-w-app flex-col gap-8 px-4 py-8 md:px-6">
       <nav className="text-caption text-text-muted">
         <Link to="/eval/compare">비교 분석</Link> / <span className="font-mono">{experimentId}</span> / 블라인드 채점
       </nav>

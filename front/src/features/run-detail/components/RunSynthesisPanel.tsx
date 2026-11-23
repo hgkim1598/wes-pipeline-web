@@ -188,7 +188,7 @@ export function RunSynthesisPanel({
         }
       />
 
-      <div className="flex flex-col gap-4 rounded-md border border-border bg-surface p-4 sm:p-5">
+      <div className="flex flex-col gap-4 rounded-md border border-border bg-surface p-4 md:p-5">
         <p className="max-w-content text-small text-text-muted">
           위의 진단·검증 결과를 하나의 설명으로 묶어 줍니다. 파이프라인이 기록한
           사실과 등록된 근거만 사용하며, 품질 판정이나 임상 해석은 하지 않습니다.
