@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { Activity, ArrowRight, BookOpenCheck, ListChecks, Plus, Quote, ShieldCheck, Workflow } from 'lucide-react'
+import { Activity, ArrowRight, BookOpenCheck, ListChecks, Plus, Workflow } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -36,6 +36,14 @@ import { allStepKnowledge } from '@/registries/knowledge'
 
   채도 높은 색 + 1px 선만 쓴다. glow·gradient·움직이는 장식은 없다.
   포커스 링은 어두운 면에서 보이도록 neon-blue로 바꾼다(SC 2.4.7 · 1.4.11).
+
+  ── 2026-11-23 작업 화면형으로 정리 (개발판단기록 63장) ────────────────
+
+  큰 헤드라인 + 소개 문단 + 아이콘 카드 세 장은 제품 소개 페이지의 모양이었다.
+  이 화면의 일은 "서버가 살아 있나 · 최근 실행이 어떻게 됐나 · 새 분석을 어디서
+  시작하나" 세 가지라, 첫 면을 그 세 칸(세로 1px 구분선)으로 바꿨다. 네온은
+  연결 상태 점·진행 중 건수·주 행동 버튼에만 쓴다. 기록 설명은 아이콘 없는
+  정의 목록이다.
 */
 
 export function EntryPage() {
@@ -43,7 +51,7 @@ export function EntryPage() {
     <div className="min-h-dvh bg-night-950 text-night-text [--focus-ring-color:var(--color-neon-blue)] selection:bg-neon-blue/30 selection:text-night-strong">
       <EntryHeader />
       <main>
-        <Hero />
+        <Workbench />
         <PipelineSection />
         <RecordsSection />
       </main>
@@ -97,51 +105,73 @@ function HeaderLink({ to, icon: Icon, children }: { to: string; icon: LucideIcon
   )
 }
 
-/* --- hero --------------------------------------------------------------------------- */
+/* --- 작업 첫 면: 서버 · 최근 실행 · 새 분석 -------------------------------------- */
 
-function Hero() {
+function Workbench() {
   return (
     <section aria-labelledby="entry-title" className="border-b border-night-line">
-      <div className="mx-auto grid max-w-app gap-10 px-4 py-12 md:px-6 md:py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start lg:gap-12">
-        <div className="flex min-w-0 flex-col gap-6">
+      <div className="mx-auto flex max-w-app flex-col gap-5 px-4 py-8 md:px-6 md:py-10">
+        <div className="flex flex-col gap-1.5">
           <p className="font-mono text-caption tracking-wide text-neon-cyan uppercase">
             Research use only · Illumina WES germline
           </p>
-          <h1
-            id="entry-title"
-            className="max-w-[20em] text-display font-semibold tracking-tight text-night-strong md:text-hero"
-          >
-            FASTQ 한 쌍에서 변이 검출까지,
-            <br />
-            각 단계가 남긴 기록으로 확인합니다
+          <h1 id="entry-title" className="text-h1 font-semibold tracking-tight text-night-strong">
+            WES 분석 작업 공간
           </h1>
-          <p className="max-w-prose text-h3 font-normal text-night-text">
-            WES 파이프라인(<code className="text-night-strong">script/main.sh</code>)을 웹에서
-            실행하고, 단계별 상태·로그·산출물과 실패 원인을 파이프라인이 기록한 그대로
-            보여 줍니다. AI 설명은 요청할 때만 만들고, 각 문장이 근거로 삼은 기록을 함께
-            표시합니다.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              to="/new"
-              className="inline-flex h-10 items-center gap-2 rounded-sm bg-neon-blue px-5 text-body font-semibold text-night-950 no-underline hover:bg-night-strong hover:text-night-950 hover:no-underline"
-            >
-              <Plus size={16} strokeWidth={2} aria-hidden="true" />새 분석 시작
-            </Link>
-            <Link
-              to="/runs"
-              className="inline-flex h-10 items-center gap-2 rounded-sm border border-night-line-strong px-5 text-body font-medium text-night-strong no-underline hover:border-neon-blue hover:text-night-strong hover:no-underline"
-            >
-              실행 목록
-              <ArrowRight size={16} strokeWidth={1.75} aria-hidden="true" />
-            </Link>
-          </div>
-          <p className="text-caption text-night-muted">
-            입력은 샘플 1개의 paired FASTQ(R1·R2, <code>.fastq.gz</code>·<code>.fq.gz</code>)입니다.
+          <p className="max-w-prose text-body text-night-muted">
+            <code className="text-night-text">script/main.sh</code> 파이프라인을 실행하고, 단계별
+            상태·로그·산출물과 실패 원인을 파이프라인이 기록한 그대로 확인합니다.
           </p>
         </div>
 
-        <ServerPanel />
+        <div className="grid grid-cols-1 overflow-hidden rounded-md border border-night-line bg-night-900 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)_minmax(0,19rem)]">
+          <ServerColumn />
+          <RecentRuns />
+          <StartColumn />
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ColumnHeading({ id, children, aside }: { id: string; children: ReactNode; aside?: ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 px-4 pt-3 pb-2">
+      {/* 한글 라벨: 영문 eyebrow 자간(0.09em)은 낱자를 흩어 놓는다 → tracking-wide-kr */}
+      <h2 id={id} className="text-caption font-semibold tracking-wide-kr text-night-muted">
+        {children}
+      </h2>
+      {aside}
+    </div>
+  )
+}
+
+function StartColumn() {
+  return (
+    <section
+      aria-labelledby="entry-start"
+      className="flex flex-col border-t border-night-line lg:border-t-0 lg:border-l"
+    >
+      <ColumnHeading id="entry-start">새 분석</ColumnHeading>
+      <div className="flex flex-1 flex-col gap-4 px-4 pb-4">
+        <p className="text-small text-night-text">
+          샘플 1개의 paired FASTQ(R1·R2, <code>.fastq.gz</code>·<code>.fq.gz</code>)를 올리고
+          캡처 키트를 고릅니다.
+        </p>
+        <div className="mt-auto flex flex-wrap items-center gap-2">
+          <Link
+            to="/new"
+            className="inline-flex h-10 items-center gap-2 rounded-sm bg-neon-blue px-4 text-body font-semibold text-night-950 no-underline hover:bg-night-strong hover:text-night-950 hover:no-underline"
+          >
+            <Plus size={16} strokeWidth={2} aria-hidden="true" />새 분석 시작
+          </Link>
+          <Link
+            to="/help/setup"
+            className="inline-flex h-10 items-center gap-2 rounded-sm border border-night-line-strong px-4 text-small font-medium text-night-strong no-underline hover:border-neon-blue hover:text-night-strong hover:no-underline"
+          >
+            준비 안내
+          </Link>
+        </div>
       </div>
     </section>
   )
@@ -149,15 +179,12 @@ function Hero() {
 
 /* --- live panel: 이 서버의 실제 상태 ------------------------------------------------- */
 
-function ServerPanel() {
+function ServerColumn() {
   return (
-    <aside
-      aria-label="이 서버의 현재 상태"
-      className="flex min-w-0 flex-col rounded-md border border-night-line bg-night-900"
-    >
+    <section aria-labelledby="entry-server" className="flex min-w-0 flex-col">
+      <ColumnHeading id="entry-server">서버</ColumnHeading>
       <ServerLine />
-      <RecentRuns />
-    </aside>
+    </section>
   )
 }
 
@@ -179,13 +206,13 @@ function ServerLine() {
           }
         : { dot: 'bg-night-status-warning', label: `서버 상태: ${health.data?.status ?? '알 수 없음'}`, detail: null }
   return (
-    <div className="flex items-start gap-3 border-b border-night-line px-4 py-3">
+    <div className="flex items-start gap-3 px-4 pb-4">
       <span aria-hidden="true" className={cx('mt-1.5 size-2 flex-none rounded-pill', view.dot)} />
       <div className="flex min-w-0 flex-col">
         <span className="text-body font-medium text-night-strong" role="status">
           {view.label}
         </span>
-        {view.detail ? <span className="truncate text-caption text-night-muted">{view.detail}</span> : null}
+        {view.detail ? <span className="text-caption text-night-muted">{view.detail}</span> : null}
       </div>
       <Link
         to="/health"
@@ -202,11 +229,14 @@ function RecentRuns() {
   const digest = runs.data ? runsDigest(runs.data.jobs, 5) : null
 
   return (
-    <div className="flex flex-col">
-      <div className="flex items-baseline justify-between gap-3 px-4 pt-3 pb-2">
-        {/* 한글 라벨: 영문 eyebrow 자간(0.09em)은 낱자를 흩어 놓는다 → tracking-wide-kr */}
-        <h2 className="text-caption font-semibold tracking-wide-kr text-night-muted">최근 실행</h2>
-        {digest ? (
+    <section
+      aria-labelledby="entry-recent"
+      className="flex min-w-0 flex-col border-t border-night-line lg:border-t-0 lg:border-l"
+    >
+      <ColumnHeading
+        id="entry-recent"
+        aside={
+          digest ? (
           <span className="text-caption text-night-muted">
             전체 <span className="font-mono text-night-strong">{digest.total}</span>건
             {digest.active > 0 ? (
@@ -215,8 +245,11 @@ function RecentRuns() {
               </>
             ) : null}
           </span>
-        ) : null}
-      </div>
+          ) : null
+        }
+      >
+        최근 실행
+      </ColumnHeading>
 
       {runs.isPending ? (
         <p role="status" className="px-4 pb-4 text-small text-night-muted">
@@ -237,7 +270,7 @@ function RecentRuns() {
               const status = describeJobStatus(job.status)
               const created = formatTimestamp(job.createdAt)
               return (
-                <li key={job.jobId} className="border-t border-night-line first:border-t-0">
+                <li key={job.jobId} className="border-t border-night-line">
                   <Link
                     to={`/runs/${encodeURIComponent(job.jobId)}`}
                     className="flex items-center gap-3 px-4 py-2.5 text-night-text no-underline hover:bg-night-850 hover:text-night-strong hover:no-underline focus-visible:[outline-offset:-2px]"
@@ -267,7 +300,7 @@ function RecentRuns() {
           </Link>
         </>
       ) : null}
-    </div>
+    </section>
   )
 }
 
@@ -277,10 +310,10 @@ function PipelineSection() {
   const nodes = pipelineMap(allStepKnowledge())
   return (
     <section aria-labelledby="entry-pipeline" className="border-b border-night-line">
-      <div className="mx-auto flex max-w-app flex-col gap-6 px-4 py-12 md:px-6">
+      <div className="mx-auto flex max-w-app flex-col gap-6 px-4 py-10 md:px-6">
         <div className="flex flex-col gap-2">
           <p className="font-mono text-caption tracking-wide text-neon-cyan uppercase">Pipeline · script/main.sh</p>
-          <h2 id="entry-pipeline" className="text-h1 font-semibold tracking-tight text-night-strong">
+          <h2 id="entry-pipeline" className="text-h2 font-semibold tracking-tight text-night-strong">
             실행 계획의 단계
           </h2>
           <p className="max-w-prose text-body text-night-muted">
@@ -355,19 +388,16 @@ function Legend() {
 
 /* --- what is recorded --------------------------------------------------------------- */
 
-const RECORDS: readonly { icon: LucideIcon; title: string; body: string }[] = [
+const RECORDS: readonly { title: string; body: string }[] = [
   {
-    icon: Activity,
     title: '단계 상태와 로그',
     body: '단계마다 시작·종료·상태를 파이프라인의 상태 파일에서 읽고, 실행 중에는 3초마다 다시 확인합니다. 진행률은 끝난 단계의 비율이며 남은 시간을 추정하지 않습니다.',
   },
   {
-    icon: ShieldCheck,
     title: '실패 원인과 준비 안내',
     body: '실패는 등록된 코드로 분류해 무엇이 멈췄는지 보여 주고, 도구·참조 데이터를 준비하는 앱 안의 안내로 연결합니다. 기록에 없는 원인은 만들지 않습니다.',
   },
   {
-    icon: Quote,
     title: '근거를 밝히는 AI 설명',
     body: 'Claude 설명은 버튼을 눌렀을 때만 요청합니다. 각 문장 옆에 근거로 삼은 실행 기록이나 공식 문서를 표시해, 무엇을 보고 쓴 문장인지 확인할 수 있습니다.',
   },
@@ -376,19 +406,18 @@ const RECORDS: readonly { icon: LucideIcon; title: string; body: string }[] = [
 function RecordsSection() {
   return (
     <section aria-labelledby="entry-records">
-      <div className="mx-auto flex max-w-app flex-col gap-6 px-4 py-12 md:px-6">
-        <h2 id="entry-records" className="text-h1 font-semibold tracking-tight text-night-strong">
+      <div className="mx-auto flex max-w-app flex-col gap-4 px-4 py-10 md:px-6">
+        <h2 id="entry-records" className="text-h2 font-semibold tracking-tight text-night-strong">
           기록으로 확인하는 것
         </h2>
-        <ul className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {RECORDS.map(({ icon: Icon, title, body }) => (
-            <li key={title} className="flex flex-col gap-3 rounded-md border border-night-line bg-night-900 p-5">
-              <Icon size={20} strokeWidth={1.5} aria-hidden="true" className="text-neon-cyan" />
-              <h3 className="text-h3 font-semibold text-night-strong">{title}</h3>
-              <p className="text-small text-night-text">{body}</p>
-            </li>
+        <dl className="grid grid-cols-1 gap-x-8 md:grid-cols-3">
+          {RECORDS.map(({ title, body }) => (
+            <div key={title} className="flex flex-col gap-1.5 border-t border-night-line py-4">
+              <dt className="text-body font-semibold text-night-strong">{title}</dt>
+              <dd className="text-small text-night-text">{body}</dd>
+            </div>
           ))}
-        </ul>
+        </dl>
       </div>
     </section>
   )
