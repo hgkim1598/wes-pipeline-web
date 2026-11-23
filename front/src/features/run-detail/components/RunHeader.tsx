@@ -3,16 +3,9 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  CircleCheck,
   Clock,
-  ListChecks,
-  MapPin,
-  SlidersHorizontal,
-  TriangleAlert,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
-import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 
 import { Button } from '@/components/ui/Button'
@@ -25,8 +18,6 @@ import { describePosition as positionOf } from '@/features/run-detail/runPositio
 import type { ConnectionState } from '@/features/run-detail/runDetailPolicy'
 import type { JobListItem } from '@/features/runs/api'
 import { describeJobStatus, isTerminalStatus } from '@/features/runs/status'
-import type { StatusTone } from '@/components/ui/StatusBadge'
-import { cx } from '@/lib/cx'
 import { durationBetween, formatTimestamp } from '@/features/runs/time'
 import { describeStep } from '@/registries/steps'
 
@@ -41,7 +32,7 @@ import { describeStep } from '@/registries/steps'
 
   2026-11-20 (개발판단기록 41장): 승인된 밝은 시안대로 헤더를 줄였다 — 경로 ·
   상태 · 제목 · run id · 시작 시각 · 소요 시간 · 멈춘 위치와 문제 건수 한 줄.
-  네 칸 요약(RunFacts)은 개요 탭으로, 단계 띠는 파이프라인 탭의 진행 표시로
+  네 칸 요약은 개요 탭으로(2026-11-23 RunVerdict로 대체), 단계 띠는 파이프라인 탭의 진행 표시로
   옮겼다. 시안의 공유·내보내기·다시 실행 버튼은 없는 기능이라 만들지 않았다.
 
   시안과 다른 점 두 가지.
@@ -72,7 +63,7 @@ export interface RunHeaderProps {
    */
   issues: RunIssueCounts
   /**
-   * "어디서 멈췄고 문제가 몇 건인가" 한 줄. 개요 탭은 바로 아래 요약 칸(RunFacts)이
+   * "어디서 멈췄고 문제가 몇 건인가" 한 줄. 개요 탭은 바로 아래 판정 면(RunVerdict)이
    * 같은 문장을 말하므로 false다 — 같은 사실이 위아래로 두 번 보였다.
    */
   showPositionLine?: boolean
@@ -172,7 +163,7 @@ export function RunHeader({
 
           {/*
             개요 밖의 탭에서도 "어디서 멈췄고 문제가 몇 건인가"가 보이게 한 줄로
-            둔다. 개요 탭은 RunFacts가 같은 말을 하므로 숨긴다(showPositionLine).
+            둔다. 개요 탭은 RunVerdict가 같은 말을 하므로 숨긴다(showPositionLine).
           */}
           {showPositionLine ? (
             <p className="flex flex-wrap items-baseline gap-x-2 text-small">
@@ -247,152 +238,6 @@ export function RunHeader({
         </MessageBlock>
       ) : null}
     </header>
-  )
-}
-
-/*
-  실행 요약 (2026-11-17 설계판단, 2026-11-20 개요 탭으로 이동).
-
-  헤더에 있던 네 칸(지금 위치 · 진행 · 문제 · 실행 조건)이다. 값은 모두
-  backend 응답에서 오고, 없는 값은 칸을 비우지 않고 말한다. 분석 모드와 캡처
-  키트는 다른 필드라 라벨을 따로 붙인다.
-*/
-export function RunFacts({
-  job,
-  listItem,
-  issues,
-}: {
-  job: JobState
-  listItem: JobListItem | undefined
-  issues: RunIssueCounts
-}) {
-  const completed = job.steps.filter(
-    (step) => step.status !== 'pending' && step.status !== 'running',
-  ).length
-  const total = job.steps.length
-  const position = describePosition(job)
-  const elapsed = durationBetween(job.startedAt, job.finishedAt)
-  const statusTone = describeJobStatus(job.status).tone
-  const issueTone: StatusTone =
-    issues.failures > 0 ? 'failure' : issues.attention > 0 ? 'warning' : 'idle'
-  /*
-    네 칸 요약(2026-11-23 발표용 정리, ref 다크 시안의 상단 지표 줄). 칸마다
-    아이콘 타일 + 큰 값 + 한 줄 설명. 값은 모두 응답에서 오고, 아이콘 색은
-    그 칸이 말하는 상태와 같다(색만으로 말하지 않게 글자가 함께 있다).
-  */
-  return (
-    <dl className="grid grid-cols-1 overflow-hidden rounded-lg border border-border bg-surface shadow-card md:grid-cols-2 lg:grid-cols-4">
-      <Fact term="지금 위치" icon={MapPin} tone={statusTone}>
-        <span className="text-h3 font-semibold text-text-strong">{position.headline}</span>
-        {position.detail ? (
-          <span className="text-caption text-text-muted">{position.detail}</span>
-        ) : null}
-      </Fact>
-      <Fact term="진행" icon={ListChecks} tone="idle">
-        <span className="text-h3 font-semibold text-text-strong">
-          <span className="font-mono">
-            {completed} / {total}
-          </span>{' '}
-          <span className="text-body font-normal text-text">단계 끝남</span>
-        </span>
-        {/*
-          끝난 단계의 비율 막대. 실행 목록의 막대와 같은 의미이며 시간이 아니다 —
-          아래 문장이 그것을 말한다.
-        */}
-        {total > 0 ? (
-          <span aria-hidden="true" className="mt-1 block h-1 w-full max-w-40 overflow-hidden rounded-pill bg-sunken">
-            <span
-              className={cx(
-                'block h-full rounded-pill',
-                statusTone === 'failure' ? 'bg-fill-failure' : statusTone === 'warning' ? 'bg-fill-warning' : statusTone === 'success' ? 'bg-fill-success' : 'bg-fill-running',
-              )}
-              style={{ width: `${Math.round((completed / total) * 100)}%` }}
-            />
-          </span>
-        ) : null}
-        <span className="text-caption text-text-muted">완료 비율이며 남은 시간이 아닙니다</span>
-      </Fact>
-      <Fact term="문제" icon={issueTone === 'idle' ? CircleCheck : TriangleAlert} tone={issueTone}>
-        <span className="text-h3 font-semibold text-text-strong">
-          {issues.failures > 0 || issues.attention > 0 ? (
-            <>
-              <span className={issues.failures > 0 ? 'text-status-failure-fg' : undefined}>
-                실패 {issues.failures}
-              </span>
-              <span className="px-1.5 font-normal text-ink-400">·</span>
-              <span className={issues.attention > 0 ? 'text-status-warning-fg' : undefined}>
-                확인 필요 {issues.attention}
-              </span>
-            </>
-          ) : (
-            <span className="text-body font-medium">기록된 실패·확인 필요 없음</span>
-          )}
-        </span>
-        {issues.notes > 0 ? (
-          <span className="text-caption text-text-muted">참고·자동 처리 {issues.notes}건</span>
-        ) : null}
-      </Fact>
-      <Fact term="실행 조건" icon={SlidersHorizontal} tone="idle">
-        <span className="text-h3 font-semibold text-text-strong">
-          {job.runMode === 'full'
-            ? '전체 분석'
-            : job.runMode === 'check_only'
-              ? '사전 점검'
-              : job.runMode}
-          {elapsed ? (
-            <span className="text-body font-normal text-text-muted">
-              <span className="px-1.5 text-ink-400">·</span>
-              {elapsed} 소요
-            </span>
-          ) : null}
-        </span>
-        {listItem?.captureKitId ? (
-          <span className="text-caption text-text-muted">
-            캡처 키트 <span className="font-mono text-text">{listItem.captureKitId}</span>
-          </span>
-        ) : null}
-      </Fact>
-    </dl>
-  )
-}
-
-const FACT_TILE: Record<StatusTone, string> = {
-  idle: 'bg-sunken text-text-muted',
-  running: 'bg-status-running-bg text-status-running-fg',
-  success: 'bg-status-success-bg text-status-success-fg',
-  warning: 'bg-status-warning-bg text-status-warning-fg',
-  failure: 'bg-status-failure-bg text-status-failure-fg',
-  cancelled: 'bg-status-cancelled-bg text-status-cancelled-fg',
-}
-
-function Fact({
-  term,
-  icon: Icon,
-  tone,
-  children,
-}: {
-  term: string
-  icon: LucideIcon
-  tone: StatusTone
-  children: ReactNode
-}) {
-  return (
-    /*
-      칸 사이 구분선. 1열은 아래선, 2열(md)은 왼쪽 칸 오른선 + 윗줄 아래선,
-      4열(lg)은 마지막 칸을 뺀 오른선만.
-    */
-    <div className="flex min-w-0 items-start gap-3 border-border-subtle px-4 py-4 not-last:border-b md:odd:border-r md:nth-last-[-n+2]:border-b-0 lg:border-b-0 lg:not-last:border-r">
-      <span
-        aria-hidden="true"
-        className={cx('flex size-9 flex-none items-center justify-center rounded-md', FACT_TILE[tone])}
-      >
-        <Icon size={17} strokeWidth={1.5} />
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <dt className="text-caption font-medium tracking-wide-kr text-text-muted">{term}</dt>
-        <dd className="flex min-w-0 flex-col gap-0.5">{children}</dd>
-      </div>
-    </div>
   )
 }
 

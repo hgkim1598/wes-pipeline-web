@@ -24,7 +24,8 @@ import { DocEvidenceSection } from '@/features/run-detail/components/DocEvidence
 import { LogPanel } from '@/features/run-detail/components/LogPanel'
 import { ResultsView } from '@/features/run-detail/components/ResultsView'
 import { AttentionSection } from '@/features/run-detail/components/AttentionSection'
-import { RunFacts, RunHeader } from '@/features/run-detail/components/RunHeader'
+import { RunHeader } from '@/features/run-detail/components/RunHeader'
+import { RunVerdict } from '@/features/run-detail/components/RunVerdict'
 import { PipelineStepper } from '@/features/run-detail/components/PipelineStepper'
 import { ResourceCauseSection } from '@/features/run-detail/components/ResourceCauseSection'
 import { RunLimitations } from '@/features/run-detail/components/RunLimitations'
@@ -92,7 +93,7 @@ import { describeStep } from '@/registries/steps'
     (개요 / 파이프라인 / 공식 문서 / AI 설명 / 파일) · 하단 RUO 문구.
     카드는 1px 선 + 옅은 --shadow-card + --radius-lg다(CLAUDE.md 23장).
     이전 탭 밖에 있던 실패 카드·제한·AI 상태·AI 패널은 각각 개요 탭과 AI 설명
-    탭으로 들어갔다. 헤더의 한 줄이 개요 밖의 탭에서 멈춘 위치와 실패 건수를 말한다(개요는 RunFacts).
+    탭으로 들어갔다. 헤더의 한 줄이 개요 밖의 탭에서 멈춘 위치와 실패 건수를 말한다(개요는 RunVerdict).
 
   이 파일의 책임은 조립뿐이다. 쿼리 정책은 queries.ts, 표시는 components/,
   어휘는 registries/steps.ts와 stepStatus.ts에 있다. 탭이 늘어도 이 파일은
@@ -480,41 +481,22 @@ export function RunDetailPage() {
               </MessageBlock>
             ) : null}
 
-            {/* 헤더에 있던 네 칸 요약. 값은 모두 응답에서 온다. */}
-            <RunFacts job={job} listItem={listItem} issues={issues} />
-
             {/*
-              어디서 멈췄나·어디까지 왔나를 띠 하나로(2026-11-23, ref 1). 파이프라인
-              탭과 같은 component·같은 단계 상태(장부 반영)다. 점을 누르면 그
-              단계의 파이프라인 상세로 간다. 강조 단계는 실패 → 실행 중 → 경고 순
-              (stepView.resolveStepId)이라 URL에 ?step=이 없어도 멈춘 곳이 보인다.
+              판정 · 측정값 · 단계 띠를 한 면에(2026-11-23 UI 정리, 개발판단기록 63장).
+              이전의 네 칸 요약 카드와 단계 띠 카드를 대신한다. 띠의 점을 누르면
+              그 단계의 파이프라인 상세로 간다.
             */}
-            {steps.length > 0 ? (
-              <section
-                aria-labelledby="overview-pipeline-heading"
-                className="flex flex-col gap-3 rounded-lg border border-border bg-surface px-5 py-4 shadow-card"
-              >
-                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                  <h2 id="overview-pipeline-heading" className="text-body font-semibold text-text-strong">
-                    파이프라인
-                  </h2>
-                  <Link
-                    to={`${runPath}/pipeline`}
-                    className="inline-flex min-h-6 items-center gap-1 text-small text-text-muted no-underline hover:text-brand hover:underline"
-                  >
-                    단계별 상세 보기
-                    <ChevronRight size={14} strokeWidth={1.5} aria-hidden="true" />
-                  </Link>
-                </div>
-                <PipelineStepper
-                  steps={steps}
-                  selectedStepId={selectedStepId}
-                  terminal={terminal}
-                  onSelect={goToStep}
-                  controlsDetail={false}
-                />
-              </section>
-            ) : null}
+            <RunVerdict
+              job={job}
+              listItem={listItem}
+              issues={issues}
+              results={results.data && !isNotReady(results.data) ? results.data : undefined}
+              steps={steps}
+              selectedStepId={selectedStepId}
+              terminal={terminal}
+              runPath={runPath}
+              onSelectStep={goToStep}
+            />
 
             {/*
               이 실행에서 일어난 일의 유일한 본문(실패·확인 필요·자동 해결).
@@ -574,6 +556,7 @@ export function RunDetailPage() {
                   currentStepLabel={currentStepLabel}
                 />
               </div>
+              <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
               <OverviewRail
                 runPath={runPath}
                 docRuns={docHistory.data}
@@ -590,6 +573,7 @@ export function RunDetailPage() {
                         : 'none',
                 }}
               />
+              </div>
             </div>
           </div>
         </TabsPanel>

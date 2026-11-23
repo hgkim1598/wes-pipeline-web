@@ -130,34 +130,28 @@ export function AttentionSection({
     카드 전체를 빨갛게 칠하지 않는다(2026-11-23 발표용 정리, ref 다크 시안의
     "Analysis Stopped" 띠). 카드는 중립 면이고 상태 tint는 맨 위 제목 띠에만
     둔다 — 아래 구획(멈춘 이유·다음 행동·함께 기록된 항목)이 같은 무게로 읽힌다.
+
+    2026-11-23 UI 정리(개발판단기록 63장): 제목 띠를 카드 안의 또 다른 상자로
+    두지 않고 카드 머리(가장자리까지 닿는 띠)로 만든다. 그 아래 목록도 테두리
+    상자 대신 위아래 hairline으로 나눈다 — 카드 속 카드 속 목록의 3중 중첩을 없앤다.
   */
   const banner =
     heading.tone === 'failure'
-      ? 'border border-status-failure-bd bg-status-failure-bg p-4'
+      ? 'border-b border-status-failure-bd bg-status-failure-bg'
       : heading.tone === 'warning'
-        ? 'border border-status-warning-bd bg-status-warning-bg p-4'
-        : ''
+        ? 'border-b border-status-warning-bd bg-status-warning-bg'
+        : 'border-b border-border-subtle'
 
   return (
     <section
-      className="flex flex-col gap-5 rounded-lg border border-border bg-surface p-5 shadow-card"
+      className="flex flex-col gap-5 overflow-hidden rounded-lg border border-border bg-surface pb-5 shadow-card [&>*:not(:first-child)]:mx-5"
       aria-labelledby="run-attention-heading"
     >
-      <div className={cx('flex items-start gap-3 rounded-md', banner)}>
+      <div className={cx('flex items-start gap-3 px-5 py-4', banner)}>
         {heading.tone === 'failure' ? (
-          <span
-            aria-hidden="true"
-            className="flex size-9 flex-none items-center justify-center rounded-md bg-surface text-status-failure-fg"
-          >
-            <OctagonX size={18} strokeWidth={1.5} />
-          </span>
+          <OctagonX size={20} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 flex-none text-status-failure-fg" />
         ) : heading.tone === 'warning' ? (
-          <span
-            aria-hidden="true"
-            className="flex size-9 flex-none items-center justify-center rounded-md bg-surface text-status-warning-fg"
-          >
-            <TriangleAlert size={18} strokeWidth={1.5} />
-          </span>
+          <TriangleAlert size={20} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 flex-none text-status-warning-fg" />
         ) : (
           <Info
             size={16}
@@ -214,11 +208,11 @@ export function AttentionSection({
       {failures.length > 0 ? (
         <div className="flex flex-col gap-2">
           <SubHeading>멈춘 이유 {failures.length}건</SubHeading>
-          <ul className="flex flex-col divide-y divide-border-subtle rounded-md border border-border">
+          <ul className="flex flex-col divide-y divide-border-subtle border-y border-border-subtle">
             {failures.map((failure, index) => {
               const view = describeFailureCode(failure.code)
               return (
-                <li key={`${failure.code}-${index}`} className="flex items-start gap-3 px-4 py-3">
+                <li key={`${failure.code}-${index}`} className="flex items-start gap-3 py-3">
                   <RowIcon tone="failure" />
                   <div className="flex min-w-0 flex-col gap-1">
                   <div className="flex flex-wrap items-baseline gap-x-2">
@@ -255,7 +249,7 @@ export function AttentionSection({
       ) : null}
 
       {actions.length > 0 ? (
-        <div className="flex flex-col gap-2 rounded-md border border-border bg-paper p-4">
+        <div className="flex flex-col gap-2">
           <SubHeading>다음 행동</SubHeading>
           <ul className="flex flex-wrap gap-2">
             {actions.map((action) =>
@@ -292,7 +286,7 @@ export function AttentionSection({
           {hasFailure ? (
             <SubHeading>함께 기록된 항목 {needsAttention.length}건</SubHeading>
           ) : null}
-          <ul className="flex flex-col divide-y divide-border-subtle rounded-md border border-border">
+          <ul className={cx('flex flex-col divide-y divide-border-subtle border-b border-border-subtle', hasFailure && 'border-t')}>
             {needsAttention.map((item) => (
               <DiagnosticItem
                 key={item.key}
@@ -322,7 +316,7 @@ export function AttentionSection({
             */}
             파이프라인이 처리해 조치가 필요 없는 항목 {repaired.length}건
           </summary>
-          <ul className="mt-3 flex flex-col divide-y divide-border-subtle rounded-md border border-border">
+          <ul className="mt-3 flex flex-col divide-y divide-border-subtle border-y border-border-subtle">
             {repaired.map((item) => (
               <DiagnosticItem
                 key={item.key}
@@ -401,7 +395,7 @@ function DiagnosticItem({
 }) {
   const { view } = item
   return (
-    <li className="flex items-start gap-3 px-4 py-3">
+    <li className="flex items-start gap-3 py-3">
       <RowIcon
         tone={view.kind === 'attention' ? 'warning' : view.kind === 'repaired' ? 'success' : 'note'}
       />

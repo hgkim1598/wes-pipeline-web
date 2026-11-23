@@ -37,16 +37,24 @@ export function OverviewRail({ runPath, docRuns, docPending, ai }: OverviewRailP
   const latest = docRuns?.[0]
   const counts = latest ? stageCounts(latest.hits) : null
   const time = latest ? formatTimestamp(latest.createdAt) : null
+  /*
+    2026-11-23 UI 정리(개발판단기록 63장): 카드 두 장 → 한 면 두 구획. 검색이
+    0건이면 세 칸 지표(0건 · 기록 없음 · 기록 없음)를 그리지 않고 문장 하나로
+    말한다 — 비어 있는 값을 지표처럼 꾸미지 않는다. 오른쪽 열은 스크롤을 따라와
+    본문 옆 빈 공간을 남기지 않는다(xl:sticky, RunDetailPage).
+  */
   return (
-    <div className="flex flex-col gap-6">
-      <RailCard
+    <aside
+      aria-label="이 실행의 관련 기록"
+      className="flex flex-col divide-y divide-border-subtle rounded-lg border border-border bg-surface shadow-card"
+    >
+      <RailBlock
         headingId="overview-docs-heading"
-        icon={<BookOpen size={16} strokeWidth={1.5} />}
+        icon={<BookOpen size={15} strokeWidth={1.5} />}
         title="공식 문서"
-        mark={<SourceMark kind="doc" />}
         footer={
           <RailLink to={`${runPath}/docs`}>
-            {latest ? '공식 문서 탭에서 근거 흐름 보기' : '공식 문서 탭에서 검색하기'}
+            {latest ? '근거 흐름 보기' : '공식 문서 탭에서 검색하기'}
           </RailLink>
         }
       >
@@ -54,48 +62,62 @@ export function OverviewRail({ runPath, docRuns, docPending, ai }: OverviewRailP
           <p className="text-small text-text-muted">검색 기록을 불러오는 중입니다.</p>
         ) : !latest ? (
           <p className="text-small text-text">
-            이 Run으로 공식 문서를 검색한 기록이 없습니다. 검색은 기록된 실패의 도구·명령으로
-            서버의 공식 문서 자료를 찾으며 모델을 호출하지 않습니다.
+            이 Run으로 검색한 기록이 없습니다. 검색은 기록된 실패의 도구·명령으로 서버의 공식
+            문서 자료를 찾으며 모델을 호출하지 않습니다.
+          </p>
+        ) : latest.resultCount === 0 ? (
+          <p className="text-small text-text">
+            최근 검색(
+            <time dateTime={latest.createdAt} title={time?.full}>
+              {time?.display ?? latest.createdAt}
+            </time>
+            )에서 반환된 문서가 없습니다.
           </p>
         ) : (
           <>
-            <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-md border border-border-subtle bg-border-subtle">
-              <Stat term="반환 문서" value={`${latest.resultCount}건`} />
-              <Stat term="요청 입력 포함" value={counts?.input === null || !counts ? '기록 없음' : `${counts.input}건`} />
-              <Stat term="답변 인용" value={counts?.cited === null || !counts ? '기록 없음' : `${counts.cited}건`} />
-            </dl>
-            {latest.hits.length > 0 ? (
-              <ul className="flex flex-col divide-y divide-border-subtle rounded-md border border-border">
-                {latest.hits.slice(0, SHOWN_DOCS).map((hit) => (
-                  <li key={`${hit.inputId}-${hit.evidenceId}-${hit.rank}`}>
-                    <Link
-                      to={`${runPath}/docs?search=${encodeURIComponent(latest.searchId)}&doc=${encodeURIComponent(hit.evidenceId)}`}
-                      className="flex min-h-12 items-start gap-2.5 px-3 py-2.5 no-underline hover:bg-sunken hover:no-underline"
+            <p className="text-small text-text">
+              <span className="font-mono font-semibold text-text-strong">{latest.resultCount}</span>건 반환
+              {counts && counts.input !== null ? (
+                <>
+                  <span className="px-1.5 text-ink-400">·</span>요청 입력{' '}
+                  <span className="font-mono text-text-strong">{counts.input}</span>
+                </>
+              ) : null}
+              {counts && counts.cited !== null ? (
+                <>
+                  <span className="px-1.5 text-ink-400">·</span>답변 인용{' '}
+                  <span className="font-mono text-text-strong">{counts.cited}</span>
+                </>
+              ) : null}
+            </p>
+            <ul className="-mx-2 flex flex-col">
+              {latest.hits.slice(0, SHOWN_DOCS).map((hit) => (
+                <li key={`${hit.inputId}-${hit.evidenceId}-${hit.rank}`}>
+                  <Link
+                    to={`${runPath}/docs?search=${encodeURIComponent(latest.searchId)}&doc=${encodeURIComponent(hit.evidenceId)}`}
+                    className="flex min-h-11 items-start gap-2.5 rounded-sm px-2 py-2 no-underline hover:bg-sunken hover:no-underline"
+                  >
+                    <FileText size={15} strokeWidth={1.5} aria-hidden="true" className="mt-0.5 flex-none text-text-muted" />
+                    <span className="flex min-w-0 flex-col">
+                      <span className="line-clamp-2 text-small font-medium text-text-strong">{hit.sourceTitle}</span>
+                      <span className="truncate text-caption text-text-muted">{hit.location}</span>
+                    </span>
+                    <span
+                      className={cx(
+                        'ml-auto flex-none rounded-sm px-1.5 py-0.5 text-caption',
+                        hit.usage.citedInAnswer
+                          ? 'bg-ai-bg text-ai-fg'
+                          : hit.usage.inAgentInput
+                            ? 'bg-status-info-bg text-status-info-fg'
+                            : 'text-text-muted',
+                      )}
                     >
-                      <FileText size={15} strokeWidth={1.5} aria-hidden="true" className="mt-0.5 flex-none text-text-muted" />
-                      <span className="flex min-w-0 flex-col">
-                        <span className="line-clamp-2 text-small font-medium text-text-strong">{hit.sourceTitle}</span>
-                        <span className="truncate text-caption text-text-muted">{hit.location}</span>
-                      </span>
-                      <span
-                        className={cx(
-                          'ml-auto flex-none rounded-sm px-1.5 py-0.5 text-caption',
-                          hit.usage.citedInAnswer
-                            ? 'bg-ai-bg text-ai-fg'
-                            : hit.usage.inAgentInput
-                              ? 'bg-status-info-bg text-status-info-fg'
-                              : 'bg-sunken text-text-muted',
-                        )}
-                      >
-                        {hit.usage.citedInAnswer ? '답변 인용' : hit.usage.inAgentInput ? '요청 입력' : '검색 결과'}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-small text-text">이 검색은 반환된 문서가 없습니다.</p>
-            )}
+                      {hit.usage.citedInAnswer ? '답변 인용' : hit.usage.inAgentInput ? '요청 입력' : '검색 결과'}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
             <p className="text-caption text-text-muted">
               최근 검색{' '}
               <time dateTime={latest.createdAt} title={time?.full}>
@@ -105,22 +127,21 @@ export function OverviewRail({ runPath, docRuns, docPending, ai }: OverviewRailP
             </p>
           </>
         )}
-      </RailCard>
+      </RailBlock>
 
-      <RailCard
+      <RailBlock
         headingId="overview-ai-heading"
-        icon={<Sparkles size={16} strokeWidth={1.5} className="text-ai-fg" />}
+        icon={<Sparkles size={15} strokeWidth={1.5} className="text-ai-fg" />}
         title="AI 설명"
         mark={<SourceMark kind="ai" />}
         footer={<RailLink to={`${runPath}/ai`}>AI 설명 탭으로</RailLink>}
       >
-        <p className="text-body font-medium text-text-strong">{AI_STATE_TITLE[ai.state]}</p>
-        <p className="text-small text-text">
-          AI 설명은 요청할 때만 Claude를 호출해 만들고, 근거 검사를 통과한 응답만
-          표시합니다. 문장마다 근거로 삼은 실행 기록이나 공식 문서를 함께 볼 수 있습니다.
+        <p className="text-small font-medium text-text-strong">{AI_STATE_TITLE[ai.state]}</p>
+        <p className="text-small text-text-muted">
+          요청할 때만 Claude를 호출하고, 근거 검사를 통과한 응답만 문장별 근거와 함께 표시합니다.
         </p>
-      </RailCard>
-    </div>
+      </RailBlock>
+    </aside>
   )
 }
 
@@ -132,7 +153,7 @@ const AI_STATE_TITLE: Record<OverviewRailProps['ai']['state'], string> = {
   error: '요청이 실패했습니다',
 }
 
-function RailCard({
+function RailBlock({
   headingId,
   icon,
   title,
@@ -148,31 +169,19 @@ function RailCard({
   children: ReactNode
 }) {
   return (
-    <section
-      aria-labelledby={headingId}
-      className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5 shadow-card"
-    >
+    <section aria-labelledby={headingId} className="flex flex-col gap-3 px-5 py-4">
       <div className="flex flex-wrap items-center gap-2">
         <span aria-hidden="true" className="text-text-muted">
           {icon}
         </span>
-        <h2 id={headingId} className="text-body font-semibold text-text-strong">
+        <h2 id={headingId} className="text-small font-semibold text-text-strong">
           {title}
         </h2>
         {mark}
       </div>
       {children}
-      {footer ? <div className="border-t border-border-subtle pt-3">{footer}</div> : null}
+      {footer ? <div>{footer}</div> : null}
     </section>
-  )
-}
-
-function Stat({ term, value }: { term: string; value: string }) {
-  return (
-    <div className="flex min-w-0 flex-col bg-surface px-3 py-2">
-      <dt className="truncate text-caption text-text-muted">{term}</dt>
-      <dd className="truncate text-body font-semibold text-text-strong">{value}</dd>
-    </div>
   )
 }
 
