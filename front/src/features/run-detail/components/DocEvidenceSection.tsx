@@ -108,6 +108,7 @@ const RELATION_LABEL: Record<string, string> = {
   sameCommandSection: '실행된 명령과 같은 매뉴얼 구간',
   otherCommandSection: '다른 명령의 매뉴얼 구간',
   generalSection: '매뉴얼의 일반 구간',
+  suggestedByWording: '분류되지 않은 문장의 표현으로 추정한 종류의 해설',
 }
 
 const MATCHED_BY_LABEL: Record<string, string> = {
@@ -115,6 +116,7 @@ const MATCHED_BY_LABEL: Record<string, string> = {
   optionLookup: '명령 옵션으로 조회',
   sectionIntro: '실행된 명령 구간의 첫 설명',
   fts5: '전문 검색',
+  wordingLexicon: '표현 사전으로 종류 추정',
 }
 
 const CORPUS_LABEL: Record<string, string> = {
@@ -539,6 +541,8 @@ function SearchResult({
 }
 
 function kindTitle(kind: string): string {
+  // 규칙표가 분류하지 못한 문장(backend resource_bundle_causes.UNKNOWN). 원문 어휘를 그대로 보이지 않는다.
+  if (kind === 'unknown') return '분류되지 않은 문장'
   return causeKindKnowledge(kind)?.title ?? kind
 }
 
@@ -595,6 +599,13 @@ function DocList({
                 검색 이유 · 기록된 실패{' '}
                 <span className="font-medium text-text-strong">{kindTitle(input.kind)}</span>
               </span>
+              {input.kind === 'unknown' && input.suggestedKind ? (
+                <span className="text-caption text-text">
+                  규칙표로 분류되지 않은 문장입니다. 아래 문서는 문장 표현으로 추정한 종류{' '}
+                  <span className="font-medium text-text-strong">{kindTitle(input.suggestedKind)}</span>의
+                  해설이며, 이 실행의 원인을 판정한 것이 아닙니다. AI 설명 요청에는 넣지 않습니다.
+                </span>
+              ) : null}
               <span className="text-caption break-all text-text-muted">
                 {input.stepId}
                 {input.ruleId ? ` · ${input.ruleId}` : ''}

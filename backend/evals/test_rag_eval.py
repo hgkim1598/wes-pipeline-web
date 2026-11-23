@@ -87,6 +87,10 @@ def test_no_case_is_marked_reviewed_without_a_reviewer():
             assert case["review"]["reviewer"] and case["review"]["date"]
 
 
+def _first_phrasing(cases):
+    return next(c for c in cases if c["design"] == "phrasing_variant")
+
+
 @pytest.mark.parametrize("mutate,message", [
     (lambda c: c[1].update(id=c[0]["id"]), "duplicate"),
     (lambda c: c[0].update(category="maybe"), "category"),
@@ -97,6 +101,9 @@ def test_no_case_is_marked_reviewed_without_a_reviewer():
     (lambda c: c[0].update(design="clever"), "design"),
     (lambda c: c[0]["expected"].update(grades_local={"x": 3}), "grades_local"),
     (lambda c: c[0]["expected"].pop("grade_basis"), "grade_basis"),
+    (lambda c: _first_phrasing(c).pop("split"), "split"),
+    (lambda c: _first_phrasing(c).update(split="train"), "split"),
+    (lambda c: c[0].update(split="dev"), "only phrasing_variant"),
 ])
 def test_a_malformed_case_file_is_an_error(mutate, message):
     cases = copy.deepcopy(_cases())
@@ -151,8 +158,10 @@ def test_regression_floor_for_template_sentences(baseline):
 
 def test_known_gaps_are_reported_not_hidden(baseline):
     # Recorded as measured, not tuned away (log 61): reworded sentences are not
-    # classified (no fuzzy fallback by design), and a BED contig error retrieves
-    # BED passages that do not address it.
+    # classified -- the rule table is unchanged, so this structural metric stays
+    # 0 even with the wording fallback (log 62), which is scored separately in
+    # wordingBySplit -- and a BED contig error retrieves BED passages that do not
+    # address it.
     assert baseline["byDesign"]["phrasing_variant"]["recallAt"]["5"] == 0.0
     contig = next(r for r in baseline["results"] if r["id"] == "ind-bed-contig-absent")
     assert not contig["abstained"]
@@ -178,3 +187,60 @@ def test_the_eval_restores_the_search_configuration():
     before = (config.DOC_PASSAGE_KNOWLEDGE, config.DOC_MANUAL_CHUNKS, config.RUNS_ROOT)
     rag.run("synthetic")
     assert (config.DOC_PASSAGE_KNOWLEDGE, config.DOC_MANUAL_CHUNKS, config.RUNS_ROOT) == before
+
+
+# --- the wording fallback (log 62) -------------------------------------------------
+
+# sha256 of the held-out phrasing cases (sorted-key JSON) as frozen on 2026-11-23,
+# BEFORE services/doc_search/lexicon.py existed. Editing a held-out case to fit
+# the lexicon changes this and fails here; a real correction needs a new split
+# and a log entry, not a new hash.
+HELDOUT_SHA256 = "d9b47192b900a2a54c7fdbabe98d22ca077d865e8c4a8fc0c545d654e475eb62"
+
+
+def test_the_heldout_phrasing_cases_are_unchanged_since_they_were_frozen():
+    import hashlib
+
+    heldout = [c for c in _cases() if c.get("split") == "heldout"]
+    digest = hashlib.sha256(json.dumps(heldout, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+    assert digest == HELDOUT_SHA256
+
+
+def test_the_wording_fallback_never_returns_another_cause(baseline):
+    wording = baseline["wordingBySplit"]
+    assert wording["dev"]["wrongKindHits"] == 0
+    assert wording["heldout"]["wrongKindHits"] == 0
+    assert wording["heldout"]["negativesAbstained"] == 1.0
+
+
+def test_the_wording_fallback_only_fires_on_wording_main_sh_does_not_write(baseline):
+    assert baseline["wordingBySplit"]["firedOutsidePhrasing"] == []
+
+
+def test_heldout_wording_result_as_measured(baseline):
+    # Measured on 2026-11-23 (log 62): 6 of 8 held-out positives found at rank 1.
+    # The two misses lose their only file-type word to path redaction
+    # (`.vcf.gz`, `.bed` inside <path>); they are reported, not fixed by editing
+    # the cases or by adding their identifiers to the lexicon.
+    heldout = baseline["wordingBySplit"]["heldout"]
+    assert heldout["positives"] == 8
+    assert heldout["foundAt1"] >= 0.75
+    assert set(heldout["missed"]) <= {"ho-htslib-index-retrieve", "ho-bedtools-invalid-record"}
+
+
+def test_the_lexicon_on_the_older_48_query_set_never_names_a_cause_for_a_negative():
+    # evals/experiments/retrieval_queries.json predates the lexicon (log 17.2).
+    from pathlib import Path
+
+    from app.services.doc_search import lexicon
+
+    queries = json.loads((Path(__file__).parent / "experiments" / "retrieval_queries.json")
+                         .read_text(encoding="utf-8"))["queries"]
+    negatives = [q for q in queries if not q["expect"]]
+    assert len(negatives) == 8
+    assert [q["id"] for q in negatives if lexicon.suggest(q["text"])] == []
+    wrong = [q["id"] for q in queries
+             if q["expect"] and (s := lexicon.suggest(q["text"])) and s.kind not in q["expect"]]
+    # v02 (held-out): an incomplete BWA index read as "not found" -- the
+    # neighbouring kind, whose passages are filed under both BWA kinds.
+    assert wrong == ["v02"]

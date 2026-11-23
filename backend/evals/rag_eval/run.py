@@ -54,6 +54,7 @@ SAMPLE = "SYNTH-SAMPLE-01"
 CATEGORIES = ("positive", "coverage_gap", "negative")
 REVIEW_STATES = ("unreviewed", "accepted", "rejected")
 DESIGNS = ("rule_replicating", "independent_ranking", "phrasing_variant")
+SPLITS = ("dev", "heldout")
 NDCG_K = 3
 SYNTHETIC_PREFIX = "synthetic-"
 
@@ -88,6 +89,12 @@ def validate_cases(cases: list[dict[str, Any]]) -> None:
             raise ValueError(f"{cid}: only positive cases have relevant kinds")
         if case.get("design") not in DESIGNS:
             raise ValueError(f"{cid}: design must be one of {DESIGNS}")
+        # dev = seen while building the wording lexicon; heldout = frozen before it (log 62).
+        if case["design"] == "phrasing_variant":
+            if case.get("split") not in SPLITS:
+                raise ValueError(f"{cid}: a phrasing_variant case needs split in {SPLITS}")
+        elif "split" in case:
+            raise ValueError(f"{cid}: only phrasing_variant cases carry a split")
         grades = expected.get("grades_local")
         if grades is not None:
             if not isinstance(grades, dict) or not all(g in (0, 1, 2) for g in grades.values()):
@@ -182,10 +189,25 @@ def evaluate_case(case: dict[str, Any], *, score_preferred: bool) -> dict[str, A
                     [canonical(e) for e in ranked], lambda pid: grades.get(pid, 0) == 2)
         queries.append(query)
 
+    # Passages found through a kind the wording lexicon SUGGESTED for an
+    # unclassified sentence (relation suggestedByWording, log 62). Scored apart
+    # from `queries`: the structural metric above stays exactly as it was.
+    worded = [h for h in sorted(curated, key=lambda h: (h.input_id, h.rank))
+              if h.relation == "suggestedByWording"]
+    wording = {
+        "suggestedKinds": sorted({i.suggestedKind for i in record.inputs if i.suggestedKind}),
+        "returned": [canonical(h.evidence_id) for h in worded],
+        "firstRelevantRank": metrics.first_relevant_rank(
+            [h.evidence_id for h in worded], lambda e: bool(_kinds_of(e) & relevant)) if relevant else None,
+        "wrongKindHits": sum(1 for h in worded if not (_kinds_of(h.evidence_id) & relevant)),
+    }
+
     return {
         "id": case["id"],
         "category": case["category"],
         "design": case["design"],
+        "split": case.get("split"),
+        "wording": wording,
         "review": case["review"]["status"],
         "errorCategory": record.error_category,
         "inputKinds": input_kinds,
@@ -216,6 +238,35 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
             "bestAt1": metrics.mean([metrics.recall_at_k(b, 1) for b in best]),
             "note": "order inside a cause kind; local corpus; grades provisional (AI-proposed, unreviewed)",
         }
+    return out
+
+
+def wording_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
+    """The wording fallback, per split of the phrasing cases, plus where else it fired.
+
+    foundAt1 / recallAt3: positives whose first relevant suggested passage is at
+    rank 1 / within 3. negativesAbstained: negatives with no suggested passage.
+    firedOutsidePhrasing: cases of other designs that got a suggested passage --
+    the fallback is meant for wording main.sh does not produce, so this should
+    stay 0 on template sentences.
+    """
+    out: dict[str, Any] = {}
+    for split in SPLITS:
+        rows = [r for r in results if r["design"] == "phrasing_variant" and r["split"] == split]
+        pos = [r for r in rows if r["category"] == "positive"]
+        neg = [r for r in rows if r["category"] != "positive"]
+        ranks = [r["wording"]["firstRelevantRank"] for r in pos]
+        out[split] = {
+            "positives": len(pos),
+            "foundAt1": metrics.mean([metrics.recall_at_k(k, 1) for k in ranks]),
+            "recallAt3": metrics.mean([metrics.recall_at_k(k, 3) for k in ranks]),
+            "wrongKindHits": sum(r["wording"]["wrongKindHits"] for r in rows),
+            "negatives": len(neg),
+            "negativesAbstained": metrics.mean([0.0 if r["wording"]["returned"] else 1.0 for r in neg]),
+            "missed": [r["id"] for r in pos if r["wording"]["firstRelevantRank"] is None],
+        }
+    out["firedOutsidePhrasing"] = [r["id"] for r in results
+                                   if r["design"] != "phrasing_variant" and r["wording"]["returned"]]
     return out
 
 
@@ -275,6 +326,7 @@ def run(corpus_name: str = "synthetic", cases_path: Path = CASES) -> dict[str, A
         "pathStability": stability,
         "method": engine.METHOD,
         "summary": summarize(results),
+        "wordingBySplit": wording_summary(results),
         "byReviewStatus": by_review,
         "results": results,
     }
@@ -286,7 +338,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="print every case, not only the summary")
     args = parser.parse_args(argv)
     report = run(args.corpus)
-    shown = report if args.json else {k: report[k] for k in ("corpus", "method", "summary", "byDesign", "pathStability", "byReviewStatus")}
+    shown = report if args.json else {k: report[k] for k in ("corpus", "method", "summary", "byDesign", "wordingBySplit", "pathStability", "byReviewStatus")}
     json.dump(shown, sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
     return 0

@@ -6,7 +6,8 @@
     "Ground truth is NOT confirmed: every case starts as review.status = 'unreviewed'. A reviewer sets 'accepted' or 'rejected' with name and date. Metrics are reported per review status.",
     "category: positive = a passage filed under the expected kind should come back; coverage_gap = the kind is classified but no passage is filed for it, so the correct system output today is nothing; negative = nothing may come back.",
     "relevant_kinds is the relevance rule: a returned passage is relevant iff it is filed under one of these kinds. preferred_local lists passage ids (without the 'synthetic-' prefix) a reviewer would want first; it is only scored against the local, non-public corpus and is a proposal until reviewed.",
-    "design: rule_replicating = the sentence is a main.sh template and only one outcome is possible once classified; independent_ranking = several passages share the kind and grades_local (0..2, provisional) judge which help most, independent of the rule table; phrasing_variant = same meaning, wording main.sh does not produce, testing robustness. grades_local are AI-proposed and provisional until review."
+    "design: rule_replicating = the sentence is a main.sh template and only one outcome is possible once classified; independent_ranking = several passages share the kind and grades_local (0..2, provisional) judge which help most, independent of the rule table; phrasing_variant = same meaning, wording main.sh does not produce, testing robustness. grades_local are AI-proposed and provisional until review.",
+    "split (phrasing_variant only): dev = cases seen while building the lexical fallback (services/doc_search/lexicon.py); heldout = written before that code existed and never edited to fit it. Results are reported per split. The heldout cases were written by the same author (AI) as the code, so they are not independent of the author's vocabulary -- only of the code."
   ],
   "cases": [
     {
@@ -733,7 +734,8 @@
         "status": "unreviewed",
         "reviewer": null,
         "date": null
-      }
+      },
+      "split": "dev"
     },
     {
       "id": "var-bwa-files-missing",
@@ -758,7 +760,8 @@
         "status": "unreviewed",
         "reviewer": null,
         "date": null
-      }
+      },
+      "split": "dev"
     },
     {
       "id": "var-dict-fai",
@@ -782,7 +785,8 @@
         "status": "unreviewed",
         "reviewer": null,
         "date": null
-      }
+      },
+      "split": "dev"
     },
     {
       "id": "var-bed-two-columns",
@@ -806,7 +810,8 @@
         "status": "unreviewed",
         "reviewer": null,
         "date": null
-      }
+      },
+      "split": "dev"
     },
     {
       "id": "var-sha256-abbrev",
@@ -830,7 +835,8 @@
         "status": "unreviewed",
         "reviewer": null,
         "date": null
-      }
+      },
+      "split": "dev"
     },
     {
       "id": "var-tabix-not-found-shell",
@@ -850,6 +856,347 @@
         ]
       },
       "basis": "A shell's own message for a missing tool, instead of main.sh's 'tabix unavailable for'.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      },
+      "split": "dev"
+    },
+    {
+      "id": "ho-htslib-index-retrieve",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "[E::idx_find_and_load] Could not retrieve index file for '/data/wes/ref/known_indels.vcf.gz'"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": [
+          "vcf_index_missing"
+        ]
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. htslib's message when a VCF has no .tbi/.csi.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-tbi-not-found",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "tbi index not found for dbsnp VCF /data/wes/ref/dbsnp.vcf.gz"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": [
+          "vcf_index_missing"
+        ]
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. Short paraphrase using the .tbi extension name.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-bwa-fail-locate",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "[bwa_idx_load_from_disk] fail to locate the index files"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": [
+          "bwa_index_not_found",
+          "bwa_index_incomplete"
+        ]
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. bwa's message when the prefix has no index files.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-bwa-pac-missing",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "BWA index incomplete: .pac file missing for /data/wes/ref/GRCh38.fa"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": [
+          "bwa_index_incomplete",
+          "bwa_index_not_found"
+        ]
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. Paraphrase naming one index component.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-bcftools-cmd-not-found",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "bash: bcftools: command not found"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": [
+          "vcf_tool_unavailable"
+        ]
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. bash's message for a program missing from PATH.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-sha256sum-warning",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "sha256sum: WARNING: 1 computed checksum did NOT match"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": [
+          "checksum_mismatch"
+        ]
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. coreutils sha256sum --check output.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-dict-fai-lengths",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "sequence dictionary and FASTA index report different contig lengths"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": [
+          "reference_index_mismatch"
+        ]
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. Paraphrase of a dict/fai disagreement.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-bedtools-invalid-record",
+      "category": "positive",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "Error: Invalid record in file /data/wes/beds/targets.bed. Record is chr1 100"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": [
+          "bed_content_invalid"
+        ]
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. bedtools' message for a malformed BED line.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-neg-bai-missing",
+      "category": "negative",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "BAM index (.bai) not found for /data/wes/run/aligned.bam"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. Shares 'index not found' with the VCF index kind but is a BAM index; no filed passage covers it, so nothing may come back.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-neg-samtools-cmd",
+      "category": "negative",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "bash: samtools: command not found"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. Same shape as the bcftools case, but vcf_tool_unavailable is about bcftools/tabix; nothing filed covers samtools.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-neg-checksum-ok",
+      "category": "negative",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "sha256sum: targets.bed: OK"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. A passing checksum line; no failure to explain.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-neg-bed-merged",
+      "category": "negative",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "BED file sorted and merged: 1200 intervals"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. Mentions BED but reports no problem.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-neg-dict-created",
+      "category": "negative",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "picard CreateSequenceDictionary finished: GRCh38.dict written"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. Mentions the dictionary but reports success.",
+      "review": {
+        "status": "unreviewed",
+        "reviewer": null,
+        "date": null
+      }
+    },
+    {
+      "id": "ho-neg-bwa-mem-done",
+      "category": "negative",
+      "design": "phrasing_variant",
+      "split": "heldout",
+      "run": {
+        "report_items": [
+          "bwa mem finished aligning 2000000 reads"
+        ]
+      },
+      "expected": {
+        "input_kinds": [
+          "unknown"
+        ],
+        "relevant_kinds": []
+      },
+      "basis": "Written 2026-11-23 BEFORE the lexical search existed and frozen (README hash). Wording recalled from the tool's own output, NOT verified against its source; a reviewer should confirm it. Mentions bwa but is not an index problem.",
       "review": {
         "status": "unreviewed",
         "reviewer": null,

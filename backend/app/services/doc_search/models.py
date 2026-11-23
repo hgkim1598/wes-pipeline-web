@@ -21,9 +21,13 @@ Relation = Literal[
     "sameCommandSection",
     "otherCommandSection",
     "generalSection",
+    # curated, for a sentence the rule table left `unknown` only: filed under the
+    # kind the wording lexicon SUGGESTED (doc_search/lexicon.py, log 62). Not a
+    # classification; never an Agent input (agent_input.CANDIDATE_RELATIONS).
+    "suggestedByWording",
 ]
 # sectionIntro: the opening chunk of the recorded command's section (log 31).
-MatchedBy = Literal["causeKindKey", "optionLookup", "sectionIntro", "fts5"]
+MatchedBy = Literal["causeKindKey", "optionLookup", "sectionIntro", "fts5", "wordingLexicon"]
 
 
 class _Model(BaseModel):
@@ -62,6 +66,10 @@ class SearchInput(_Model):
     # (placeholders are dropped, only plain words are kept).
     queryTerms: list[str] = Field(default_factory=list)
     skipped: list[CorpusSkip] = Field(default_factory=list)
+    # Only when kind is `unknown`: the kind the wording lexicon suggested and the
+    # lexicon rule that did (log 62). `kind` itself is never changed.
+    suggestedKind: str | None = None
+    suggestionRule: str | None = None
 
 
 class ExcludedObservation(_Model):

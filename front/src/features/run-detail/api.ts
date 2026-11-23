@@ -690,6 +690,12 @@ const DocSearchInputSchema = z.object({
   command: ObservedCommandSchema.nullable(),
   queryTerms: z.array(z.string()),
   skipped: z.array(z.object({ corpus: z.string(), reason: z.string() })),
+  /**
+   * kind가 unknown일 때만: 문장 표현으로 추정한 원인 종류와 그 규칙
+   * (backend/app/services/doc_search/lexicon.py, 개발판단기록 62장). 원인 판정이 아니다.
+   */
+  suggestedKind: z.string().nullable(),
+  suggestionRule: z.string().nullable(),
 })
 
 export type DocSearchInput = z.infer<typeof DocSearchInputSchema>

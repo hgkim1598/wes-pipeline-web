@@ -43,6 +43,8 @@ export const RELATION_ORDER: readonly string[] = [
   'sameCommandSection',
   'otherCommandSection',
   'generalSection',
+  // 분류되지 않은 문장의 표현으로 추정한 종류의 해설(개발판단기록 62장). 가장 약한 관계라 마지막이다.
+  'suggestedByWording',
 ]
 
 function relationIndex(relation: string): number {
