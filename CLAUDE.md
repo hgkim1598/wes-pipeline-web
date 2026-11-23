@@ -190,6 +190,10 @@ Frontend source alias:
 ### Job
 
 - `POST /api/jobs`
+- `GET /api/jobs`
+  → 이 서버 DB(SQLite)에 기록된 전체 Job 목록, 최신순
+  (`backend/app/api/jobs.py` `list_jobs`).
+  검색·필터·정렬·pagination 파라미터는 없습니다.
 - `GET /api/jobs/{job_id}`
 - `POST /api/jobs/{job_id}/cancel`
 
@@ -206,6 +210,49 @@ Frontend source alias:
 
 - `GET /api/jobs/{job_id}/steps/{step_id}`
 
+### Explanation (결정적, 모델 없음)
+
+- `GET /api/jobs/{job_id}/explanation`
+  → Run 기록의 결정적 설명(`backend/app/api/explanations.py`).
+  실패·실행 중·check_only Run도 200이며 `contextKind`로 구분합니다.
+  polling과 함께 읽어도 비용이 없습니다.
+
+### AI synthesis (모델 호출, 비용 발생)
+
+- `POST /api/jobs/{job_id}/synthesis`
+  (`backend/app/api/synthesis.py`)
+  - POST 전용입니다. polling·prefetch·자동 retry 대상으로 만들지 않습니다.
+  - 모델/provider 실패는 200 + `{"available": false, "errorCategory": ...}`입니다.
+  - 409 `runNotFinished`: queued/running Run은 모델을 부르지 않고 거절합니다.
+  - 409 `synthesisInProgress`: 같은 Run의 요청이 이미 진행 중입니다.
+  - 429 `synthesisBusy`: 서버 전체 동시 호출 상한
+    (`WES_SYNTHESIS_MAX_CONCURRENT`, 기본 1)에 도달했습니다.
+  - 생성된 설명 본문은 서버에 저장되지 않습니다. 저장되는 것은
+    `synthesis_traces`(모델 id·시간·연 단계·실패 분류)와
+    `agent_doc_evidence`(어떤 문서가 요청에 들어갔고 인용됐는지)뿐입니다.
+    trace 목록 API는 없고, 문서 검색 응답이 그 검색과 연결된 요청의
+    요약(`agentRequest`: 시각·결과 분류·후보/전달/인용 여부)만 보여 줍니다
+    (`backend/app/services/doc_search/store.py`).
+
+### 공식 문서 검색 (모델 없음)
+
+- `GET /api/jobs/{job_id}/doc-search` → 저장된 검색, 최신순(최대 10)
+- `POST /api/jobs/{job_id}/doc-search` → 지금 검색하고 저장한 뒤 반환
+  (`backend/app/api/doc_search.py`).
+  "찾은 문서 없음"도 200 결과입니다. 검색 결과는 AI가 읽었다는 뜻이 아닙니다.
+
+### 평가자 전용 A/B 비교
+
+- `GET /api/eval/compare`, `GET /api/eval/compare/{exp}`,
+  `GET .../{exp}/calls/{call_id}`, `GET .../{exp}/payloads/{case}`,
+  `GET .../{exp}/blind`, `POST .../{exp}/grades/{code}`,
+  `POST .../{exp}/unblind`
+  (`backend/app/api/eval_compare.py`)
+  - `WES_EVAL_COMPARE=1`이 아니면 전부 404입니다.
+  - loopback 요청만 받고, `x-wes-eval-token` header가 필요합니다.
+  - 저장된 평가 기록만 읽고 쓰며 모델을 부르지 않습니다.
+  - 일반 사용자 화면의 기능으로 노출하지 않습니다.
+
 ### SSE
 
 다음 endpoint는 route 자체는 존재하지만
@@ -218,9 +265,7 @@ Frontend source alias:
 
 ### 현재 없는 API
 
-현재 다음 기능은 Backend API가 없습니다.
-
-- `GET /api/jobs` 형태의 전체 Job 목록 API
+Job 목록 API는 이제 존재합니다(위 `GET /api/jobs`, 2026-11-23 정정).
 
 Backend에 없는 API를 있다고 가정해서 구현하지 않습니다.
 
@@ -535,16 +580,18 @@ canonical domain model / section contract를 유지합니다.
 
 ## 20. Local storage 사용
 
-Backend에는 현재 전체 Job list API가 없습니다.
+Run 목록의 출처는 서버 DB입니다(`GET /api/jobs`).
+Run 목록을 localStorage에 저장하지 않습니다.
+(2026-11-23 정정: 초기 설계의 localStorage `runHistory`는 Job 목록 API가 생기면서
+쓰이지 않았고, `front/src/lib/runHistory.ts`는 존재하지 않습니다.
+`RunListPage.tsx` 상단 주석 참고.)
 
-필요한 local history는 브라우저 localStorage를 사용할 수 있습니다.
-
+그 밖에 브라우저 저장소가 필요한 경우,
 localStorage 접근은 지정된 utility/module 안으로 제한합니다.
 
 예:
 
-- `lib/runHistory.ts`
-- `lib/uploadSession.ts`
+- `lib/uploadSession.ts` (업로드 이어받기를 영속화할 경우. 현재는 없음)
 
 React component 안에서 직접 localStorage를 여기저기 호출하지 않습니다.
 
