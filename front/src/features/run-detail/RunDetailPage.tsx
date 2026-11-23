@@ -543,18 +543,6 @@ export function RunDetailPage() {
                   />
                 ) : null}
   
-                {/*
-                  분석 결과(이전 "결과" 탭, /results 주소는 이 탭으로 온다). 결과가
-                  없거나 아직 끝나지 않은 실행의 안내는 ResultsView가 그대로 말한다.
-                */}
-                <ResultsView
-                  data={results.data}
-                  isPending={results.isPending && terminal}
-                  waitingForRun={!terminal}
-                  terminal={terminal}
-                  error={results.error}
-                  currentStepLabel={currentStepLabel}
-                />
               </div>
               <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
               <OverviewRail
@@ -575,6 +563,23 @@ export function RunDetailPage() {
               />
               </div>
             </div>
+
+            {/*
+              결과는 본문·오른쪽 열 격자 밖 전체 폭이다(2026-11-23 후속, 개발판단기록 64장).
+              오른쪽 열이 짧아 결과 블록 옆이 길게 비어 있었다. 결과 안에서 두 열로 나눈다.
+            */}
+            {/*
+              분석 결과(이전 "결과" 탭, /results 주소는 이 탭으로 온다). 결과가
+              없거나 아직 끝나지 않은 실행의 안내는 ResultsView가 그대로 말한다.
+            */}
+            <ResultsView
+              data={results.data}
+              isPending={results.isPending && terminal}
+              waitingForRun={!terminal}
+              terminal={terminal}
+              error={results.error}
+              currentStepLabel={currentStepLabel}
+            />
           </div>
         </TabsPanel>
 

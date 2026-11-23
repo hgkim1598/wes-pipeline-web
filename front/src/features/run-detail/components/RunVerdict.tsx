@@ -188,20 +188,27 @@ interface Measurement {
   note?: string
 }
 
+/**
+ * 커버리지 칸의 출처. 아래 결과의 커버리지 section과 같은 라벨·단위를 쓴다 —
+ * 위아래 숫자가 다른 측정처럼 읽히지 않게(개발판단기록 64장). 구간 단위 값은
+ * 여기 올리지 않는다.
+ */
+const COVERAGE_SOURCE = '염기 단위 · mosdepth'
+
 /** 응답에 값이 있는 것만. null은 칸을 만들지 않는다(— 칸을 늘어놓지 않는다). */
 function collectMeasurements(results: Results): Measurement[] {
   const out: Measurement[] = []
   const cov = results.coverage
   if (cov) {
     if (cov.meanTargetDepth !== null) {
-      out.push({ term: '평균 타깃 깊이', value: cov.meanTargetDepth.toFixed(2), unit: '×' })
+      out.push({ term: '평균 타깃 깊이', value: cov.meanTargetDepth.toFixed(2), unit: '×', note: COVERAGE_SOURCE })
     }
     const breadth = cov.breadth[HEADLINE_BREADTH_KEY]
     if (breadth !== undefined) {
-      out.push({ term: `${HEADLINE_BREADTH_KEY} 이상 염기`, value: breadth.toFixed(2), unit: '%' })
+      out.push({ term: `≥${HEADLINE_BREADTH_KEY}로 덮인 염기`, value: breadth.toFixed(2), unit: '%', note: COVERAGE_SOURCE })
     }
     if (cov.zeroCoverageBasesPct !== null) {
-      out.push({ term: '0× 염기', value: cov.zeroCoverageBasesPct.toFixed(2), unit: '%' })
+      out.push({ term: '한 번도 덮이지 않은 염기', value: cov.zeroCoverageBasesPct.toFixed(2), unit: '%', note: COVERAGE_SOURCE })
     }
   }
   const vc = results.variantCalling
@@ -209,7 +216,7 @@ function collectMeasurements(results: Results): Measurement[] {
     out.push({
       term: vc.filteringApplied ? '변이 기록' : '변이 후보 기록',
       value: formatCount(vc.rawVariantRecords),
-      note: vc.filteringApplied ? '필터 적용' : '필터 적용 전',
+      note: vc.filteringApplied ? 'VCF 기록 · 필터 적용' : 'VCF 기록 · 필터 적용 전',
     })
   }
   return out
