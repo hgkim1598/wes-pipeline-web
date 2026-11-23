@@ -321,6 +321,19 @@ def test_the_identity_check_and_the_group_signal_on_a_real_linux_process():
     argv = [shutil.which("sleep") or "/bin/sleep", "300"]
     process = subprocess.Popen(argv, start_new_session=True)
     try:
+        # Hypothesis, not reproduced on Linux: Popen returns once the child's
+        # close-on-exec error pipe closes (begin_new_exec), before the kernel
+        # sets the new argv (load_elf_binary), so /proc/<pid>/cmdline can read
+        # empty -- CI run 45114421318 failed on this line. A pipeline is never
+        # cancelled within microseconds of its exec, so wait for the argv, reading
+        # /proc directly (not through is_alive, which is what is under test).
+        cmdline = Path(f"/proc/{process.pid}/cmdline")
+        deadline = time.monotonic() + 10
+        while not cmdline.read_bytes():
+            assert process.poll() is None, "sleep exited before its argv was published"
+            assert time.monotonic() < deadline, "argv never appeared in /proc"
+            time.sleep(0.01)
+
         recorded = " ".join(argv)
         assert pipeline_executor.is_alive(process.pid, recorded) is True
         assert pipeline_executor.is_alive(process.pid, recorded + "1") is False  # same pid, other program
