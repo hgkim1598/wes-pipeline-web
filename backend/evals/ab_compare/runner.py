@@ -17,11 +17,18 @@
 How the two arms are kept apart
 -------------------------------
 
-    A  `git archive <commit>` of the protocol's paths, verified blob by blob
-       against `git ls-tree`. The code exactly as it was before the change.
-    B  the working tree's tracked + untracked-not-ignored files under the same
-       paths, copied at prepare time. Later edits to the repository do not
-       reach an experiment already prepared.
+    Each arm's source is the protocol's `arms.<arm>.source`, and nothing else:
+
+    {"kind": "git", "commit": C}   `git archive C` of the protocol's paths,
+                                   verified blob by blob against `git ls-tree`.
+                                   Arm A is always this: the code before the change.
+    {"kind": "workingTree"}        arm B only: the working tree's tracked +
+                                   untracked-not-ignored files under the same
+                                   paths, copied at prepare time.
+
+    Either way, later edits to the repository do not reach an experiment already
+    prepared. A source the runner does not implement is refused, never replaced
+    by a default (until 2026-11-23 arm B's source was not read at all).
 
 Both arms run through the SAME frozen worker (worker.py, copied into the
 experiment) in separate child processes; each child imports only its own tree.
@@ -30,7 +37,11 @@ old code, not the new code told to behave like it.
 
 Every file that differs between the arms must be classified by the protocol
 (`diffClassification`: intended / inertInCallPath / notInCallPath). An
-unexplained difference stops `prepare` and `run`.
+unexplained difference stops `prepare` and `run`. What each class claims and
+how to check the claim: protocols/README.md.
+
+A protocol with `"draft": true` is a proposal awaiting approval: `prepare`
+refuses it.
 
 States, approval and integrity
 ------------------------------
@@ -97,7 +108,7 @@ from . import contract, scoring
 HERE = Path(__file__).resolve().parent
 WORKER = HERE / "worker.py"
 PROTOCOLS = HERE / "protocols"
-DEFAULT_PROTOCOL = PROTOCOLS / "ledger_applicability_v3.json"
+DEFAULT_PROTOCOL = PROTOCOLS / "ledger_applicability_v4.json"
 EXPERIMENT_ID = re.compile(r"^[a-z0-9][a-z0-9-]{2,63}$")
 ARMS = ("A", "B")
 # Not part of either arm's call path: the store itself, this package (the
@@ -240,26 +251,79 @@ def snapshot_working_tree(paths: list[str], dest: Path) -> dict[str, dict[str, s
     return manifest
 
 
-def dry_diff(protocol: dict[str, Any]) -> dict[str, Any]:
-    """The arm difference `prepare` would find now, computed in memory (no files written)."""
-    paths = list(protocol["snapshotPaths"])
-    commit = protocol["arms"]["A"]["source"]["commit"]
-    a: dict[str, dict[str, str]] = {}
+def arm_source(protocol: dict[str, Any], arm: str) -> dict[str, str]:
+    """The arm's source as the protocol states it, or AbError. Never a default."""
+    source = ((protocol.get("arms") or {}).get(arm) or {}).get("source") or {}
+    kind = source.get("kind")
+    if kind == "git" and isinstance(source.get("commit"), str) and source["commit"]:
+        return {"kind": "git", "commit": source["commit"]}
+    if kind == "workingTree" and arm == "B":
+        return {"kind": "workingTree"}
+    raise AbError(
+        f"arm {arm}: unsupported source {source!r}; arm A must be "
+        '{"kind": "git", "commit": ...}, arm B that or {"kind": "workingTree"}'
+    )
+
+
+def _read_git(commit: str, paths: list[str]) -> dict[str, dict[str, str]]:
+    manifest: dict[str, dict[str, str]] = {}
     with tarfile.open(fileobj=io.BytesIO(_git("archive", "--format=tar", commit, "--", *paths, binary=True))) as tar:
         for member in tar.getmembers():
             if member.isfile() and not member.issym() and not _excluded(member.name):
                 handle = tar.extractfile(member)
                 assert handle is not None
                 content = handle.read()
-                a[member.name] = {"sha256": sha256_bytes(content), "normalisedSha256": _normalised_sha(content)}
-    b: dict[str, dict[str, str]] = {}
+                manifest[member.name] = {"sha256": sha256_bytes(content), "normalisedSha256": _normalised_sha(content)}
+    return manifest
+
+
+def _read_working_tree(paths: list[str]) -> dict[str, dict[str, str]]:
+    manifest: dict[str, dict[str, str]] = {}
     for name in sorted(set(filter(None, _git("ls-files", "-z", "-co", "--exclude-standard", "--", *paths).split("\0")))):
         source = config.ROOT / name
         if _excluded(name) or not source.is_file() or source.is_symlink():
             continue
         content = source.read_bytes()
-        b[name] = {"sha256": sha256_bytes(content), "normalisedSha256": _normalised_sha(content)}
-    return arm_diff(a, b)
+        manifest[name] = {"sha256": sha256_bytes(content), "normalisedSha256": _normalised_sha(content)}
+    return manifest
+
+
+def _read_arm(protocol: dict[str, Any], arm: str) -> dict[str, dict[str, str]]:
+    source = arm_source(protocol, arm)
+    paths = list(protocol["snapshotPaths"])
+    if source["kind"] == "git":
+        return _read_git(source["commit"], paths)
+    return _read_working_tree(paths)
+
+
+def snapshot_arm(protocol: dict[str, Any], arm: str, dest: Path) -> dict[str, dict[str, str]]:
+    source = arm_source(protocol, arm)
+    paths = list(protocol["snapshotPaths"])
+    if source["kind"] == "git":
+        return snapshot_git(source["commit"], paths, dest)
+    return snapshot_working_tree(paths, dest)
+
+
+def dry_diff(protocol: dict[str, Any]) -> dict[str, Any]:
+    """The arm difference `prepare` would find now, computed in memory (no files written).
+
+    Same sources as prepare (arm_source): with arm B on the working tree this is
+    "could an experiment be prepared from the repository as it is now".
+    """
+    return arm_diff(_read_arm(protocol, "A"), _read_arm(protocol, "B"))
+
+
+def unclassified_message(unclassified: list[str], protocol: dict[str, Any]) -> str:
+    """Name every unexplained file, and what to do about it."""
+    listing = "\n".join(f"  - {name}" for name in unclassified)
+    return (
+        f"{len(unclassified)} file(s) differ between the arms of {protocol.get('id', '?')} "
+        f"without a classification:\n{listing}\n"
+        "Each one changes what arm B would run. Decide per file whether it changes the "
+        "model's input (intended) or not (inertInCallPath / notInCallPath), show it, and "
+        "write the result as a NEW protocol version; never edit a fixed one. "
+        "Procedure: backend/evals/ab_compare/protocols/README.md"
+    )
 
 
 # Local, git-ignored inputs the harness reads (answer keys of the real runs).
@@ -383,23 +447,19 @@ def prepare(experiment: str, protocol_path: Path, *, mock: bool) -> Path:
         raise AbError("experiment already exists; choose a new id (stored results are never replaced)")
     protocol_bytes = protocol_path.read_bytes()
     protocol = json.loads(protocol_bytes.decode("utf-8"))
+    if protocol.get("draft"):
+        raise AbError(f"{protocol_path.name} is a draft awaiting approval; it prepares no experiment")
+    for arm in ARMS:
+        arm_source(protocol, arm)
     if not protocol.get("diffClassification"):
         raise AbError("the protocol has no diffClassification; every arm difference must be explained")
     root.mkdir(parents=True)
     try:
-        paths = list(protocol["snapshotPaths"])
-        commit = protocol["arms"]["A"]["source"]["commit"]
-        manifests = {
-            "A": snapshot_git(commit, paths, root / "snapshots" / "A"),
-            "B": snapshot_working_tree(paths, root / "snapshots" / "B"),
-        }
+        manifests = {arm: snapshot_arm(protocol, arm, root / "snapshots" / arm) for arm in ARMS}
         diff = arm_diff(manifests["A"], manifests["B"])
         classified = classify_diff(diff, protocol)
         if classified["unclassified"]:
-            raise AbError(
-                "files differ between the arms without a protocol classification: "
-                + ", ".join(classified["unclassified"][:10])
-            )
+            raise AbError(unclassified_message(classified["unclassified"], protocol))
     except BaseException:
         # Nothing has been recorded yet; leave no half-built experiment behind.
         shutil.rmtree(root, ignore_errors=True)

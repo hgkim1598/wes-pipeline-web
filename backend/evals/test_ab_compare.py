@@ -54,24 +54,33 @@ def test_protocol_fixes_everything_the_experiment_needs_before_any_call():
     assert {r["class"] for r in PROTOCOL["diffClassification"]} <= set(runner.DIFF_CLASSES)
 
 
+def _version(n: int) -> dict:
+    return json.loads((runner.PROTOCOLS / f"ledger_applicability_v{n}.json").read_text(encoding="utf-8"))
+
+
+# Each version is checked against the one it supersedes, by name. (These two
+# compared "the default" while v3 was the default; v4 vs v3 is in
+# test_ab_protocol_sources.py.)
+
+
 def test_v2_changes_only_what_it_says_it_changes():
-    v1 = json.loads((runner.PROTOCOLS / "ledger_applicability_v1.json").read_text(encoding="utf-8"))
+    v1, v2 = _version(1), _version(2)
     for key in ("conditions", "repeats", "order", "cases", "detectors", "wrongCauseCandidates", "claimUnit", "arms"):
-        assert PROTOCOL[key] == v1[key], key
+        assert v2[key] == v1[key], key
     same = {c["id"]: c for c in v1["successCriteria"] if c["id"] != "S8"}
-    assert all(c == same[c["id"]] for c in PROTOCOL["successCriteria"] if c["id"] != "S8")
+    assert all(c == same[c["id"]] for c in v2["successCriteria"] if c["id"] != "S8")
 
 
 def test_v3_changes_only_the_arm_difference_it_names():
     """v3 (review H1, 2026-11-22) adds the tool channel to B's intended change; nothing measured changes."""
-    v2 = json.loads((runner.PROTOCOLS / "ledger_applicability_v2.json").read_text(encoding="utf-8"))
+    v2, v3 = _version(2), _version(3)
     changed = {"protocolVersion", "id", "fixedAt", "supersedes", "note", "intendedDifference", "diffClassification"}
-    assert set(PROTOCOL) == set(v2)
-    assert all(PROTOCOL[k] == v2[k] for k in set(v2) - changed)
-    added = [r for r in PROTOCOL["diffClassification"] if r not in v2["diffClassification"]]
+    assert set(v3) == set(v2)
+    assert all(v3[k] == v2[k] for k in set(v2) - changed)
+    added = [r for r in v3["diffClassification"] if r not in v2["diffClassification"]]
     assert {r["path"] for r in added} == {"backend/app/services/agent/step_evidence.py", "backend/app/services/agent/run_scope.py"}
     assert all(r["class"] == "intended" for r in added)
-    assert all(r in PROTOCOL["diffClassification"] for r in v2["diffClassification"])
+    assert all(r in v3["diffClassification"] for r in v2["diffClassification"])
 
 
 def test_plan_interleaves_arms_and_gives_unique_blind_codes():
@@ -408,11 +417,20 @@ def test_every_arm_difference_must_be_classified():
     assert classified["byPath"]["backend/app/tests/test_x.py"]["class"] == "notInCallPath"
 
 
-def test_the_current_working_tree_difference_is_fully_classified():
-    """The protocol explains every file that differs from the A commit today
-    (the same check `prepare` makes, computed in memory, nothing written)."""
+def test_the_default_protocol_explains_every_arm_difference():
+    """Every file that differs between the default protocol's arms is classified
+    (the same check `prepare` makes, computed in memory, nothing written).
+
+    Since v4 both arms are commits, so this no longer moves with the working
+    tree: product changes cannot reach arm B. It fails when a protocol's arms or
+    classification are edited inconsistently, or when a future protocol puts arm
+    B back on the working tree and unclassified code is there. (Until v4 it was
+    named test_the_current_working_tree_difference_is_fully_classified.) The
+    message names each file and the procedure (protocols/README.md); the fix is
+    never to skip this test or edit a fixed protocol."""
     diff = runner.dry_diff(PROTOCOL)
-    assert runner.classify_diff(diff, PROTOCOL)["unclassified"] == []
+    unclassified = runner.classify_diff(diff, PROTOCOL)["unclassified"]
+    assert unclassified == [], runner.unclassified_message(unclassified, PROTOCOL)
 
 
 def test_arm_diff_ignores_line_endings_and_names_gate_files():
