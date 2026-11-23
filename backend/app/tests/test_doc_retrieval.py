@@ -225,3 +225,60 @@ def test_with_the_switch_off_no_doc_id_is_citable():
     item = _tool_item(cause_guidance(_PAIR, with_docs=False))
     _facts, refs = tools.credit({}, set(), [item])
     assert not {r for r in refs if r.startswith("doc:")}
+
+
+# --- the evidence sentence's paths never steer the order (log 61) ----------------
+
+
+def _two_passage_store(tmp_path, monkeypatch):
+    def passage(pid, heading, quote):
+        return {"id": pid, "sourceId": "tabix-manual", "heading": heading,
+                "causeKinds": ["vcf_index_missing"], "quote": quote,
+                "explains": "test", "limits": "test", "toolVersion": "test-only",
+                "checkedOn": "2026-11-23", "license": "Project-authored test data"}
+    path = tmp_path / "passages.json"
+    path.write_text(json.dumps({"passages": [
+        passage("t-csi", "csi option", "Produce a CSI index for very long contigs."),
+        passage("t-input", "input requirements", "The input must be bgzip compressed and position sorted."),
+    ]}), encoding="utf-8")
+    from .doc_corpus_fixture import clear_store
+    clear_store()
+    monkeypatch.setattr(config, "DOC_PASSAGE_KNOWLEDGE", path)
+
+
+@pytest.mark.parametrize("vcf", [
+    "/data/plain/known_indels.vcf.gz",
+    "/data/bgzip_sorted_input/known_indels.vcf.gz",
+    "C:\wes\position\sorted\known.vcf.gz",
+    "known_indels.compressed.vcf.gz",
+])
+def test_the_order_does_not_depend_on_where_the_file_lives(tmp_path, monkeypatch, vcf):
+    _two_passage_store(tmp_path, monkeypatch)
+    sentence = "known_sites entry index missing (.tbi or .csi): "
+    reference = [p.id for p in doc_retrieval.retrieve("vcf_index_missing", sentence + "/x/y.vcf.gz")]
+    ranked = [p.id for p in doc_retrieval.retrieve("vcf_index_missing", sentence + vcf)]
+    assert ranked == reference
+
+
+def test_message_words_still_order_the_passages(tmp_path, monkeypatch):
+    _two_passage_store(tmp_path, monkeypatch)
+    ranked = doc_retrieval.retrieve("vcf_index_missing", "index missing (.tbi or .csi): /x/y.vcf.gz")
+    assert ranked[0].id == "t-csi"  # `.csi` is part of the message, not of a path
+
+
+@pytest.mark.parametrize("text,kept,dropped", [
+    ("known_sites entry index missing (.tbi or .csi): /data/a/b.vcf.gz", {"index", "missing", "tbi", "csi"}, {"data", "vcf", "gz"}),
+    ("target_bed SHA-256 mismatch: metadata=" + "a" * 64 + " actual=" + "b" * 64, {"mismatch", "sha"}, {"a" * 64, "metadata", "actual"}),
+    ("dbsnp_vcf contigs absent from the reference: x.vcf.gz: ['chr1', 'chrUn']", {"contigs", "absent"}, {"chrun"}),
+    ("BWA index at '/r/GRCh38.fa.*' is incomplete: missing or empty .sa", {"bwa", "incomplete", "sa"}, {"grch38"}),
+])
+def test_query_words_keep_the_message_and_drop_locations_and_values(text, kept, dropped):
+    words = set(doc_retrieval.query_words(text))
+    assert kept <= words
+    assert not (dropped & words)
+
+
+def test_redaction_placeholders_are_not_query_words():
+    words = doc_retrieval.query_words("BWA index at '<path>' is incomplete for <sample>: <file> <path>")
+    assert not ({"path", "sample", "file"} & set(words))
+    assert {"bwa", "index", "incomplete"} <= set(words)
