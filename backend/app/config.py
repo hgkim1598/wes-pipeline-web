@@ -161,6 +161,24 @@ SYNTHESIS_MODEL = _env("WES_SYNTHESIS_MODEL", "sonnet") or None
 # request can wait up to twice this long.
 SYNTHESIS_TIMEOUT_SECONDS = int(_env("WES_SYNTHESIS_TIMEOUT_SECONDS", "300"))
 
+
+def resolve_synthesis_max_concurrent(raw: str | None) -> int:
+    """Model calls POST /synthesis may run at once across all runs (log 61).
+
+    Default 1: one machine, one subscription, and a call can take minutes, so
+    a second concurrent call mostly doubles cost and contention. A second
+    request for the SAME run is refused whatever this says.
+    """
+    if raw is None or raw == "":
+        return 1
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ConfigError(f"Invalid WES_SYNTHESIS_MAX_CONCURRENT: {raw!r}. Expected an integer >= 1.") from exc
+    if value < 1:
+        raise ConfigError(f"Invalid WES_SYNTHESIS_MAX_CONCURRENT: {raw!r}. Expected an integer >= 1.")
+    return value
+
 # `bash` must be on PATH. On Windows this is Git Bash; on Linux the system bash.
 BASH_BIN = _env("WES_BASH", "bash")
 
@@ -229,6 +247,7 @@ def _resolve_synthesis_repair() -> bool:
 
 
 SYNTHESIS_REPAIR = _resolve_synthesis_repair()
+SYNTHESIS_MAX_CONCURRENT = resolve_synthesis_max_concurrent(_env("WES_SYNTHESIS_MAX_CONCURRENT"))
 
 # --- storage --------------------------------------------------------------
 RUNS_ROOT = Path(_env("WES_RUNS_ROOT") or (ROOT / "runs"))

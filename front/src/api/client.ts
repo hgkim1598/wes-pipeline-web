@@ -41,6 +41,8 @@ interface ApiErrorOptions {
   status?: number
   /** 사용자 문구가 아닌 기술 상세. 화면에서 낮은 우선순위로 표시한다. */
   detail?: string
+  /** backend가 detail.code로 준 기계용 구분값(예: synthesisInProgress). 없으면 null. */
+  code?: string
   cause?: unknown
 }
 
@@ -48,6 +50,7 @@ export class ApiError extends Error {
   readonly kind: ApiErrorKind
   readonly status: number | null
   readonly detail: string | null
+  readonly code: string | null
 
   constructor(message: string, options: ApiErrorOptions) {
     super(message, { cause: options.cause })
@@ -55,6 +58,7 @@ export class ApiError extends Error {
     this.kind = options.kind
     this.status = options.status ?? null
     this.detail = options.detail ?? null
+    this.code = options.code ?? null
   }
 }
 
@@ -67,29 +71,36 @@ export class ApiError extends Error {
  * 둘 다 아니면 본문 앞부분을 그대로 쓴다. 본문을 읽지 못하는 것 자체는
  * 오류가 아니므로 조용히 undefined를 돌려준다.
  */
-async function readErrorDetail(response: Response): Promise<string | undefined> {
-  let text: string
-  try {
-    text = await response.text()
-  } catch {
-    return undefined
-  }
-  if (!text) return undefined
-
+export function parseErrorBody(text: string): { detail?: string; code?: string } {
+  if (!text) return {}
   try {
     const body: unknown = JSON.parse(text)
     if (body !== null && typeof body === 'object' && 'detail' in body) {
       const detail: unknown = (body as { detail: unknown }).detail
-      if (typeof detail === 'string') return detail
-      if (detail !== null && typeof detail === 'object' && 'message' in detail) {
-        const message: unknown = (detail as { message: unknown }).message
-        if (typeof message === 'string') return message
+      if (typeof detail === 'string') return { detail }
+      if (detail !== null && typeof detail === 'object') {
+        const message: unknown = 'message' in detail ? detail.message : undefined
+        const code: unknown = 'code' in detail ? detail.code : undefined
+        return {
+          detail: typeof message === 'string' ? message : undefined,
+          code: typeof code === 'string' ? code : undefined,
+        }
       }
     }
   } catch {
     // JSON이 아니면 원문을 쓴다.
   }
-  return text.slice(0, 500)
+  return { detail: text.slice(0, 500) }
+}
+
+async function readErrorDetail(response: Response): Promise<{ detail?: string; code?: string }> {
+  let text: string
+  try {
+    text = await response.text()
+  } catch {
+    return {}
+  }
+  return parseErrorBody(text)
 }
 
 /**
@@ -128,7 +139,7 @@ async function send(
     throw new ApiError(`요청이 실패했습니다 (HTTP ${response.status}).`, {
       kind: 'http',
       status: response.status,
-      detail: await readErrorDetail(response),
+      ...(await readErrorDetail(response)),
     })
   }
 

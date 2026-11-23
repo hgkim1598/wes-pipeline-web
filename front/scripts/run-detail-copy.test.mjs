@@ -133,3 +133,42 @@ test('위치: 중단된 실행(failed, 실패 단계 없음)·취소는 "기록 
   )
   assert.equal(cancelled.detail, '1단계는 완료 기록이 없습니다')
 })
+
+// --- AI 설명 요청의 HTTP 실패 문구(synthesisErrorCopy.ts, log 61) ------------------
+
+import { synthesisErrorCopy } from '../src/features/run-detail/synthesisErrorCopy.ts'
+import { parseErrorBody } from '../src/api/client.ts'
+
+test('409 두 가지를 code로 구분한다: 진행 중인 같은 요청 vs 끝나지 않은 실행', () => {
+  const inProgress = synthesisErrorCopy({ kind: 'http', status: 409, code: 'synthesisInProgress' })
+  assert.match(inProgress.title, /이미 만드는 중/)
+  assert.match(inProgress.body, /모델을 호출하지 않았습니다/)
+  const notFinished = synthesisErrorCopy({ kind: 'http', status: 409, code: 'runNotFinished' })
+  assert.match(notFinished.title, /끝나지 않은 실행/)
+  // code가 없는 옛 서버의 409도 같은 안내로 읽힌다
+  assert.equal(synthesisErrorCopy({ kind: 'http', status: 409, code: null }).title, notFinished.title)
+  assert.equal(inProgress.tone, 'info')
+})
+
+test('429 synthesisBusy는 비용이 들지 않은 거절로 안내한다', () => {
+  const busy = synthesisErrorCopy({ kind: 'http', status: 429, code: 'synthesisBusy' })
+  assert.match(busy.title, /다른 설명/)
+  assert.match(busy.body, /모델을 호출하지 않았습니다/)
+  assert.equal(busy.tone, 'info')
+})
+
+test('네트워크·형식·5xx는 경고로 남는다', () => {
+  assert.equal(synthesisErrorCopy({ kind: 'network', status: null, code: null }).tone, 'warning')
+  assert.equal(synthesisErrorCopy({ kind: 'malformed', status: 200, code: null }).tone, 'warning')
+  assert.match(synthesisErrorCopy({ kind: 'http', status: 503, code: null }).body, /HTTP 503/)
+})
+
+test('오류 본문에서 message와 code를 함께 읽는다', () => {
+  assert.deepEqual(
+    parseErrorBody(JSON.stringify({ detail: { code: 'synthesisBusy', message: 'busy' } })),
+    { detail: 'busy', code: 'synthesisBusy' },
+  )
+  assert.deepEqual(parseErrorBody(JSON.stringify({ detail: 'malformed job id' })), { detail: 'malformed job id' })
+  assert.deepEqual(parseErrorBody('plain text'), { detail: 'plain text' })
+  assert.deepEqual(parseErrorBody(''), {})
+})

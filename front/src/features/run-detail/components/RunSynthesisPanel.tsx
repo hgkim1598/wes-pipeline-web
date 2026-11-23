@@ -41,6 +41,7 @@ import { formatDuration, formatTimestamp } from '@/features/runs/time'
 import { describeDiagnostic, describeFailure } from '@/registries/diagnostics'
 import type { DiagnosticKind, DiagnosticView } from '@/registries/diagnostics'
 import { describeEvidenceRef } from '@/registries/evidence'
+import { synthesisErrorCopy } from '@/features/run-detail/synthesisErrorCopy'
 import { cx } from '@/lib/cx'
 
 /*
@@ -279,34 +280,14 @@ export function RunSynthesisPanel({
  */
 function SynthesisRequestError({ error }: { error: unknown }) {
   const apiError = error instanceof ApiError ? error : null
-  const status = apiError?.status ?? null
-
-  let title = '요청이 실패했습니다'
-  let body = 'AI 설명 요청을 처리하지 못했습니다.'
-  if (apiError?.kind === 'network') {
-    title = '서버에 연결하지 못했습니다'
-    body = 'backend가 실행 중인지, 주소가 맞는지 확인한 뒤 다시 요청하세요.'
-  } else if (apiError?.kind === 'malformed') {
-    title = '응답 형식이 예상과 다릅니다'
-    body = '서버의 응답을 frontend가 아는 계약대로 읽지 못했습니다. frontend와 backend의 버전이 맞는지 확인해야 합니다.'
-  } else if (status === 400) {
-    title = '잘못된 요청입니다'
-    body = '실행 ID 형식이 올바르지 않습니다. 실행 목록에서 다시 선택하세요.'
-  } else if (status === 404) {
-    title = '이 실행을 찾을 수 없습니다'
-    body = '서버에 이 실행의 기록이 없습니다. 실행 목록에서 다시 선택하세요.'
-  } else if (status === 409) {
-    title = '아직 끝나지 않은 실행입니다'
-    body = '실행이 끝난 뒤 다시 요청하세요. 이 요청은 모델을 호출하지 않았습니다.'
-  } else if (status !== null && status >= 500) {
-    title = '서버 내부 오류가 발생했습니다'
-    body = `서버가 HTTP ${status}로 응답했습니다. 실행 기록을 읽는 중 문제가 생겼을 수 있으며, 서버 로그를 확인해야 합니다.`
-  } else if (status !== null) {
-    body = `서버가 HTTP ${status}로 응답했습니다.`
-  }
+  const { title, body, tone } = synthesisErrorCopy({
+    kind: apiError?.kind ?? null,
+    status: apiError?.status ?? null,
+    code: apiError?.code ?? null,
+  })
 
   return (
-    <MessageBlock tone={status === 409 ? 'info' : 'warning'} title={title}>
+    <MessageBlock tone={tone} title={title}>
       <div className="flex flex-col gap-2">
         <p>{body}</p>
         {apiError?.detail ? (

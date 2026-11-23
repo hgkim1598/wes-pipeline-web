@@ -43,8 +43,10 @@ GET /api/jobs/{id} reports (run_context reconciles it the same way).
 from __future__ import annotations
 
 import logging
+import threading
+from contextlib import contextmanager
 
-from typing import Any
+from typing import Any, Iterator
 
 from fastapi import APIRouter, HTTPException
 
@@ -64,6 +66,40 @@ router = APIRouter(prefix="/api/jobs", tags=["synthesis"])
 
 # JobStatus values (schemas.py) that mean the run is still going.
 _ACTIVE_STATUSES = ("queued", "running")
+
+# Requests holding a model call right now (log 61). In-process: the backend is
+# one uvicorn process with one worker by design (worker.py), so a lock and a set
+# are the whole bookkeeping. Taken only after every free refusal above, released
+# whatever happens, so a failed or crashed request never leaves a run locked.
+_inflight_lock = threading.Lock()
+_inflight: set[str] = set()
+
+
+@contextmanager
+def _model_call_slot(job_id: str) -> Iterator[None]:
+    with _inflight_lock:
+        if job_id in _inflight:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "synthesisInProgress",
+                    "message": "an explanation of this run is already being generated",
+                },
+            )
+        if len(_inflight) >= config.SYNTHESIS_MAX_CONCURRENT:
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "code": "synthesisBusy",
+                    "message": "the server is generating another explanation; try again when it finishes",
+                },
+            )
+        _inflight.add(job_id)
+    try:
+        yield
+    finally:
+        with _inflight_lock:
+            _inflight.discard(job_id)
 
 
 @router.post("/{job_id}/synthesis", response_model=SynthesisResult)
@@ -100,6 +136,11 @@ def create_synthesis(job_id: str) -> SynthesisResult:
             },
         )
 
+    with _model_call_slot(job_id):
+        return _synthesize(job_id, context)
+
+
+def _synthesize(job_id: str, context: Any) -> SynthesisResult:
     explanation = deterministic.build_run_explanation(context)
     # The trace is written here rather than inside the service because this is
     # where the job id lives, and because the record is about a REQUEST: the
