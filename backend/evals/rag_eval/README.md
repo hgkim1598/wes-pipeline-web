@@ -171,3 +171,40 @@ held-out 14사례는 코드와 같은 AI가 썼습니다. 그래서 **코드로�
 | CI(`pytest evals`) | 지표 단위 테스트(Recall·MRR·nDCG), 사례 파일 형식·개인정보, 템플릿 사례 회귀 하한, 알려진 공백이 그대로 보고되는지, 경로 안정성 |
 | 사용자 검토 | `review.status`, `grades_local` 등급과 근거, coverage_gap을 "문서가 있어야 함"으로 바꿀지 |
 | 로컬 전용 | `--corpus local` 결과(비공개 발췌) |
+
+## 분석 단계 실패의 검색 입력 (log 65, 2026-11-23)
+
+### 문제와 원인
+- 01~06 단계의 도구 실패(예: `samtools index`, `gatk MarkDuplicates`)는 검색 입력이 되지 않고 "이 검사에 연결된 도구 명령이 파이프라인 코드에 없음"으로 제외됐습니다.
+- main.sh는 이 실패를 `require_cmd_ok <label> <argv...>`로 기록합니다. 그래서 label마다 실행한 명령은 하나로 정해져 있습니다.
+- 몇몇 `fail_step` 코드도 바로 앞의 명령 하나의 결과를 보고합니다.
+- 그런데도 `commands.py`의 명령 표에는 VCF 검사 6종만 있었습니다.
+
+### 바꾼 것
+- `commands._ANALYSIS_FAMILIES`에 label·code 28종을 명령에 연결했습니다. 연결이 main.sh와 일치하는지는 테스트(`app/tests/test_doc_analysis_steps.py`)가 문자열로 확인합니다.
+- 명령을 지어내게 되는 검사는 연결하지 않았습니다.
+  - 존재·크기 검사: `fastp_missing`, `norm_empty`, `filter_empty`
+  - grep·Python 검사: `recal_table`, `coverage_metrics`
+  - 두 명령 파이프: `alignment_<lane>`
+  - 여러 명령이 같은 이름을 쓰는 검사: `bam_validation`
+  - ERR trap: `unexpected_error`
+- lane 이름이 붙은 검사(`index_<lane>`, `fastqc_<lane>`, `fastp_<lane>`)는 family만 남깁니다. lane 이름에 시료명이 들어갈 수 있기 때문입니다.
+- 원인 종류 발췌(curated)에는 연결하지 않았습니다. 발췌는 리소스 원인 종류로만 분류돼 있고, 새 분류를 만들지 않습니다. 같은 도구의 매뉴얼이 설정된 경우에만 그 명령 절을 검색합니다.
+
+### 평가 (`analysis.py`, `cases.analysis.public.json`, 27사례 모두 `unreviewed`)
+- 코퍼스는 합성 매뉴얼 2종(samtools, bcftools)입니다. 실제 문서 문장은 없습니다. 서버당 매뉴얼은 하나이므로 각 사례를 매뉴얼마다 한 번씩, 54회 실행했습니다.
+- `--ablate`는 새 연결만 끈 상태, 즉 변경 전입니다.
+
+| 지표 | 변경 전 | 변경 후 |
+|---|---|---|
+| inputAccuracy | 0.185 | 1.0 |
+| 명령 절 Recall@1 / @3 / MRR (17질의) | 0 / 0 / 0 | 1.0 / 1.0 / 1.0 |
+| abstain 정확도 (37회: 명령 없음·매뉴얼 없음·다른 도구 매뉴얼) | 1.0 | 1.0 |
+| 다른 도구 매뉴얼에서 나온 문서 | 0 | 0 |
+| curated hit | 0 | 0 |
+| 명령 절 밖의 Agent 입력 후보 | 0 | 0 |
+| 시료명 노출 | 0 | 0 |
+
+- 합성 매뉴얼에서는 첫 hit이 구조적으로 명령 절에 놓입니다(옵션 조회·절 첫 단락이 먼저). 그래서 Recall은 **경로가 맞는지에 대한 회귀 방지**이고 순위 품질 주장이 아닙니다.
+- 실제 매뉴얼 본문에서의 순위는 재지 않았습니다.
+- 기존 평가셋(`cases.public.json`)의 결과는 합성·로컬 코퍼스 모두 변경 전과 바이트 단위로 같습니다.
