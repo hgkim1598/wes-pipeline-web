@@ -6,6 +6,7 @@ import {
   CircleHelp,
   Hourglass,
   OctagonX,
+  TriangleAlert,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -23,12 +24,16 @@ import {
   같이 쓴다. component 파일에 두면 fast refresh 규칙에 걸려 따로 둔다.
 */
 
-/** StatusBadge와 같은 아이콘 세트. warning은 "완료"로 쓰므로 체크다. */
+/**
+ * StatusBadge와 거의 같은 아이콘 세트. 단계의 warning만 다르다: 끝났지만 경고가 남은
+ * 단계를 완료와 같은 체크로 그리면 색 하나로만 구분된다(CLAUDE.md 24장). 2026-11-23
+ * 실제 완료 Run(04·05·06 단계 warning)에서 확인했다(개발판단기록 61장).
+ */
 const STATUS_ICON: Record<StatusTone, LucideIcon> = {
   idle: Hourglass,
   running: Activity,
   success: Check,
-  warning: Check,
+  warning: TriangleAlert,
   failure: OctagonX,
   cancelled: Ban,
 }
@@ -50,8 +55,8 @@ export function stepStatusDisplay(
   }
   return {
     tone: view.tone,
-    // warning도 사용자에게는 완료다. 경고의 존재는 진단 줄이 말한다.
-    label: status === 'warning' ? '완료' : view.label,
+    // warning은 "완료 (경고)"다(stepStatus.ts). 단계는 끝났지만 확인할 경고가 있다.
+    label: view.label,
     icon: STATUS_ICON[view.tone] ?? Hourglass,
   }
 }

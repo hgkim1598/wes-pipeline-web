@@ -172,3 +172,14 @@ test('오류 본문에서 message와 code를 함께 읽는다', () => {
   assert.deepEqual(parseErrorBody('plain text'), { detail: 'plain text' })
   assert.deepEqual(parseErrorBody(''), {})
 })
+
+import { describeStepStatus } from '../src/features/run-detail/stepStatus.ts'
+
+test('경고가 남은 완료 단계는 완료와 다른 글자다(log 61)', () => {
+  const done = describeStepStatus('completed')
+  const warned = describeStepStatus('warning')
+  assert.notEqual(warned.label, done.label)
+  assert.match(warned.label, /완료/)
+  assert.match(warned.label, /경고/)
+  assert.equal(warned.tone, 'warning')
+})

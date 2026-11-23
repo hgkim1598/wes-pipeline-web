@@ -202,6 +202,15 @@ export function RunSynthesisPanel({
         ) : null}
 
         {/*
+          요청 전에는 요청이 무엇을 하는지만 보여 준다(2026-11-23 발표용 정리).
+          순서는 backend/app/api/synthesis.py의 처리 순서 그대로이고, 응답이나
+          건수를 미리 만들어 보이지 않는다.
+        */}
+        {terminal && !result && !synthesis.isPending && !synthesis.isError ? (
+          <RequestFlow />
+        ) : null}
+
+        {/*
           기다리는 동안 `[설계판단]`
 
           걸리는 시간은 실행마다 크게 다르다. 기록된 것만 해도 실제 Full Run
@@ -262,6 +271,43 @@ export function RunSynthesisPanel({
         ) : null}
       </div>
     </section>
+  )
+}
+
+/** 요청 한 번이 서버에서 거치는 순서(api/synthesis.py). 모델은 4번에서만 호출된다. */
+const REQUEST_FLOW: { title: string; body: string; ai?: boolean }[] = [
+  { title: '실행 기록 정리', body: '단계 상태·실패·진단을 모델 없이 결정론 설명으로 묶습니다' },
+  { title: '식별자 가림', body: '시료·Run·작업 ID를 바꾼 뒤에 서버 밖으로 보냅니다' },
+  { title: '공식 문서 첨부', body: '서버 설정이 켜져 있을 때만 검색한 문서를 함께 넣습니다' },
+  { title: 'Claude 요청', body: '버튼을 눌렀을 때만 호출합니다. 시간 초과·사용량 한도는 다시 시도하지 않습니다', ai: true },
+  { title: '근거 검사', body: '근거 id나 숫자가 이 Run의 기록에 없으면 응답 전체를 표시하지 않습니다', ai: true },
+]
+
+function RequestFlow() {
+  return (
+    <div className="flex flex-col gap-2 border-t border-border-subtle pt-4">
+      <h3 className="text-caption font-semibold tracking-wide-kr text-text-muted">
+        요청하면 서버가 하는 일
+      </h3>
+      <ol className="grid grid-cols-1 gap-2 md:grid-cols-5">
+        {REQUEST_FLOW.map((step, index) => (
+          <li
+            key={step.title}
+            className={
+              step.ai
+                ? 'flex flex-col gap-1 rounded-md border border-ai-bd bg-ai-bg px-3 py-3'
+                : 'flex flex-col gap-1 rounded-md border border-border bg-paper px-3 py-3'
+            }
+          >
+            <span className={step.ai ? 'font-mono text-caption text-ai-fg' : 'font-mono text-caption text-text-muted'}>
+              {String(index + 1).padStart(2, '0')}
+            </span>
+            <span className="text-small font-semibold text-text-strong">{step.title}</span>
+            <span className="text-caption text-text">{step.body}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   )
 }
 

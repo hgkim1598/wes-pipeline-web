@@ -28,6 +28,7 @@ import { RunFacts, RunHeader } from '@/features/run-detail/components/RunHeader'
 import { PipelineStepper } from '@/features/run-detail/components/PipelineStepper'
 import { ResourceCauseSection } from '@/features/run-detail/components/ResourceCauseSection'
 import { RunLimitations } from '@/features/run-detail/components/RunLimitations'
+import { OverviewRail } from '@/features/run-detail/components/OverviewRail'
 import { RunSynthesisPanel } from '@/features/run-detail/components/RunSynthesisPanel'
 import { artifactLabelMap } from '@/features/run-detail/locators'
 import {
@@ -522,95 +523,116 @@ export function RunDetailPage() {
               — 그 요청이 실패해도 원문만 남은 카드가 된다. 성공한 실행이면
               카드가 스스로 null을 반환한다.
             */}
-            {job.status !== 'cancelled' ? (
-              <AttentionSection
-                failures={explanation.data?.failures ?? []}
-                rawError={job.error}
-                diagnostics={diagnostics.all}
-                isPrecheck={explanation.data?.contextKind === 'precheck'}
-                onGoToStep={(stepId) => goToStep(stepId)}
-                renderAiNote={
-                  placement
-                    ? (kind, code) =>
-                        aiNote(
-                          (kind === 'failure' ? placement.byFailure : placement.byDiagnostic).get(code),
-                        )
-                    : undefined
-                }
-              />
-            ) : null}
-
             {/*
-              결과 해석의 범위 제한. backend deterministic explanation이 만든
-              문장이며 AI 생성물이 아니다.
+              본문 + 오른쪽 열(xl부터, 2026-11-23 발표용 정리). 오른쪽 열은 이미
+              있는 기록(공식 문서 검색·이 화면의 AI 응답)의 요약이고 본문의
+              판정을 바꾸지 않는다. xl 미만에서는 본문 아래로 내려간다.
             */}
-            {explanation.data ? (
-              <RunLimitations
-                limitations={explanation.data.limitations}
-                renderAiNote={
-                  placement ? (code) => aiNote(placement.byLimitation.get(code)) : undefined
-                }
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+              <div className="flex min-w-0 flex-col gap-6">
+                {job.status !== 'cancelled' ? (
+                  <AttentionSection
+                    failures={explanation.data?.failures ?? []}
+                    rawError={job.error}
+                    diagnostics={diagnostics.all}
+                    isPrecheck={explanation.data?.contextKind === 'precheck'}
+                    onGoToStep={(stepId) => goToStep(stepId)}
+                    renderAiNote={
+                      placement
+                        ? (kind, code) =>
+                            aiNote(
+                              (kind === 'failure' ? placement.byFailure : placement.byDiagnostic).get(code),
+                            )
+                        : undefined
+                    }
+                  />
+                ) : null}
+  
+                {/*
+                  결과 해석의 범위 제한. backend deterministic explanation이 만든
+                  문장이며 AI 생성물이 아니다.
+                */}
+                {explanation.data ? (
+                  <RunLimitations
+                    limitations={explanation.data.limitations}
+                    renderAiNote={
+                      placement ? (code) => aiNote(placement.byLimitation.get(code)) : undefined
+                    }
+                  />
+                ) : null}
+  
+                {/*
+                  분석 결과(이전 "결과" 탭, /results 주소는 이 탭으로 온다). 결과가
+                  없거나 아직 끝나지 않은 실행의 안내는 ResultsView가 그대로 말한다.
+                */}
+                <ResultsView
+                  data={results.data}
+                  isPending={results.isPending && terminal}
+                  waitingForRun={!terminal}
+                  terminal={terminal}
+                  error={results.error}
+                  currentStepLabel={currentStepLabel}
+                />
+              </div>
+              <OverviewRail
+                runPath={runPath}
+                docRuns={docHistory.data}
+                docPending={docHistory.isPending}
+                ai={{
+                  state: synthesis.isPending
+                    ? 'pending'
+                    : synthesis.isError
+                      ? 'error'
+                      : synthesis.result
+                        ? synthesis.result.available
+                          ? 'served'
+                          : 'unavailable'
+                        : 'none',
+                }}
               />
-            ) : null}
-
-            {/*
-              분석 결과(이전 "결과" 탭, /results 주소는 이 탭으로 온다). 결과가
-              없거나 아직 끝나지 않은 실행의 안내는 ResultsView가 그대로 말한다.
-            */}
-            <ResultsView
-              data={results.data}
-              isPending={results.isPending && terminal}
-              waitingForRun={!terminal}
-              terminal={terminal}
-              error={results.error}
-              currentStepLabel={currentStepLabel}
-            />
+            </div>
           </div>
         </TabsPanel>
 
         <TabsPanel value="pipeline">
           <div className="flex flex-col gap-6">
-            {/* 가로 진행 표시(이전 헤더의 단계 띠). 점을 누르면 그 단계를 선택한다. */}
-            <section
-              aria-labelledby="pipeline-progress-heading"
-              className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5 shadow-card"
-            >
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <h2 id="pipeline-progress-heading" className="text-h3 font-semibold text-text-strong">
-                  파이프라인 진행
-                </h2>
-                <span className="text-small text-text-muted">
-                  {job.steps.length}단계 중{' '}
-                  <span className="font-mono text-data text-text">{finishedSteps}</span>단계 끝남
-                </span>
-              </div>
-              <PipelineStepper
-                steps={steps}
-                selectedStepId={selectedStepId}
-                terminal={terminal}
-                onSelect={selectStep}
-              />
-            </section>
-
             {/*
-              파이프라인 워크스페이스 — 왼쪽 단계 목록(약 60%), 오른쪽 선택 단계의
-              상세 패널(약 40%, sticky). 패널은 늘 있다(기본 선택: stepView.ts).
-              lg 미만에서는 목록 아래로 내려간다.
+              파이프라인 워크스페이스 — 왼쪽 카드(진행 띠 + 단계 목록, 약 60%),
+              오른쪽 선택 단계의 상세 패널(약 40%, sticky). 패널은 늘 있다(기본
+              선택: stepView.ts). lg 미만에서는 목록 아래로 내려간다.
+
+              진행 띠는 단계 목록과 한 카드다(2026-11-23 발표용 정리, ref 파이프라인
+              시안). 같은 단계를 두 번 그리는 두 카드가 아니라, 띠가 목록의 머리다.
 
               단계에 귀속되지 않은 진단은 여기 따로 그리지 않는다 — 개요 탭의
               AttentionSection이 전부 보여준다.
             */}
             <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
               <section
-                aria-labelledby="pipeline-steps-heading"
-                className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-card md:p-5"
+                aria-labelledby="pipeline-progress-heading"
+                className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-card md:p-5"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                  <h2 id="pipeline-steps-heading" className="text-h3 font-semibold text-text-strong">
-                    분석 단계
-                  </h2>
-                  <span className="text-small text-text-muted">{job.steps.length}단계 계획</span>
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <h2 id="pipeline-progress-heading" className="text-h3 font-semibold text-text-strong">
+                      파이프라인 진행
+                    </h2>
+                    <p className="text-small text-text-muted">
+                      단계를 누르면 그 단계의 기록이 열립니다.
+                    </p>
+                  </div>
+                  <span className="text-small text-text-muted">
+                    {job.steps.length}단계 중{' '}
+                    <span className="font-mono text-data text-text">{finishedSteps}</span>단계 끝남
+                  </span>
                 </div>
+                <PipelineStepper
+                  steps={steps}
+                  selectedStepId={selectedStepId}
+                  terminal={terminal}
+                  onSelect={selectStep}
+                />
+                <h3 className="sr-only">분석 단계</h3>
                 <StepTable
                   steps={steps}
                   currentStepId={job.currentStep}

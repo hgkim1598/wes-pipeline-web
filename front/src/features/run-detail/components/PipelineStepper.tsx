@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Activity, Ban, Check, CircleHelp, X } from 'lucide-react'
+import { Activity, Ban, Check, CircleHelp, TriangleAlert, X } from 'lucide-react'
 
 import type { StepState } from '@/features/run-detail/api'
 import { stepStatusDisplay } from '@/features/run-detail/stepDisplay'
@@ -119,11 +119,13 @@ export function PipelineStepper({
                   <span className="sr-only md:hidden">{describeStep(step.stepId).label}</span>
                   <span
                     className={cx(
-                      'hidden rounded-sm px-1.5 text-center text-caption whitespace-nowrap md:inline-block',
+                      'hidden rounded-sm px-1.5 text-center text-caption [word-break:keep-all] md:inline-block',
                       selected
                         ? step.status === 'failed'
                           ? 'bg-status-failure-bg font-medium text-status-failure-fg'
-                          : 'bg-brand-selected font-medium text-text-strong'
+                          : step.status === 'warning'
+                            ? 'bg-status-warning-bg font-medium text-status-warning-fg'
+                            : 'bg-brand-selected font-medium text-text-strong'
                         : 'text-text',
                     )}
                   >
@@ -176,7 +178,15 @@ function Dot({
       </span>
     )
   }
-  if (status === 'completed' || status === 'warning') {
+  if (status === 'warning') {
+    // 끝났지만 경고가 남은 단계. 완료와 모양(삼각형)·글자("완료 (경고)")로 구분한다.
+    return (
+      <span className={cx(base, 'bg-fill-warning text-surface')}>
+        <TriangleAlert size={12} strokeWidth={2.5} aria-hidden="true" />
+      </span>
+    )
+  }
+  if (status === 'completed') {
     return (
       <span className={cx(base, 'bg-fill-success text-surface')}>
         <Check size={14} strokeWidth={2.5} aria-hidden="true" />

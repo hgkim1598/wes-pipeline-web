@@ -10,6 +10,7 @@ import { attentionHeading, failureLead, failureLeadText } from '@/features/run-d
 import { nextActions } from '@/features/run-detail/nextActions'
 import { describeFailureCode } from '@/registries/failures'
 import { describeStep } from '@/registries/steps'
+import { cx } from '@/lib/cx'
 
 /*
   이 실행에서 일어난 일의 **유일한 본문**.
@@ -125,30 +126,38 @@ export function AttentionSection({
     needsAttention.filter((item) => item.view.kind === 'attention').length,
   )
 
-  const tone = hasFailure
-    ? 'border-status-failure-bd bg-status-failure-bg'
-    : 'border-border bg-surface'
+  /*
+    카드 전체를 빨갛게 칠하지 않는다(2026-11-23 발표용 정리, ref 다크 시안의
+    "Analysis Stopped" 띠). 카드는 중립 면이고 상태 tint는 맨 위 제목 띠에만
+    둔다 — 아래 구획(멈춘 이유·다음 행동·함께 기록된 항목)이 같은 무게로 읽힌다.
+  */
+  const banner =
+    heading.tone === 'failure'
+      ? 'border border-status-failure-bd bg-status-failure-bg p-4'
+      : heading.tone === 'warning'
+        ? 'border border-status-warning-bd bg-status-warning-bg p-4'
+        : ''
 
   return (
     <section
-      className={`flex flex-col gap-4 rounded-md border p-4 ${tone}`}
+      className="flex flex-col gap-5 rounded-lg border border-border bg-surface p-5 shadow-card"
       aria-labelledby="run-attention-heading"
     >
-      <div className="flex items-start gap-2">
+      <div className={cx('flex items-start gap-3 rounded-md', banner)}>
         {heading.tone === 'failure' ? (
-          <OctagonX
-            size={16}
-            strokeWidth={1.5}
+          <span
             aria-hidden="true"
-            className="mt-0.5 flex-none text-status-failure-fg"
-          />
+            className="flex size-9 flex-none items-center justify-center rounded-md bg-surface text-status-failure-fg"
+          >
+            <OctagonX size={18} strokeWidth={1.5} />
+          </span>
         ) : heading.tone === 'warning' ? (
-          <TriangleAlert
-            size={16}
-            strokeWidth={1.5}
+          <span
             aria-hidden="true"
-            className="mt-0.5 flex-none text-status-warning-fg"
-          />
+            className="flex size-9 flex-none items-center justify-center rounded-md bg-surface text-status-warning-fg"
+          >
+            <TriangleAlert size={18} strokeWidth={1.5} />
+          </span>
         ) : (
           <Info
             size={16}
@@ -182,7 +191,7 @@ export function AttentionSection({
 
       {/* --- 원문만 있는 실패: 접지 않는다. 이것이 유일한 단서다 ----------- */}
       {lead === 'rawOnly' && rawError ? (
-        <div className="flex flex-col gap-1 border-t border-status-failure-bd pt-3">
+        <div className="flex flex-col gap-1">
           <p className="text-caption font-medium text-text-muted">
             실행이 남긴 오류 원문
           </p>
@@ -203,13 +212,15 @@ export function AttentionSection({
         잇는 문장은 여전히 쓰지 않는다.
       */}
       {failures.length > 0 ? (
-        <div className="flex flex-col gap-3 border-t border-status-failure-bd pt-3">
+        <div className="flex flex-col gap-2">
           <SubHeading>멈춘 이유 {failures.length}건</SubHeading>
-          <ul className="flex flex-col gap-3">
+          <ul className="flex flex-col divide-y divide-border-subtle rounded-md border border-border">
             {failures.map((failure, index) => {
               const view = describeFailureCode(failure.code)
               return (
-                <li key={`${failure.code}-${index}`} className="flex flex-col gap-1">
+                <li key={`${failure.code}-${index}`} className="flex items-start gap-3 px-4 py-3">
+                  <RowIcon tone="failure" />
+                  <div className="flex min-w-0 flex-col gap-1">
                   <div className="flex flex-wrap items-baseline gap-x-2">
                     <span className="text-body font-medium text-text-strong">
                       {/*
@@ -235,6 +246,7 @@ export function AttentionSection({
                     </p>
                   ) : null}
                   {renderAiNote ? renderAiNote('failure', failure.code) : null}
+                  </div>
                 </li>
               )
             })}
@@ -243,7 +255,7 @@ export function AttentionSection({
       ) : null}
 
       {actions.length > 0 ? (
-        <div className="flex flex-col gap-2 rounded-md border border-border bg-surface p-3">
+        <div className="flex flex-col gap-2 rounded-md border border-border bg-paper p-4">
           <SubHeading>다음 행동</SubHeading>
           <ul className="flex flex-wrap gap-2">
             {actions.map((action) =>
@@ -276,15 +288,11 @@ export function AttentionSection({
 
       {/* --- 확인이 필요한 진단 ------------------------------------------ */}
       {needsAttention.length > 0 ? (
-        <div
-          className={`flex flex-col gap-3 ${
-            hasFailure ? 'border-t border-status-failure-bd pt-3' : ''
-          }`}
-        >
+        <div className="flex flex-col gap-2">
           {hasFailure ? (
             <SubHeading>함께 기록된 항목 {needsAttention.length}건</SubHeading>
           ) : null}
-          <ul className="flex flex-col gap-4">
+          <ul className="flex flex-col divide-y divide-border-subtle rounded-md border border-border">
             {needsAttention.map((item) => (
               <DiagnosticItem
                 key={item.key}
@@ -299,7 +307,7 @@ export function AttentionSection({
 
       {/* --- 자동 해결 ---------------------------------------------------- */}
       {repaired.length > 0 ? (
-        <details className="border-t border-border pt-3">
+        <details className="border-t border-border-subtle pt-3">
           <summary className="inline-flex min-h-6 cursor-pointer items-center gap-2 text-small font-medium text-text-muted">
             <CircleCheck
               size={14}
@@ -314,7 +322,7 @@ export function AttentionSection({
             */}
             파이프라인이 처리해 조치가 필요 없는 항목 {repaired.length}건
           </summary>
-          <ul className="mt-3 flex flex-col gap-4">
+          <ul className="mt-3 flex flex-col divide-y divide-border-subtle rounded-md border border-border">
             {repaired.map((item) => (
               <DiagnosticItem
                 key={item.key}
@@ -330,7 +338,7 @@ export function AttentionSection({
 
       {/* --- 실패 원문 (구조화된 실패의 code·원문) ---------------------------- */}
       {lead === 'items' ? (
-        <details className="border-t border-status-failure-bd pt-3">
+        <details className="border-t border-border-subtle pt-3">
           <summary className="inline-flex min-h-6 cursor-pointer items-center text-small font-medium text-text-muted">
             {/*
               항목마다 있는 "기술 정보"와 이름이 같아 두 개가 나란히 보였다
@@ -393,7 +401,11 @@ function DiagnosticItem({
 }) {
   const { view } = item
   return (
-    <li className="flex flex-col gap-1">
+    <li className="flex items-start gap-3 px-4 py-3">
+      <RowIcon
+        tone={view.kind === 'attention' ? 'warning' : view.kind === 'repaired' ? 'success' : 'note'}
+      />
+      <div className="flex min-w-0 flex-col gap-1">
       <div className="flex flex-wrap items-baseline gap-x-2">
         <span
           className={
@@ -492,6 +504,35 @@ function DiagnosticItem({
           </dl>
         </details>
       ) : null}
+      </div>
     </li>
+  )
+}
+
+/** 목록 행 머리의 상태 아이콘 타일. 글자 라벨이 함께 있어 색만으로 말하지 않는다. */
+function RowIcon({ tone }: { tone: 'failure' | 'warning' | 'success' | 'note' }) {
+  const Icon =
+    tone === 'failure'
+      ? OctagonX
+      : tone === 'warning'
+        ? TriangleAlert
+        : tone === 'success'
+          ? CircleCheck
+          : Info
+  const color =
+    tone === 'failure'
+      ? 'bg-status-failure-bg text-status-failure-fg'
+      : tone === 'warning'
+        ? 'bg-status-warning-bg text-status-warning-fg'
+        : tone === 'success'
+          ? 'bg-status-success-bg text-status-success-fg'
+          : 'bg-status-info-bg text-status-info-fg'
+  return (
+    <span
+      aria-hidden="true"
+      className={cx('mt-0.5 flex size-7 flex-none items-center justify-center rounded-md', color)}
+    >
+      <Icon size={15} strokeWidth={1.5} />
+    </span>
   )
 }

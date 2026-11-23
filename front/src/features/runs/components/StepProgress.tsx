@@ -65,7 +65,12 @@ export function StepProgress({
         <span className="font-mono text-caption text-text">
           {completed}/{planned}
         </span>
-        단계
+        {/*
+          "완료"까지 쓴다(2026-11-23). 이 값은 pipeline이 완료로 기록한 단계만
+          센다 — 개요의 "n / m 단계 끝남"(실패한 단계 포함)과 같은 숫자로 읽히지
+          않게 한다.
+        */}
+        단계 완료
       </span>
     </div>
   )
