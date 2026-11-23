@@ -431,3 +431,224 @@ def test_a_job_queued_twice_is_started_once(make_job, executor):
     worker._run_job(job_id)
     worker._run_job(job_id)
     assert executor.launched == [job_id]
+
+
+# --- a cancel racing the process's own exit ----------------------------------
+#
+# The window: process.wait() has returned (the pipeline has exited) but _close()
+# has not run yet, so the row still reads RUNNING. POST /cancel moves it to
+# CANCELLING, finds no live process and signals nothing. on_wait below runs in
+# exactly that window.
+#
+# How a cancel shows up in the exit code, from the code that produces it:
+#   POSIX   SIGTERM to the group; main.sh's on_signal writes run_status
+#           `cancelled` and exits 130 (script/main.sh on_signal). Before the trap
+#           is installed, bash dies of the signal (-15).
+#   Windows os.kill -> TerminateProcess with exit code 15 (pipeline_executor
+#           .terminate); main.sh writes nothing.
+# So exit 0 means the cancel did not stop the process: the pipeline ended on its
+# own, and the verdict it wrote is the run's. Anything else stays a cancel --
+# an unclear outcome is never promoted to success.
+
+
+def _late_cancel(client, job_id: str, write_documents=None):
+    def on_wait():
+        if write_documents is not None:
+            write_documents()
+        assert client.post(f"/api/jobs/{job_id}/cancel").status_code == 204
+        assert _row(job_id)["status"] == worker.CANCELLING
+
+    return on_wait
+
+
+def test_a_cancel_after_the_pipeline_completed_does_not_overwrite_the_verdict(
+    client, make_job, run, executor
+):
+    job_id = make_job(run_mode="full", status=worker.QUEUED)
+    executor.exit_code = 0
+    executor.on_wait = _late_cancel(client, job_id, lambda: run(job_id).as_completed_full())
+
+    worker._run_job(job_id)
+
+    assert executor.terminated == []  # nothing was alive to signal
+    row = _row(job_id)
+    assert row["status"] == worker.DONE and row["exit_code"] == 0
+    detail = client.get(f"/api/jobs/{job_id}").json()
+    assert detail["status"] in ("completed", "completed_with_warnings")
+    assert client.get("/api/jobs").json()["jobs"][0]["status"] == detail["status"]
+
+
+def test_a_cancel_that_reached_the_pipeline_stays_cancelled(client, make_job, run, executor):
+    # POSIX: the signal arrives while main.sh runs; its trap records the cancel.
+    job_id = make_job(run_mode="full", status=worker.QUEUED)
+
+    def cancel_while_alive():
+        executor.alive[4242] = True
+        assert client.post(f"/api/jobs/{job_id}/cancel").status_code == 204
+        executor.alive[4242] = False
+        run(job_id).run_status("cancelled", current_step="03_alignment")
+
+    executor.exit_code = 130
+    executor.on_wait = cancel_while_alive
+
+    worker._run_job(job_id)
+
+    assert executor.terminated == [4242]
+    assert _row(job_id)["status"] == worker.CANCELLED
+    assert client.get(f"/api/jobs/{job_id}").json()["status"] == "cancelled"
+
+
+def test_a_windows_terminate_that_left_running_stays_cancelled(client, make_job, run, executor):
+    # Windows: TerminateProcess(15); main.sh never wrote again.
+    job_id = make_job(run_mode="full", status=worker.QUEUED)
+
+    def cancel_while_alive():
+        run(job_id).run_status("running", current_step="03_alignment")
+        executor.alive[4242] = True
+        assert client.post(f"/api/jobs/{job_id}/cancel").status_code == 204
+        executor.alive[4242] = False
+
+    executor.exit_code = 15
+    executor.on_wait = cancel_while_alive
+
+    worker._run_job(job_id)
+
+    assert _row(job_id)["status"] == worker.CANCELLED
+    detail = client.get(f"/api/jobs/{job_id}").json()
+    assert detail["status"] == "cancelled"
+    assert detail["error"] != run_status_reader.INTERRUPTED_ERROR
+
+
+def test_a_late_cancel_with_a_non_zero_exit_and_a_completed_document_is_not_success(
+    client, make_job, run, executor
+):
+    # Exit code and document disagree (e.g. a kill after the document was
+    # written). Not resolved in favour of success.
+    job_id = make_job(run_mode="full", status=worker.QUEUED)
+    executor.exit_code = 15
+    executor.on_wait = _late_cancel(client, job_id, lambda: run(job_id).as_completed_full())
+
+    worker._run_job(job_id)
+
+    assert _row(job_id)["status"] == worker.CANCELLED
+    assert client.get(f"/api/jobs/{job_id}").json()["status"] == "cancelled"
+
+
+def test_a_late_cancel_does_not_hide_a_failure_the_pipeline_recorded(
+    client, make_job, run, executor
+):
+    # main.sh exits 1 after writing `failed`. A cancel that reached it would have
+    # run on_signal, which rewrites run_status to `cancelled` -- so a document
+    # still saying `failed` is the pipeline's own verdict, reached before the
+    # cancel could act (log 61). Reported as the failure it is.
+    job_id = make_job(run_mode="full", status=worker.QUEUED)
+    executor.exit_code = 1
+    executor.on_wait = _late_cancel(
+        client, job_id, lambda: run(job_id).run_status("failed", current_step="03_alignment")
+    )
+
+    worker._run_job(job_id)
+
+    assert _row(job_id)["status"] == worker.DONE
+    detail = client.get(f"/api/jobs/{job_id}").json()
+    assert detail["status"] == "failed"
+    assert detail["error"] != run_status_reader.INTERRUPTED_ERROR
+
+
+def test_a_late_cancel_does_not_hide_a_failed_precheck(client, make_job, run, executor):
+    # check_only writes run_status `check_only` for a pass and a fail alike; the
+    # verdict is 00_input_validation's. A failed precheck stays failed.
+    job_id = make_job(run_mode="check_only", status=worker.QUEUED)
+    executor.exit_code = 1
+    executor.on_wait = _late_cancel(client, job_id, lambda: run(job_id).as_failing_precheck())
+
+    worker._run_job(job_id)
+
+    assert _row(job_id)["status"] == worker.DONE
+    assert client.get(f"/api/jobs/{job_id}").json()["status"] == "failed"
+
+
+def test_a_cancelled_orphan_with_a_failed_document_reads_failed(client, make_job, run, executor):
+    # Exit code unknown, but a recorded failure is never promoted to anything.
+    job_id = make_job(run_mode="full", status=worker.CANCELLING)
+    run(job_id).run_status("failed", current_step="03_alignment")
+    db.update_job(job_id, pid=4242, pgid=4242, command=COMMAND)
+    executor.alive[4242] = False
+
+    worker.recover_orphans()
+
+    assert _row(job_id)["status"] == worker.DONE
+    assert client.get(f"/api/jobs/{job_id}").json()["status"] == "failed"
+
+
+def test_a_pipeline_that_recorded_its_cancel_stays_cancelled_even_with_exit_zero(
+    client, make_job, run, executor
+):
+    job_id = make_job(run_mode="full", status=worker.QUEUED)
+    executor.exit_code = 0
+    executor.on_wait = _late_cancel(
+        client, job_id, lambda: run(job_id).run_status("cancelled", current_step="03_alignment")
+    )
+
+    worker._run_job(job_id)
+
+    assert _row(job_id)["status"] == worker.CANCELLED
+    assert client.get(f"/api/jobs/{job_id}").json()["status"] == "cancelled"
+
+
+def test_a_late_cancel_after_exit_zero_without_a_document_is_not_success(
+    client, make_job, executor
+):
+    job_id = make_job(run_mode="full", status=worker.QUEUED)
+    executor.exit_code = 0
+    executor.on_wait = _late_cancel(client, job_id)
+
+    worker._run_job(job_id)
+
+    assert _row(job_id)["status"] == worker.CANCELLED
+    assert client.get(f"/api/jobs/{job_id}").json()["status"] == "cancelled"
+
+
+def test_a_late_cancel_after_exit_zero_that_left_running_reads_failed(
+    client, make_job, run, executor
+):
+    # exit 0 but the document still says running: the process ended on its own
+    # without a verdict. Rule 2 reports that as failed -- never as completed.
+    job_id = make_job(run_mode="full", status=worker.QUEUED)
+    executor.exit_code = 0
+    executor.on_wait = _late_cancel(
+        client, job_id, lambda: run(job_id).run_status("running", current_step="03_alignment")
+    )
+
+    worker._run_job(job_id)
+
+    assert _row(job_id)["status"] == worker.DONE
+    assert client.get(f"/api/jobs/{job_id}").json()["status"] == "failed"
+
+
+def test_a_cancelled_orphan_with_a_completed_document_stays_cancelled(
+    client, make_job, run, executor
+):
+    # A pipeline a previous backend started: its exit code cannot be collected,
+    # so whether the cancel stopped it is unknown. Kept as a cancel.
+    job_id = make_job(run_mode="full", status=worker.CANCELLING)
+    run(job_id).as_completed_full()
+    db.update_job(job_id, pid=4242, pgid=4242, command=COMMAND)
+    executor.alive[4242] = False
+
+    worker.recover_orphans()
+
+    assert _row(job_id)["status"] == worker.CANCELLED
+    assert client.get(f"/api/jobs/{job_id}").json()["status"] == "cancelled"
+
+
+def test_a_repeated_cancel_signals_the_process_once(client, make_job, executor):
+    job_id = make_job(run_mode="full", status=worker.RUNNING)
+    db.update_job(job_id, pid=4242, pgid=4242, command=COMMAND)
+    executor.alive[4242] = True
+
+    assert client.post(f"/api/jobs/{job_id}/cancel").status_code == 204
+    assert client.post(f"/api/jobs/{job_id}/cancel").status_code == 204
+
+    assert executor.terminated == [4242]
+    assert _row(job_id)["status"] == worker.CANCELLING

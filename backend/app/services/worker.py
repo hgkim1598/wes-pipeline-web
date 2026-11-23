@@ -28,13 +28,15 @@ and the queue waits until it has exited.
 
 from __future__ import annotations
 
+import json
 import logging
 import queue
 import threading
+from dataclasses import dataclass
 from pathlib import Path
 
 from .. import config, db
-from . import pipeline_executor
+from . import pipeline_executor, run_status_reader
 
 log = logging.getLogger(__name__)
 
@@ -81,22 +83,75 @@ LOST_WITHOUT_STATUS = "the pipeline process disappeared and left no run status d
 CANCELLED_BEFORE_START = "cancelled before the pipeline started"
 
 
-def _closing_state(current: str, exit_code: int | None, has_status_document: bool) -> str:
+@dataclass(frozen=True)
+class RecordedVerdict:
+    """What run_status.json says, read when the process has exited.
+
+    raw       the document's own `status` field ("" if unreadable)
+    reported  the status job_state would report for it once the process has
+              ended (check_only resolved through 00_input_validation; a
+              leftover `running` reads failed), or None if it could not be read
+    """
+
+    raw: str
+    reported: str | None
+
+
+def _recorded_verdict(run_dir: Path) -> RecordedVerdict | None:
+    path = run_dir / "status" / "run_status.json"
+    if not path.is_file():
+        return None
+    try:
+        raw = str(json.loads(path.read_text(encoding="utf-8")).get("status") or "")
+    except (OSError, ValueError, AttributeError):
+        return RecordedVerdict(raw="", reported=None)
+    summary = run_status_reader.read_summary(run_dir, process_ended=True)
+    return RecordedVerdict(raw=raw, reported=summary["status"] if summary else None)
+
+
+def _closing_state(current: str, exit_code: int | None, verdict: RecordedVerdict | None) -> str:
     """The row's final state once its process has exited.
 
     One rule for the worker's own child (exit code known) and for a pipeline a
-    previous backend process started (exit code unknown, exit_code=None):
+    previous backend process started (exit code unknown, exit_code=None).
 
-    * a cancel was requested               -> CANCELLED
-    * exit 0                               -> DONE
-    * main.sh wrote run_status.json        -> DONE; the verdict is that document.
-      If it still says `running`, job_state reports the run as failed: DONE is
-      "the process exited", never "the run succeeded".
-    * nothing was written                  -> EXEC_FAILED
+    No cancel requested:
+    * exit 0, or main.sh wrote run_status.json -> DONE; the verdict is that
+      document. If it still says `running`, job_state reports the run as failed:
+      DONE is "the process exited", never "the run succeeded".
+    * otherwise                                -> EXEC_FAILED
+
+    A cancel requested (CANCELLING/CANCELLED) -- the result a late request may
+    not change is one the pipeline had already confirmed:
+    * the document records the cancel          -> CANCELLED
+    * the document records a FAILURE           -> DONE (reported failed)
+    * exit 0 and a document                    -> DONE (its verdict)
+    * anything else                            -> CANCELLED
+
+    Why these are "confirmed before the cancel acted": a cancel that reaches the
+    pipeline on POSIX runs main.sh's on_signal, which rewrites run_status to
+    `cancelled` whatever it said and exits 130; bash killed before its trap is
+    set dies of the signal. On Windows TerminateProcess (exit 15) lets main.sh
+    write nothing, so anything already written predates the kill. Hence:
+      - a `failed` / `resume_refused` / failed-precheck document survives only if
+        the pipeline reached that verdict itself;
+      - exit 0 never comes from a cancel.
+    A leftover `running` is NOT a recorded failure -- it is what a Windows kill
+    leaves -- so it keeps the cancel. A success needs exit 0: with an unknown
+    exit code (an orphan) or a non-zero one, a `completed` document is not
+    promoted -- an unclear outcome is never reported as success.
     """
     if current in (CANCELLING, CANCELLED):
+        if verdict is None:
+            return CANCELLED
+        if verdict.raw == "cancelled":
+            return CANCELLED
+        if verdict.reported == "failed" and verdict.raw not in ("running", ""):
+            return DONE
+        if exit_code == 0:
+            return DONE
         return CANCELLED
-    if exit_code == 0 or has_status_document:
+    if exit_code == 0 or verdict is not None:
         return DONE
     return EXEC_FAILED
 
@@ -114,8 +169,8 @@ def _close(job_id: str, exit_code: int | None, log_path: Path | None = None) -> 
         ).fetchone()
         if row is None or row["status"] not in (RUNNING, CANCELLING, CANCELLED):
             return
-        has_document = (Path(row["run_dir"]) / "status" / "run_status.json").is_file()
-        status = _closing_state(row["status"], exit_code, has_document)
+        verdict = _recorded_verdict(Path(row["run_dir"]))
+        status = _closing_state(row["status"], exit_code, verdict)
         error = row["error"]
         if status == EXEC_FAILED:
             if exit_code is None:

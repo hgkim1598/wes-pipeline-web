@@ -322,7 +322,9 @@ def cancel_job(job_id: str) -> Response:
         # Already exited. For a pipeline a previous backend left running (not our
         # child) the pid may already belong to an unrelated process; signalling it
         # or its group could stop that process. The worker, or the orphan
-        # supervisor, sees the exit and closes the job as CANCELLED.
+        # supervisor, sees the exit and closes the job: CANCELLED, or DONE when
+        # the pipeline had already confirmed its own result -- a recorded
+        # failure, or exit 0 with a status document (worker._closing_state).
         return Response(status_code=204)
     ok, detail = pipeline_executor.terminate(row["pid"], row["pgid"])
     if not ok:
